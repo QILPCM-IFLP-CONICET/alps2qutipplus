@@ -3,29 +3,25 @@ Basic unit test.
 """
 
 import matplotlib.pyplot as plt
-import pytest
 import qutip
-import pkg_resources
 
 import alpsqutip
 from alpsqutip.alpsmodels import list_operators_in_alps_xml, model_from_alps_xml
 from alpsqutip.geometry import graph_from_alps_xml, list_graph_in_alps_xml
 from alpsqutip.model import ProductOperator, SystemDescriptor
-from alpsqutip.states import MixedQuantumState, ProductQuantumState
+from alpsqutip.states import ProductQuantumState
 from alpsqutip.utils import eval_expr
-
 
 ROOT_DIR = alpsqutip.__path__[0]
 FIGURES_DIR = f"{ROOT_DIR}/doc/figs"
 LATTICE_LIB_FILE = f"{ROOT_DIR}/lib/lattices.xml"
-MODEL_LIB_FILE =   f"{ROOT_DIR}/lib/models.xml"
+MODEL_LIB_FILE = f"{ROOT_DIR}/lib/models.xml"
 
 
 # TODO: Split me in more atomic units.
 
 
 def test_eval_expr():
-    
     parms = {"a": "J", "J": 2, "subexpr": "a*J"}
     test_cases = [
         ("2+a", 4),
@@ -44,8 +40,6 @@ def test_eval_expr():
 
 
 def test_load():
-    import os
-    cwd = os.getcwd()
     for name in list_graph_in_alps_xml(LATTICE_LIB_FILE):
         try:
             g = graph_from_alps_xml(
@@ -189,7 +183,7 @@ def test_states():
         ), f"rho.expect does not match with trace {expect}!={val}"
         print("  * Expect is the same than the trace [OK]")
 
-        val = rho.partial_trace([sites[0], sites[1]]).expect(op)
+        val = rho.partial_trace([sites[0], sites[1]]).expect(op_ss)
         assert abs(expect - val) < 1.0e-6, f"match for subsystems {expect}!={val}"
         print("  * Expect matches for subsystems [OK]")
 

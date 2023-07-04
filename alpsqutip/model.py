@@ -33,12 +33,17 @@ class SystemDescriptor:
 
     def __repr__(self):
         result = (
-            "graph:" + repr(self.graph)+"\n" +
-            "sites:" + repr(self.sites.keys()) + "\n" +
-            "dimensions:" + repr(self.dimensions)
+            "graph:"
+            + repr(self.graph)
+            + "\n"
+            + "sites:"
+            + repr(self.sites.keys())
+            + "\n"
+            + "dimensions:"
+            + repr(self.dimensions)
         )
         return result
-        
+
     def subsystem(self, sites: list):
         parms = self.parms.copy()
         basis = self.basis
@@ -52,6 +57,21 @@ class SystemDescriptor:
                 self.site_operator(op_site)
 
     def _load_global_ops(self):
+        # First, load conserved quantum numbers:
+
+        for qn in self.basis.constraints:
+            global_qn = ProductOperator({}, 0.0, self)
+            for site, site_basis in self.sites.items():
+                local_qn = site_basis["qn"].get(qn, None)
+                if local_qn is None:
+                    continue
+                op_name = local_qn["operator"]
+                op = site_basis["operators"][op_name]
+                global_qn = global_qn + ProductOperator({site: op}, 1, self)
+
+            if not isinstance(global_qn, ProductOperator):
+                self.global_operators[qn] = global_qn
+
         names = [name for name in self.basis.global_ops]
         for gop in names:
             self.global_operator(gop)
@@ -411,12 +431,11 @@ class ProductOperator(Operator):
         result += "\n".join(str(item) for item in self.sites_op.items())
         result += ")"
         return result
-    
+
     def __rmul__(self, op):
         if isinstance(op, (int, float, complex)):
             return self * op
         return NotImplementedError
-
 
     def dag(self):
         """
@@ -427,7 +446,7 @@ class ProductOperator(Operator):
         if isinstance(prefactor, complex):
             prefactor = prefactor.conj()
         return ProductOperator(sites_op_dag, prefactor, self.system)
-    
+
     def partial_trace(self, sites: list):
         full_system_sites = self.system.sites
         dimensions = self.dimensions
@@ -435,15 +454,17 @@ class ProductOperator(Operator):
         sites_out = [s for s in full_system_sites if s not in sites_in]
         subsystem = self.system.subsystem(sites_in)
         sites_op = self.sites_op
-        prefactors = [sites_op[s].tr() if s in sites_op else dimensions[s] for s in sites_out]
-        sites_op = {s:o for s,o in sites_op.items() if s in sites_in}
+        prefactors = [
+            sites_op[s].tr() if s in sites_op else dimensions[s] for s in sites_out
+        ]
+        sites_op = {s: o for s, o in sites_op.items() if s in sites_in}
         prefactor = self.prefactor
         for p in prefactors:
-            if p==0:
+            if p == 0:
                 return ProductOperator({}, p, subsystem)
             prefactor *= p
         return ProductOperator(sites_op, prefactor, subsystem)
-    
+
     def to_qutip(self):
         if self.prefactor == 0 or len(self.system.dimensions) == 0:
             return self.prefactor
@@ -494,7 +515,7 @@ class NBodyOperator(Operator):
         # TODO: cancel terms
         new_terms = [t for t in new_terms if t.prefactor != 0]
         return NBodyOperator(new_terms)
-                    
+
     def __pow__(self, exp):
         if isinstance(exp, int):
             if exp == 0:
@@ -539,7 +560,7 @@ class NBodyOperator(Operator):
         if isinstance(op, (int, float, complex)):
             return self * op
         return NotImplementedError
-    
+
     def dag(self):
         """return the adjoint operator"""
         return NBodyOperator([t.dag() for t in self.terms])

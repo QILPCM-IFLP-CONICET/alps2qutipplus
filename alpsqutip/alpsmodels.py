@@ -48,7 +48,10 @@ def build_local_basis_from_qn_descriptors(
             for qn in qns:
                 if qn in state:
                     continue
-                lower, upper, fermionic = (eval_expr(u, parms) for u in qns[qn])
+                qn_dict = qns[qn]
+                lower = eval_expr(qn_dict["min"], parms)
+                upper = eval_expr(qn_dict["max"], parms)
+                fermionic = qn_dict["fermionic"]
                 if isinstance(lower, (int, float)) and isinstance(upper, (int, float)):
                     new_qn = (qn, lower, int(upper - lower + 1))
                     break
@@ -99,6 +102,7 @@ def model_from_alps_xml(filename="lattices.xml", name="spin", parms=None):
 
         bond_operators_descr = process_bond_operators({}, parms)
         global_operators_descr = process_global_operators({}, parms)
+
         return ModelDescriptor(
             site_basis=sitebasis,
             constraints=constraints,
@@ -207,11 +211,11 @@ def model_from_alps_xml(filename="lattices.xml", name="spin", parms=None):
         operators = {}
         for qnumbers_node in node.findall("./QUANTUMNUMBER"):
             qn_attrib = qnumbers_node.attrib
-            quantumnumbers[qn_attrib["name"]] = (
-                eval_expr(qn_attrib["min"], parms),
-                eval_expr(qn_attrib["max"], parms),
-                qn_attrib.get("type", "") == "fermionic",
-            )
+            quantumnumbers[qn_attrib["name"]] = {
+                "min": eval_expr(qn_attrib["min"], parms),
+                "max": eval_expr(qn_attrib["max"], parms),
+                "fermionic": qn_attrib.get("type", "") == "fermionic",
+            }
 
         for op_node in node.findall("./OPERATOR"):
             op_attrib = op_node.attrib
@@ -222,6 +226,20 @@ def model_from_alps_xml(filename="lattices.xml", name="spin", parms=None):
                 changing[chng_attr["quantumnumber"]] = chng_attr["change"]
             op_attrib["changing"] = changing
             operators_descr[name] = op_attrib
+            if len(changing) == 0:
+                matrix_element = operators_descr[name].get("matrixelement", None)
+                if matrix_element in quantumnumbers:
+                    quantumnumbers[matrix_element]["operator"] = name
+
+        for qn_name, qn_attr in quantumnumbers.items():
+            if "operator" not in qn_attr:
+                name = qn_name.lower()
+                i = 0
+                while name in operators_descr:
+                    name = name + str(i)
+                    i += 1
+                operators_descr[name] = {"changing": {}, "matrixelement": qn_name}
+                qn_attr["operator"] = name
 
         # Using the quantum number descriptor, build the local basis
         qns_and_basis = build_local_basis_from_qn_descriptors(quantumnumbers, parms)
@@ -238,7 +256,7 @@ def model_from_alps_xml(filename="lattices.xml", name="spin", parms=None):
                 fermionic = False
                 for qn, offset in od["changing"].items():
                     offset = eval_expr(offset, parms)
-                    if quantumnumbers[qn][-1] and offset % 2 != 0:
+                    if quantumnumbers[qn]["fermionic"] and offset % 2 != 0:
                         fermionic = not fermionic
                     dest_qn[qn_pos[qn]] += offset
                 coeff = eval_expr(od["matrixelement"], parms_qn)
