@@ -1,40 +1,58 @@
+"""
+Define SystemDescriptors and different kind of operators
+"""
 from typing import Optional
 
+import numpy as np
 import qutip
 
 from alpsqutip.geometry import GraphDescriptor
+from alpsqutip.settings import VERBOSITY_LEVEL
 from alpsqutip.utils import eval_expr
 
 
 class SystemDescriptor:
+    """
+    System Descriptor class.
+    """
+
     def __init__(
         self,
         graph: GraphDescriptor,
-        basis: dict,
+        model: dict,
         parms: Optional[dict] = None,
         sites=None,
     ):
-        self.graph = graph
-        self.basis = basis
-        self.parms = basis.parms
-        if parms is not None:
-            self.parms.update(parms)
-        site_basis = basis.site_basis
-        self.sites = {
-            node: site_basis[attr["type"]] for node, attr in graph.nodes.items()
-        }
+        if parms is None:
+            parms = {}
+        if model:
+            model_parms = model.parms.copy()
+            model_parms.update(parms)
+            parms = model_parms
+
+        self.spec = {"graph": graph, "model": model, "parms": parms}
+
+        site_basis = model.site_basis
+        if sites:
+            self.sites = sites
+        else:
+            self.sites = {
+                node: site_basis[attr["type"]] for node, attr in graph.nodes.items()
+            }
 
         self.dimensions = {name: site["dimension"] for name, site in self.sites.items()}
-        self.site_operators = {}
-        self.bond_operators = {}
-        self.global_operators = {}
+        self.operators = {
+            "site_operators": {},
+            "bond_operators": {},
+            "global_operators": {},
+        }
         self._load_site_operators()
         self._load_global_ops()
 
     def __repr__(self):
         result = (
             "graph:"
-            + repr(self.graph)
+            + repr(self.spec["graph"])
             + "\n"
             + "sites:"
             + repr(self.sites.keys())
@@ -45,10 +63,14 @@ class SystemDescriptor:
         return result
 
     def subsystem(self, sites: list):
-        parms = self.parms.copy()
-        basis = self.basis
-        graph = self.graph.subgraph(sites)
-        return SystemDescriptor(graph, basis, parms)
+        """
+        Build a subsystem including the sites listed
+        in sites
+        """
+        parms = self.spec["parms"].copy()
+        model = self.spec["model"]
+        graph = self.spec["graph"].subgraph(tuple(sites))
+        return SystemDescriptor(graph, model, parms)
 
     def _load_site_operators(self):
         for site_name, site in self.sites.items():
@@ -58,52 +80,68 @@ class SystemDescriptor:
 
     def _load_global_ops(self):
         # First, load conserved quantum numbers:
+        from alpsqutip.operators import LocalOperator, OneBodyOperator
 
-        for qn in self.basis.constraints:
-            global_qn = ProductOperator({}, 0.0, self)
+        for constraint_qn in self.spec["model"].constraints:
+            global_qn = OneBodyOperator(
+                [],
+                self,
+            )
             for site, site_basis in self.sites.items():
-                local_qn = site_basis["qn"].get(qn, None)
+                local_qn = site_basis["qn"].get(constraint_qn, None)
                 if local_qn is None:
                     continue
                 op_name = local_qn["operator"]
-                op = site_basis["operators"][op_name]
-                global_qn = global_qn + ProductOperator({site: op}, 1, self)
+                operator = site_basis["operators"][op_name]
+                global_qn = global_qn + LocalOperator(site, operator, self)
 
-            if not isinstance(global_qn, ProductOperator):
-                self.global_operators[qn] = global_qn
+            if bool(global_qn):
+                self.operators["global_operators"][constraint_qn] = global_qn
 
-        names = [name for name in self.basis.global_ops]
+        names = list(self.spec["model"].global_ops)
         for gop in names:
             self.global_operator(gop)
 
-    def site_operator(self, name: str, site: str = "") -> "ProductOperator":
+    def union(self, system):
+        """Return a SystemDescritor containing system and self"""
+        if system is None or system is self:
+            return self
+        if all(site in self.sites for site in system.sites):
+            return self
+        if all(site in system.sites for site in self.sites):
+            return system
+        raise NotImplementedError("Union of disjoint systems are not implemented.")
+
+    def site_operator(self, name: str, site: str = "") -> "Operator":
         """
         Return a global operator representing an operator `name`
         acting over the site `site`. By default, the name is assumed
         to specify both the name and site in the form `"name@site"`.
         """
+        from alpsqutip.operators import LocalOperator
+
         if site != "":
             op_name = name
             name = f"{name}@{site}"
         else:
             op_name, site = name.split("@")
 
-        op = self.site_operators.get(site, {}).get(name, None)
-        if op is not None:
-            return op
+        site_op = self.operators["site_operators"].get(site, {}).get(name, None)
+        if site_op is not None:
+            return site_op
 
         local_op = self.sites[site]["operators"].get(op_name, None)
         if local_op is None:
             return None
-        op = ProductOperator({site: local_op}, 1.0, self)
-        self.site_operators.setdefault(site, {})
-        self.site_operators[site][op_name] = op
-        return op
+        result_op = LocalOperator(site, local_op, system=self)
+        self.operators["site_operators"].setdefault(site, {})
+        self.operators["site_operators"][site][op_name] = result_op
+        return result_op
 
-    def bond_operator(
-        self, name: str, src: str, dst: str, skip=None
-    ) -> "NBodyOperator":
-        op = self.bond_operators.get(
+    def bond_operator(self, name: str, src: str, dst: str, skip=None) -> "Operator":
+        """Bond operator by name and sites"""
+
+        result_op = self.operators["global_operators"].get(
             (
                 name,
                 src,
@@ -111,10 +149,10 @@ class SystemDescriptor:
             ),
             None,
         )
-        if op is not None:
-            return op
+        if result_op is not None:
+            return result_op
         # Try to build the bond operator from the descriptors.
-        bond_op_descriptors = self.basis.bond_ops
+        bond_op_descriptors = self.spec["model"].bond_ops
         bond_op_descriptor = bond_op_descriptors.get(name, None)
         if bond_op_descriptor is None:
             return None
@@ -139,12 +177,14 @@ class SystemDescriptor:
                 for name_dst in dst_operators
             }
         )
-        parms_and_ops.update(self.parms)
+        self_parms = self.spec["parms"]
+        if self_parms:
+            parms_and_ops.update(self_parms)
 
         # Try to evaluate
         result = eval_expr(bond_op_descriptor, parms_and_ops)
         if not (result is None or isinstance(result, str)):
-            self.bond_operators[
+            self.operators["bond_operators"][
                 (
                     name,
                     src,
@@ -157,21 +197,21 @@ class SystemDescriptor:
         parms_and_ops.update(
             {
                 f"{tup_op[0]}__src_dst": op
-                for tup_op, op in self.bond_operators.items()
+                for tup_op, op in self.operators["global_operators"].items()
                 if tup_op[0] == src and tup_op[1] == dst
             }
         )
         parms_and_ops.update(
             {
                 f"{tup_op[0]}__dst_src": op
-                for tup_op, op in self.bond_operators.items()
+                for tup_op, op in self.operators["global_operators"].items()
                 if tup_op[0] == dst and tup_op[1] == src
             }
         )
 
         result = eval_expr(bond_op_descriptor, parms_and_ops)
         if not (result is None or isinstance(result, str)):
-            self.bond_operators[tuple(name, src, dst)] = result
+            self.operators["bond_operators"][tuple(name, src, dst)] = result
             return result
 
         # Finally, try to load other operators
@@ -188,18 +228,18 @@ class SystemDescriptor:
             new_bond_op = self.bond_operator(bop, src, dst, skip)
             if new_bond_op is None:
                 continue
-            else:
-                parms_and_ops[f"{bop}__src_dst"] = new_bond_op
+
+            parms_and_ops[f"{bop}__src_dst"] = new_bond_op
 
             new_bond_op = self.bond_operator(bop, dst, src, skip)
             if new_bond_op is None:
                 continue
-            else:
-                parms_and_ops[f"{bop}__dst_src"] = new_bond_op
+
+            parms_and_ops[f"{bop}__dst_src"] = new_bond_op
 
             result = eval_expr(bond_op_descriptor, parms_and_ops)
             if result is not None and not isinstance(result, str):
-                self.bond_operators[
+                self.operators["bond_operators"][
                     (
                         name,
                         src,
@@ -214,124 +254,191 @@ class SystemDescriptor:
         #    self.bond_operators[(name, src, dst,)] = None
         return None
 
-    def global_operator(self, name, skip=None):
-        op = self.global_operators.get(name, None)
-        if op is not None:
-            return op
+    def site_term_from_descriptor(self, term_spec, graph, parms):
+        """Build a site term from a site term specification"""
+        from alpsqutip.operators import OneBodyOperator
+
+        expr = term_spec["expr"]
+        site_type = term_spec.get("type", None)
+        term_ops = []
+        t_parm = {}
+        t_parm.update(term_spec.get("parms", {}))
+        if parms:
+            t_parm.update(parms)
+        for node_name, node in graph.nodes.items():
+            node_type = node.get("type", None)
+            if site_type is not None and site_type != node_type:
+                continue
+            s_expr = expr.replace("#", node_type).replace("@", "__")
+            s_parm = {key.replace("#", node_type): val for key, val in t_parm.items()}
+            s_parm.update(
+                {
+                    f"{name_op}_local": local_op
+                    for name_op, local_op in self.operators["site_operators"][
+                        node_name
+                    ].items()
+                }
+            )
+            term_op = eval_expr(s_expr, s_parm)
+            if term_op is None or isinstance(term_op, str):
+                raise ValueError(f"<<{s_expr}>> could not be evaluated.")
+            term_ops.append(term_op)
+
+        return OneBodyOperator(term_ops, self)
+
+    def bond_term_from_descriptor(self, term_spec, graph, model, parms):
+        """Build a bond term from a bond term speficication"""
+        from alpsqutip.operators import SumOperator
+
+        def process_edge(e_expr, bond, model, t_parm):
+            edge_type, src, dst = bond
+            e_parms = {
+                key.replace("#", f"{edge_type}"): val for key, val in t_parm.items()
+            }
+            for op_idx in ([src, "src"], [dst, "dst"]):
+                e_parms.update(
+                    {
+                        f"{key}__{op_idx[1]}": val
+                        for key, val in self.operators["site_operators"][
+                            op_idx[0]
+                        ].items()
+                    }
+                )
+
+            # Try to compute using only site terms
+            term_op = eval_expr(e_expr, e_parms)
+            if not isinstance(term_op, str):
+                return term_op
+
+            # Try now adding the bond operators
+            for name_bop in model.bond_ops:
+                self.bond_operator(name_bop, src, dst)
+                self.bond_operator(name_bop, dst, src)
+
+            for src_idx, dst_idx in ((1, 2), (2, 1)):
+                e_parms.update(
+                    {
+                        f"{key[0]}__src_dst": val
+                        for key, val in self.operators["bond_operators"].items()
+                        if key[src_idx] == src and key[dst_idx] == dst
+                    }
+                )
+            return eval_expr(e_expr, e_parms)
+
+        expr = term_spec["expr"]
+        term_type = term_spec.get("type", None)
+        t_parm = {}
+        t_parm.update(term_spec.get("parms", {}))
+        if parms:
+            t_parm.update(parms)
+        result_terms = []
+
+        for edge_type, edges in graph.edges.items():
+            if term_type is not None and term_type != edge_type:
+                continue
+            e_expr = expr.replace("#", edge_type).replace("@", "__")
+            for src, dst in edges:
+                term_op = process_edge(e_expr, (edge_type, src, dst), model, t_parm)
+                if isinstance(term_op, str):
+                    raise ValueError(
+                        f"   Bond term <<{term_op}>> could not be evaluated."
+                    )
+
+                result_terms.append(term_op)
+        return SumOperator(result_terms)
+
+    def global_operator(self, name):
+        """Return a global operator by its name"""
+        from alpsqutip.operators import OneBodyOperator, SumOperator
+
+        result = self.operators["global_operators"].get(name, None)
+        if result is not None:
+            return result
         # Build the global_operator from the descriptor
-        op_descr = self.basis.global_ops.get(name, None)
+        op_descr = self.spec["model"].global_ops.get(name, None)
         if op_descr is None:
             return None
 
-        site_terms_descr = op_descr["site terms"]
-        bond_terms_descr = op_descr["bond terms"]
-        site_terms = []
-        bond_terms = []
+        graph = self.spec["graph"]
+        parms = self.spec["parms"]
+        model = self.spec["model"]
         # Process site terms
-
-        for term in site_terms_descr:
-            expr = term["expr"]
-            site_type = term.get("type", None)
-            t_parm = {}
-            t_parm.update(term.get("parms", {}))
-            t_parm.update(self.parms)
-            for node_name, node in self.graph.nodes.items():
-                node_type = node.get("type", None)
-                if site_type is not None and site_type != node_type:
-                    continue
-                s_expr = expr.replace("#", node_type).replace("@", "__")
-                s_parm = {
-                    key.replace("#", node_type): val for key, val in t_parm.items()
-                }
-                s_parm.update(
-                    {
-                        f"{name_op}_local": local_op
-                        for name_op, local_op in self.site_operators[node_name].items()
-                    }
-                )
-                term_op = eval_expr(s_expr, s_parm)
-                if term_op is None or isinstance(term_op, str):
-                    self.basis.global_ops.pop(name)
-                    return None
-                site_terms.append(term_op)
+        try:
+            site_terms = [
+                self.site_term_from_descriptor(term_spec, graph, parms)
+                for term_spec in op_descr["site terms"]
+            ]
+            site_terms = [term for term in site_terms if term]
+        except ValueError as exc:
+            if VERBOSITY_LEVEL > 2:
+                print(*exc.args, f"Aborting evaluation of {name}.")
+            model.global_ops.pop(name)
+            return None
 
         # Process bond terms
-        for term in bond_terms_descr:
-            expr = term["expr"]
-            term_type = term.get("type", None)
-            t_parm = {}
-            t_parm.update(term.get("parms", {}))
-            t_parm.update(self.parms)
-            for edge_type, edges in self.graph.edges.items():
-                if term_type is not None and term_type != edge_type:
-                    continue
-                e_expr = expr.replace("#", edge_type).replace("@", "__")
-                for src, dst in edges:
-                    e_parms = {
-                        key.replace("#", f"{edge_type}"): val
-                        for key, val in t_parm.items()
-                    }
-                    e_parms.update(
-                        {
-                            f"{name}__src": val
-                            for name, val in self.site_operators[src].items()
-                        }
-                    )
-                    e_parms.update(
-                        {
-                            f"{name}__dst": val
-                            for name, val in self.site_operators[dst].items()
-                        }
-                    )
-                    # Try to compute using only site terms
-                    term_op = eval_expr(e_expr, e_parms)
-                    if not isinstance(term_op, str):
-                        bond_terms.append(term_op)
-                        continue
-                    # Try now adding the bond operators
-                    for name_bop in self.basis.bond_ops:
-                        self.bond_operator(name_bop, src, dst)
-                        self.bond_operator(name_bop, dst, src)
+        try:
+            bond_terms = [
+                self.bond_term_from_descriptor(term_spec, graph, model, parms)
+                for term_spec in op_descr["bond terms"]
+            ]
+            bond_terms = [term for term in bond_terms if term]
 
-                    e_parms.update(
-                        {
-                            f"{key[0]}__src_dst": val
-                            for key, val in self.bond_operators.items()
-                            if key[1] == src and key[2] == dst
-                        }
-                    )
-                    e_parms.update(
-                        {
-                            f"{key[0]}__dst_src": val
-                            for key, val in self.bond_operators.items()
-                            if key[2] == src and key[1] == dst
-                        }
-                    )
-                    term_op = eval_expr(e_expr, e_parms)
-                    if not isinstance(term_op, str):
-                        bond_terms.append(term_op)
-                    else:
-                        self.basis.global_ops.pop(name)
-                        return None
+        except ValueError as exc:
+            if VERBOSITY_LEVEL > 2:
+                print(*exc.args, f"Aborting evaluation of {name}.")
+            model.global_ops.pop(name)
+            return None
 
-        result = sum(site_terms) + sum(bond_terms)
-        self.global_operators[name] = result
+        if bond_terms:
+            result = SumOperator(site_terms + bond_terms, self)
+        else:
+            result = OneBodyOperator(site_terms, self)
+        self.operators["global_operators"][name] = result
         return result
 
 
 class Operator:
-    def __sub__(self, op):
-        nop = -op
-        return self + nop
+    """Base class for operators"""
 
-    def __radd__(self, op):
-        return self + op
+    system: SystemDescriptor
+    prefactor: float = 1.0
 
-    def __rsub__(self, op):
-        nop = -self
-        return op + nop
+    def __truediv__(self, operand):
+        if isinstance(operand, (int, float, complex)):
+            return self * (1.0 / operand)
+        if isinstance(operand, Operator):
+            return self * operand.inv()
+        raise ValueError("Division of an operator by ", type(operand), " not defined.")
+
+    def __neg__(self):
+        raise NotImplementedError()
+
+    def __sub__(self, operand):
+        if operand is None:
+            raise ValueError("None can not be an operand")
+        neg_op = -operand
+        return self + neg_op
+
+    def __radd__(self, operand):
+        if operand is None:
+            raise ValueError("None can not be an operand")
+        return self + operand
+
+    def __rsub__(self, operand):
+        if operand is None:
+            raise ValueError("None can not be an operand")
+
+        neg_self = -self
+        return operand + neg_self
+
+    def __pow__(self, exponent):
+        if exponent is None:
+            raise ValueError("None can not be an operand")
+
+        return self.to_qutip_operator() ** exponent
 
     def _repr_latex_(self):
+        """LaTeX Representation"""
         qutip_repr = self.to_qutip()
         if isinstance(qutip_repr, qutip.Qobj):
             parts = qutip_repr._repr_latex_().split("$")
@@ -340,238 +447,56 @@ class Operator:
             tex = str(qutip_repr)
         return f"${tex}$"
 
-    def tr(self):
-        raise NotImplementedError
-
-    def partial_trace(self, sites: list):
-        raise NotImplementedError
-
-
-class ProductOperator(Operator):
-    def __init__(self, sites_op: dict, prefactor=1.0, system=None):
-        self.sites_op = sites_op
-        if any(op.data.count_nonzero() == 0 for op in sites_op.values()):
-            prefactor = 0
-            self.sites_op = {}
-        self.prefactor = prefactor
-        self.system = system
-        if system is not None:
-            self.size = len(system.sites)
-            self.dimensions = {
-                name: site["dimension"] for name, site in system.sites.items()
-            }
-
-    def __add__(self, op):
-        if self.prefactor == 0:
-            return op
-        if isinstance(op, (int, float, complex)):
-            if op == 0:
-                return self
-            op = ProductOperator({}, op, self.system)
-        elif isinstance(op, ProductOperator):
-            if op.prefactor == 0:
-                return self
-            if len(op.sites_op) == 1 and len(self.sites_op) == 1:
-                site = [k for k in self.sites_op][0]
-                if site in op.sites_op:
-                    return ProductOperator(
-                        {
-                            site: (
-                                self.sites_op[site] * self.prefactor
-                                + op.sites_op[site] * op.prefactor
-                            )
-                        },
-                        prefactor=1,
-                        system=self.system,
-                    )
-            new_terms = [op, self]
-        elif isinstance(op, NBodyOperator):
-            new_terms = op.terms + [self]
-        return NBodyOperator(new_terms)
-
-    def __mul__(self, op):
-        if isinstance(op, (int, float, complex)):
-            new_prefactor = self.prefactor * op
-            if new_prefactor == 0.0:
-                return ProductOperator({}, prefactor=new_prefactor, system=self.system)
-            return ProductOperator(
-                self.sites_op, prefactor=new_prefactor, system=self.system
-            )
-        if isinstance(op, ProductOperator):
-            new_sites_op = self.sites_op.copy()
-            for pos, factor in op.sites_op.items():
-                if pos in new_sites_op:
-                    new_sites_op[pos] = new_sites_op[pos] * factor
-                else:
-                    new_sites_op[pos] = factor
-            return ProductOperator(
-                new_sites_op,
-                prefactor=self.prefactor * op.prefactor,
-                system=self.system,
-            )
-        if isinstance(op, NBodyOperator):
-            new_terms = [self * op2 for op2 in op.terms]
-            new_terms = [op for op in new_terms if op.prefactor]
-            return NBodyOperator(new_terms)
-
-        raise NotImplementedError
-
-    def __neg__(self):
-        return ProductOperator(self.sites_op, -self.prefactor, self.system)
-
-    def __pow__(self, exp):
-        return ProductOperator(
-            {s: op**exp for s, op in self.sites_op.items()},
-            self.prefactor**exp,
-            self.system,
-        )
-
-    def __repr__(self):
-        result = str(self.prefactor) + " * (\n"
-        result += "\n".join(str(item) for item in self.sites_op.items())
-        result += ")"
-        return result
-
-    def __rmul__(self, op):
-        if isinstance(op, (int, float, complex)):
-            return self * op
-        return NotImplementedError
-
     def dag(self):
-        """
-        Return the adjoint operator
-        """
-        sites_op_dag = {key: op.dag() for key, op in self.sites_op.items()}
-        prefactor = self.prefactor
-        if isinstance(prefactor, complex):
-            prefactor = prefactor.conj()
-        return ProductOperator(sites_op_dag, prefactor, self.system)
+        """Adjoint operator of quantum object"""
+        return self.to_qutip_operator().dag()
+
+    def expm(self):
+        """Produce a Qutip representation of the operator"""
+        from alpsqutip.operators import QutipOperator
+
+        op_qutip = self.to_qutip()
+        max_eval = op_qutip.eigenenergies(sort="high", sparse=True, eigvals=3)[0]
+        op_qutip = (op_qutip - max_eval).expm()
+        return QutipOperator(op_qutip, self.system, prefactor=np.exp(max_eval))
+
+    def inv(self):
+        """the inverse of the operator"""
+        return self.to_qutip_operator().inv()
 
     def partial_trace(self, sites: list):
-        full_system_sites = self.system.sites
-        dimensions = self.dimensions
-        sites_in = [s for s in sites if s in full_system_sites]
-        sites_out = [s for s in full_system_sites if s not in sites_in]
-        subsystem = self.system.subsystem(sites_in)
-        sites_op = self.sites_op
-        prefactors = [
-            sites_op[s].tr() if s in sites_op else dimensions[s] for s in sites_out
-        ]
-        sites_op = {s: o for s, o in sites_op.items() if s in sites_in}
-        prefactor = self.prefactor
-        for p in prefactors:
-            if p == 0:
-                return ProductOperator({}, p, subsystem)
-            prefactor *= p
-        return ProductOperator(sites_op, prefactor, subsystem)
+        """Partial trace over sites not listed in `sites`"""
+        raise NotImplementedError
+
+    def simplify(self):
+        """Returns a more efficient representation"""
+        return self
 
     def to_qutip(self):
-        if self.prefactor == 0 or len(self.system.dimensions) == 0:
-            return self.prefactor
-        ops = self.sites_op
-        return self.prefactor * qutip.tensor(
-            [
-                ops.get(site, None) if site in ops else qutip.qeye(dim)
-                for site, dim in self.system.dimensions.items()
-            ]
-        )
+        """Convert to a Qutip object"""
+        raise NotImplementedError
+
+    def to_qutip_operator(self):
+        """Produce a Qutip representation of the operator"""
+        from alpsqutip.operators import QutipOperator
+
+        return QutipOperator(self.to_qutip(), self.system)
 
     def tr(self):
-        result = self.partial_trace([])
-        return result.prefactor
+        """The trace of the operator"""
+        return self.partial_trace([]).prefactor
 
 
-class NBodyOperator(Operator):
-    """
-    Represents a linear combination of product operators
-    """
+def build_spin_chain(l: int = 2):
+    """Build a spin chain of length `l`"""
+    from alpsqutip.alpsmodels import model_from_alps_xml
+    from alpsqutip.geometry import graph_from_alps_xml
+    from alpsqutip.settings import LATTICE_LIB_FILE, MODEL_LIB_FILE
 
-    def __init__(self, terms_coeffs: list):
-        self.terms = terms_coeffs
-        if terms_coeffs:
-            system = terms_coeffs[0].system
-            self.system = system
-            for term in terms_coeffs:
-                term_system = term.system
-                if term.system is term_system:
-                    continue
-                if len(term_system.dimensions) > len(system.dimensions):
-                    system, term_system = term_system, system
-
-    def __add__(self, op):
-        if isinstance(op, (int, float, complex)):
-            if op == 0.0:
-                return self
-            op = ProductOperator({}, op, self.system)
-
-        elif isinstance(op, ProductOperator):
-            if op.prefactor == 0:
-                return self
-            new_terms = self.terms + [op]
-        elif isinstance(op, NBodyOperator):
-            if len(op.terms) == len(self.terms) == 1:
-                return self.terms[0] + op.terms[0]
-            new_terms = self.terms + op.terms
-        # TODO: cancel terms
-        new_terms = [t for t in new_terms if t.prefactor != 0]
-        return NBodyOperator(new_terms)
-
-    def __pow__(self, exp):
-        if isinstance(exp, int):
-            if exp == 0:
-                return 1
-            if exp == 1:
-                return self
-            if exp > 1:
-                exp -= 1
-                return self * (self**exp)
-            else:
-                TypeError("NBodyOperator does not support negative powers")
-        raise TypeError(
-            f"unsupported operand type(s) for ** or pow(): 'NBodyOperator' and '{type(exp).__name__}'"
-        )
-
-    def __mul__(self, op):
-        if isinstance(op, (int, float, complex)):
-            if op == 0:
-                return op
-            new_terms = [op * op1 for op1 in self.terms if op1.prefactor]
-        elif isinstance(op, ProductOperator):
-            if op.prefactor:
-                new_terms = [op1 * op for op1 in self.terms if op1.prefactor]
-            else:
-                new_terms = []
-        elif isinstance(op, NBodyOperator):
-            new_terms = [op1 * op2 for op1 in self.terms for op2 in op.terms]
-        else:
-            raise TypeError(type(op))
-
-        new_terms = [t for t in new_terms if t.prefactor != 0]
-        if len(new_terms) == 0:
-            return 0.0
-        if len(new_terms) == 1:
-            return new_terms[0]
-        return NBodyOperator(new_terms)
-
-    def __repr__(self):
-        return "(\n" + "\n+".join(repr(t) for t in self.terms) + "\n)"
-
-    def __rmul__(self, op):
-        if isinstance(op, (int, float, complex)):
-            return self * op
-        return NotImplementedError
-
-    def dag(self):
-        """return the adjoint operator"""
-        return NBodyOperator([t.dag() for t in self.terms])
-
-    def partial_trace(self, sites: list):
-        return sum(t.partial_trace(sites) for t in self.terms)
-
-    def to_qutip(self):
-        if len(self.terms) == 0:
-            return ProductOperator({}, 0, self.system).to_qutip()
-        return sum(t.to_qutip() for t in self.terms)
-
-    def tr(self):
-        return sum([t.tr() for t in self.terms])
+    return SystemDescriptor(
+        model=model_from_alps_xml(MODEL_LIB_FILE, "spin"),
+        graph=graph_from_alps_xml(
+            LATTICE_LIB_FILE, "chain lattice", parms={"L": l, "a": 1}
+        ),
+        parms={"h": 1, "J": 1, "Jz0": 1, "Jxy0": 1},
+    )

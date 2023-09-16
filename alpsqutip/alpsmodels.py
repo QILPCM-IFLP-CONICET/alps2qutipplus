@@ -68,7 +68,8 @@ def build_local_basis_from_qn_descriptors(
         local_basis = new_basis
 
     if len(local_basis) == 1 and len(local_basis[0]) == 0:
-        print("empty basis!")
+        if VERBOSITY_LEVEL > 0:
+            print("empty basis!")
         return None
     qn_indx = {qn: i for i, qn in enumerate(local_basis[0].keys())}
     basis_vectors = [tuple(state[qn] for qn in qn_indx) for state in local_basis]
@@ -126,7 +127,7 @@ def model_from_alps_xml(filename="lattices.xml", name="spin", parms=None):
                 parms_and_ops = parms.copy()
                 parms_and_ops["x"] = 0
                 parms_and_ops.update(
-                    {f"{op}_qutip": qtip_op for op, qtip_op in operators.items()}
+                    {f"{op}_qutip": qutip_op for op, qutip_op in operators.items()}
                 )
                 expr = "".join(line.strip() for line in node.itertext())
                 expr = expr.replace(f"({site})", "_qutip")
@@ -164,7 +165,10 @@ def model_from_alps_xml(filename="lattices.xml", name="spin", parms=None):
             for op in node.findall("./BONDTERM"):
                 bond_terms.append(process_bondterm(find_ref(op, models), parms))
 
-            operators[name] = {"site terms": site_terms, "bond terms": bond_terms}
+            operators[name] = {
+                "site terms": site_terms,
+                "bond terms": bond_terms,
+            }
         return operators
 
     def process_site_term(node, parms):
@@ -238,7 +242,10 @@ def model_from_alps_xml(filename="lattices.xml", name="spin", parms=None):
                 while name in operators_descr:
                     name = name + str(i)
                     i += 1
-                operators_descr[name] = {"changing": {}, "matrixelement": qn_name}
+                operators_descr[name] = {
+                    "changing": {},
+                    "matrixelement": qn_name,
+                }
                 qn_attr["operator"] = name
 
         # Using the quantum number descriptor, build the local basis
@@ -265,7 +272,8 @@ def model_from_alps_xml(filename="lattices.xml", name="spin", parms=None):
                     terms.append((dst, src, coeff, fermionic))
 
             if any(t[-1] for t in terms) and not all(t[-1] for t in terms):
-                print("wrong fermionic parity", name, ":", terms)
+                if VERBOSITY_LEVEL > 0:
+                    print("wrong fermionic parity", name, ":", terms)
                 continue
             operators[name] = sum(
                 coeff * qutip.projection(dim, src, dst)
@@ -341,10 +349,30 @@ class ModelDescriptor:
         parms: dict = {},
     ):
         self.site_basis = site_basis
-        self.constraints = constraints
-        self.bond_ops = bond_op_descr
-        self.global_ops = global_op_descr
-        self.parms = parms
+        self.constraints = constraints or {}
+        self.bond_ops = bond_op_descr or {}
+        self.global_ops = global_op_descr or {}
+        self.parms = parms or {}
 
     def __repr__(self):
         return repr(self.__dict__)
+
+
+def qutip_model_from_dims(dims, local_ops=None, global_ops=None):
+    site_basis = {}
+    for i, d in enumerate(dims):
+        name = f"qutip_{i}"
+        site_basis[name] = {
+            "name": name,
+            "qn": {"n"},
+            "dimension": d,
+            "operators": {
+                "n": qutip.num(d),
+                "GS": qutip.projection(d, 0, 0),
+                "raise": qutip.create(d),
+                "lower": qutip.destroy(d),
+            },
+            "parms": {},
+            "localstates": [{"n": i} for i in range(d)],
+        }
+    return ModelDescriptor(site_basis)

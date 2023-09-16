@@ -1,5 +1,9 @@
+"""
+Graphs and conversions from ALPS
+"""
+
 import xml.etree.ElementTree as ET
-from typing import Optional
+from typing import Optional, Tuple
 
 import numpy as np
 from numpy.random import rand
@@ -7,13 +11,16 @@ from numpy.random import rand
 from alpsqutip.utils import eval_expr, find_ref, next_name
 
 
-def list_graph_in_alps_xml(filename="lattices.xml"):
+def list_graph_in_alps_xml(filename="lattices.xml") -> Tuple[str]:
+    """
+    List all the graph names in a lattice.xml ALPS file
+    """
     result = []
     xmltree = ET.parse(filename)
     lattices = xmltree.getroot()
 
-    for g in lattices.findall("./GRAPH"):
-        name = g.attrib.get("name", None)
+    for graph in lattices.findall("./GRAPH"):
+        name = graph.attrib.get("name", None)
         if name:
             result.append(name)
 
@@ -51,24 +58,24 @@ def graph_from_alps_xml(
         edges = {}
         default_vertex = {"type": "0", "coords": None}
 
-        for v in node.findall("./VERTEX"):
-            v_items = process_vertex(v, parms)
+        for vert in node.findall("./VERTEX"):
+            v_items = process_vertex(vert, parms)
             v_name = v_items.pop("id", None) or next_name(vertices)
             vertices[v_name] = v_items
 
         while len(vertices) < num_vertices:
             vertices[next_name(vertices)] = default_vertex.copy()
 
-        for e in node.findall("./EDGE"):
-            e_items = e.attrib
-            list_edges = edges.get(e_items["type"], [])
+        for edge in node.findall("./EDGE"):
+            edge_items = edge.attrib
+            list_edges = edges.get(edge_items["type"], [])
             list_edges.append(
                 (
-                    e_items["source"],
-                    e_items["target"],
+                    edge_items["source"],
+                    edge_items["target"],
                 )
             )
-            edges[e_items["type"]] = list_edges
+            edges[edge_items["type"]] = list_edges
 
         return GraphDescriptor(name=name, nodes=vertices, edges=edges, parms=parms)
 
@@ -81,14 +88,16 @@ def graph_from_alps_xml(
         basis = lattice["basis"]
         reciprocal_basis = lattice["reciprocal_basis"]
 
-        for b in node.findall("./BASIS"):
-            for v in b.findall("./VECTOR"):
-                coords = process_coordinates(v.text)
+        for b_desc in node.findall("./BASIS"):
+            for vert in b_desc.findall("./VECTOR"):
+                coords = process_coordinates(vert.text)
                 basis.append(coords)
 
-        for b in node.findall("./RECIPROCALBASIS"):
-            for v in b.findall("./VECTOR"):
-                coords = [eval_expr(c.strip(), parms) for c in v.text.split(" ")]
+        for b_desc in node.findall("./RECIPROCALBASIS"):
+            for vec in b_desc.findall("./VECTOR"):
+                coords = [
+                    eval_expr(coord.strip(), parms) for coord in vec.text.split(" ")
+                ]
                 reciprocal_basis.append(coords)
 
         return lattice
@@ -100,18 +109,18 @@ def graph_from_alps_xml(
         vertices = {}
         edges = {}
 
-        for uc in node.findall("./UNITCELL"):
-            uc = find_ref(uc, lattices)
-            unitcell = process_unitcell(uc, parms)
+        for uc_desc in node.findall("./UNITCELL"):
+            uc_desc = find_ref(uc_desc, lattices)
+            unitcell = process_unitcell(uc_desc, parms)
 
-        for fl in node.findall("./FINITELATTICE"):
-            parms = process_parms(fl, parms)
+        for fl_desc in node.findall("./FINITELATTICE"):
+            parms = process_parms(fl_desc, parms)
             dimensions = unitcell["dimension"]
             extents = []
             if dimensions:
                 bcs = dimensions * ["open"]
-                for bc in fl.findall("./BOUNDARY"):
-                    bc_items = bc.attrib
+                for bc_desc in fl_desc.findall("./BOUNDARY"):
+                    bc_items = bc_desc.attrib
                     if "dimension" in bc_items:
                         c_dim = int(bc_items.get("dimension", 1)) - 1
                         bcs[c_dim] = bc_items.get("type", bcs[c_dim])
@@ -119,7 +128,7 @@ def graph_from_alps_xml(
                         bcs = dimensions * bc_items.get("type", bcs[0])
 
                 extents = dimensions * [0]
-                for ext in fl.findall("./EXTENT"):
+                for ext in fl_desc.findall("./EXTENT"):
                     ext_items = ext.attrib
                     c_dim = int(ext_items.get("dimension", 1)) - 1
                     size = ext_items.get("size", extents[c_dim])
@@ -127,7 +136,7 @@ def graph_from_alps_xml(
                         size = parms[size]
                     extents[c_dim] = int(size)
 
-            for lat_entry in fl.findall("./LATTICE"):
+            for lat_entry in fl_desc.findall("./LATTICE"):
                 lattice = process_lattice(find_ref(lat_entry, lattices), parms)
 
         # Build a list of cells
@@ -136,12 +145,12 @@ def graph_from_alps_xml(
         curr_coords = (dim + 1) * [0]
         while True:
             cells.append(tuple(curr_coords[:-1]))
-            d = 0
-            curr_coords[d] += 1
-            while d < dim and curr_coords[d] == extents[d]:
-                curr_coords[d] = 0
-                d += 1
-                curr_coords[d] += 1
+            d_int = 0
+            curr_coords[d_int] += 1
+            while d_int < dim and curr_coords[d_int] == extents[d_int]:
+                curr_coords[d_int] = 0
+                d_int += 1
+                curr_coords[d_int] += 1
 
             if curr_coords[-1]:
                 break
@@ -162,34 +171,34 @@ def graph_from_alps_xml(
 
         # Add inhomogeneous vertices
         for inhomogeneous in node.findall("./INHOMOGENEOUS"):
-            for v in inhomogeneous.findall("VERTEX"):
-                v_items = process_vertex(v, parms)
+            for v_desc in inhomogeneous.findall("VERTEX"):
+                v_items = process_vertex(v_desc, parms)
                 v_name = v_items.get("name", None) or next_name(vertices, 1, "defect_")
                 vertices[v_name] = v_items
 
         # Build edges
         cell_edges = unitcell["edges"]
-        for et, bond_desc_list in cell_edges.items():
+        for e_type, bond_desc_list in cell_edges.items():
             bonds = []
             for cell in cells:
-                for bd in bond_desc_list:
-                    src_name = bd["src"]
-                    src = list(u + d for u, d in zip(cell, bd["offset_src"]))
-                    tgt_name = bd["tgt"]
-                    tgt = list(u + d for u, d in zip(cell, bd["offset_tgt"]))
+                for bnd_desc in bond_desc_list:
+                    src_name = bnd_desc["src"]
+                    src = list(u + d for u, d in zip(cell, bnd_desc["offset_src"]))
+                    tgt_name = bnd_desc["tgt"]
+                    tgt = list(u + d for u, d in zip(cell, bnd_desc["offset_tgt"]))
                     skip = False
-                    for d in range(dim):
-                        if bcs[d] == "periodic":
-                            if src[d] >= extents[d] or src[d] < 0:
-                                src[d] = src[d] % extents[d]
-                            if tgt[d] >= extents[d] or tgt[d] < 0:
-                                tgt[d] = tgt[d] % extents[d]
+                    for d_int in range(dim):
+                        if bcs[d_int] == "periodic":
+                            if src[d_int] >= extents[d_int] or src[d_int] < 0:
+                                src[d_int] = src[d_int] % extents[d_int]
+                            if tgt[d_int] >= extents[d_int] or tgt[d_int] < 0:
+                                tgt[d_int] = tgt[d_int] % extents[d_int]
                         else:
                             if (
-                                src[d] >= extents[d]
-                                or tgt[d] >= extents[d]
-                                or src[d] < 0
-                                or tgt[d] < 0
+                                src[d_int] >= extents[d_int]
+                                or tgt[d_int] >= extents[d_int]
+                                or src[d_int] < 0
+                                or tgt[d_int] < 0
                             ):
                                 skip = True
                     if skip:
@@ -199,10 +208,14 @@ def graph_from_alps_xml(
                         f"{tgt_name}{tgt}",
                     )
                     bonds.append(new_bond)
-            edges[et] = bonds
+            edges[e_type] = bonds
 
         return GraphDescriptor(
-            name=name, nodes=vertices, edges=edges, lattice=lattice, parms=parms
+            name=name,
+            nodes=vertices,
+            edges=edges,
+            lattice=lattice,
+            parms=parms,
         )
 
     def process_parms(node, parms):
@@ -223,23 +236,23 @@ def graph_from_alps_xml(
         unitcell["dimension"] = dimension
         unitcell["name"] = node.attrib.get("name", "")
 
-        for v in node.findall("./VERTEX"):
-            v_items = process_vertex(v, parms)
+        for v_desc in node.findall("./VERTEX"):
+            v_items = process_vertex(v_desc, parms)
             name = v_items.pop("name", None) or next_name(vertices)
             vertices[name] = v_items
 
-        for e in node.findall("./EDGE"):
-            e_items = e.attrib
+        for e_desc in node.findall("./EDGE"):
+            e_items = e_desc.attrib
             e_type = e_items.get("type", "0")
             e_src = e_items.get("source", "0")
             e_tgt = e_items.get("target", "0")
             e_offset_src = ""
             e_offset_tgt = ""
-            for src in e.findall("./SOURCE"):
+            for src in e_desc.findall("./SOURCE"):
                 src_items = src.attrib
                 e_src = src_items.get("vertex", e_src)
                 e_offset_src = src_items.get("offset", e_offset_src)
-            for tgt in e.findall("./TARGET"):
+            for tgt in e_desc.findall("./TARGET"):
                 tgt_items = tgt.attrib
                 e_tgt = tgt_items.get("vertex", e_tgt)
                 e_offset_tgt = tgt_items.get("offset", e_offset_tgt)
@@ -271,19 +284,19 @@ def graph_from_alps_xml(
         v_attributes = node.attrib
         v_attributes["type"] = v_attributes.get("type", "0")
         v_attributes["coords"] = None
-        for c in node.findall("./COORDINATE"):
-            v_attributes["coords"] = process_coordinates(c.text)
+        for coord_desc in node.findall("./COORDINATE"):
+            v_attributes["coords"] = process_coordinates(coord_desc.text)
         return v_attributes
 
     # Try to find a graph
-    for g in lattices.findall("./GRAPH"):
-        if ("name", name) in g.items():
-            return process_graph(g, parms)
+    for graph_desc in lattices.findall("./GRAPH"):
+        if ("name", name) in graph_desc.items():
+            return process_graph(graph_desc, parms)
 
     # Otherwise, try with a lattice
-    for lat in lattices.findall("./LATTICEGRAPH"):
-        if ("name", name) in lat.items():
-            return process_latticegraph(lat, parms)
+    for lat_desc in lattices.findall("./LATTICEGRAPH"):
+        if ("name", name) in lat_desc.items():
+            return process_latticegraph(lat_desc, parms)
 
     return None
 
@@ -312,8 +325,10 @@ class GraphDescriptor:
         self.lattice = lattice or None
         self.parms = parms or {}
         self.complete_coordiantes()
+        self.subgraphs = {}
 
     def complete_coordiantes(self):
+        """Add coordinates to nodes without speficied coordinates"""
         nodes = self.nodes
         lattice = self.lattice
         # TODO: it would be great to use a better algorithm to
@@ -352,13 +367,14 @@ class GraphDescriptor:
             + "\nEdges"
         )
 
-        for t, bnds in self.edges.items():
-            result += f"\n type {t}:\n    " + "\n    ".join(
+        for b_type, bnds in self.edges.items():
+            result += f"\n type {b_type}:\n    " + "\n    ".join(
                 f"{b[0]}-{b[1]}" for b in bnds
             )
         return result
 
-    def draw(self, ax, node_spec=None, edge_spec=None):
+    def draw(self, ax_mpl, node_spec=None, edge_spec=None):
+        """Draw the graph over a matplotlib axis"""
         coords = {}
 
         if node_spec is None:
@@ -387,20 +403,25 @@ class GraphDescriptor:
             for name in self.nodes:
                 coords[name] = nodes[name]["coords"][:2]
 
-        for name, x in coords.items():
+        for name, x_coord in coords.items():
             spec = node_spec.get(nodes[name]["type"], default_node_spec)
-            ax.scatter(*[[u] for u in x], **spec)
+            ax_mpl.scatter(*[[u] for u in x_coord], **spec)
 
-        for t, bl in edges.items():
-            spec = edge_spec.get(t, default_edge_spec)
-            for src_name, tgt_name in bl:
+        for bond_type, b_list in edges.items():
+            spec = edge_spec.get(bond_type, default_edge_spec)
+            for src_name, tgt_name in b_list:
                 src, tgt = coords[src_name], coords[tgt_name]
                 # TODO: color by type t
-                ax.plot(*[[u, v] for u, v in zip(src, tgt)], **spec)
+                ax_mpl.plot(*[[u, v] for u, v in zip(src, tgt)], **spec)
 
-    def subgraph(self, node_list: list, name: str = ""):
+    def subgraph(self, node_tuple: tuple, name: str = ""):
+        """A subgraph containing the speficied nodes"""
+        subgraph = self.subgraphs.get(node_tuple, None)
+        if subgraph is not None:
+            return subgraph
+
         nodes = self.nodes
-        nodes = {n: nodes[n] for n in node_list}
+        nodes = {n: nodes[n] for n in node_tuple}
         edges = {
             t: [
                 (
@@ -412,4 +433,6 @@ class GraphDescriptor:
             ]
             for t, e in self.edges.items()
         }
-        return GraphDescriptor(name, nodes, edges)
+        subgraph = GraphDescriptor(name, nodes, edges)
+        self.subgraphs[node_tuple] = subgraph
+        return subgraph
