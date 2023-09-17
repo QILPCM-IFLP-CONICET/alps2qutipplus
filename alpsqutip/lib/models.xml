@@ -270,6 +270,11 @@
   1/2*(Splus(x)+Sminus(x))
 </SITEOPERATOR>
 
+<SITEOPERATOR name="Sy" site="x">
+  1j/2*(Splus(x)-Sminus(x))
+</SITEOPERATOR>
+
+
 <SITEOPERATOR name="double_occupancy" site="x">
   n(x)*(n(x)-1)/2
 </SITEOPERATOR>

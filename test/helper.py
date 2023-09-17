@@ -27,6 +27,7 @@ sz_total: OneBodyOperator = system.global_operator("Sz")
 hamiltonian: SumOperator = system.global_operator("Hamiltonian")
 
 global_identity: ProductOperator = ProductOperator({}, 1.0, system)
+
 sx_A = system.site_operator(f"Sx@{sites[0]}")
 sx_B = system.site_operator(f"Sx@{sites[1]}")
 sx_AB = 0.7 * sx_A + 0.3 * sx_B
