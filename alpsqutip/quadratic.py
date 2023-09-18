@@ -4,18 +4,14 @@ Define SystemDescriptors and different kind of operators
 
 # from typing import List, Optional
 from numbers import Number
+
 import numpy as np
 from numpy.linalg import eigh, svd
 from numpy.random import random
 
-from alpsqutip.operators import (
-    LocalOperator,
-    OneBodyOperator,
-    Operator,
-    ProductOperator,
-    SumOperator,
-    SystemDescriptor,
-)
+from alpsqutip.operators import (LocalOperator, OneBodyOperator, Operator,
+                                 ProductOperator, SumOperator,
+                                 SystemDescriptor)
 from alpsqutip.states import GibbsProductDensityOperator
 
 

@@ -1,10 +1,9 @@
 from typing import Callable
 
 import numpy as np
+from operators import safe_expm_and_normalize
 from qutip import entropy_vn, fidelity, jmat, qeye, tensor
 from qutip.qobj import Qobj
-
-from operators import safe_expm_and_normalize
 from scalarprod import gram_matrix, orthogonalize_basis, project_op
 
 
