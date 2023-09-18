@@ -9,12 +9,8 @@ from numpy import array as np_array
 from numpy import log, real
 
 from alpsqutip.model import Operator
-from alpsqutip.operators import (
-    LocalOperator,
-    OneBodyOperator,
-    ProductOperator,
-    QutipOperator,
-)
+from alpsqutip.operators import (LocalOperator, OneBodyOperator,
+                                 ProductOperator, QutipOperator)
 
 
 def commutator(A: Operator, B: Operator) -> Operator:

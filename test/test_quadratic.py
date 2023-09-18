@@ -4,13 +4,8 @@ Basic unit test.
 
 
 from alpsqutip.model import build_spin_chain
-from alpsqutip.operators import (
-    LocalOperator,
-    OneBodyOperator,
-    ProductOperator,
-    QutipOperator,
-    SumOperator,
-)
+from alpsqutip.operators import (LocalOperator, OneBodyOperator,
+                                 ProductOperator, QutipOperator, SumOperator)
 from alpsqutip.quadratic import QuadraticFormOperator, simplify_quadratic_form
 
 from .helper import check_operator_equality
@@ -52,9 +47,7 @@ def test_build_hamiltonian():
 def notest_meanfield():
     from alpsqutip.model import build_spin_chain
     from alpsqutip.quadratic import (
-        QuadraticFormOperator,
-        selfconsistent_meanfield_from_quadratic_form,
-    )
+        QuadraticFormOperator, selfconsistent_meanfield_from_quadratic_form)
 
     system = build_spin_chain(10)
     sx_1 = system.site_operator("Sx", "1[0]")

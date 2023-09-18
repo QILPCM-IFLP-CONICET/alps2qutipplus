@@ -4,26 +4,13 @@ Basic unit test for operator functions.
 
 import numpy as np
 
-from alpsqutip.operator_functions import (
-    eigenvalues,
-    log_op,
-    relative_entropy,
-    spectral_norm,
-)
+from alpsqutip.operator_functions import (eigenvalues, log_op,
+                                          relative_entropy, spectral_norm)
 from alpsqutip.operators import OneBodyOperator
 
-from .helper import (
-    CHAIN_SIZE,
-    alert,
-    check_equality,
-    expect_from_qutip,
-    hamiltonian,
-    observable_cases,
-    subsystems,
-    system,
-    sz_total,
-    test_cases_states,
-)
+from .helper import (CHAIN_SIZE, alert, check_equality, expect_from_qutip,
+                     hamiltonian, observable_cases, subsystems, system,
+                     sz_total, test_cases_states)
 
 # from alpsqutip.settings import VERBOSITY_LEVEL
 

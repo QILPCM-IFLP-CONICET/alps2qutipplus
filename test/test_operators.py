@@ -3,21 +3,11 @@ Basic unit test.
 """
 
 from alpsqutip.model import Operator
-from alpsqutip.operators import (
-    LocalOperator,
-    OneBodyOperator,
-    ProductOperator,
-    QutipOperator,
-    SumOperator,
-)
+from alpsqutip.operators import (LocalOperator, OneBodyOperator,
+                                 ProductOperator, QutipOperator, SumOperator)
 
-from .helper import (
-    CHAIN_SIZE,
-    check_operator_equality,
-    hamiltonian,
-    observable_cases,
-    sites,
-)
+from .helper import (CHAIN_SIZE, check_operator_equality, hamiltonian,
+                     observable_cases, sites)
 from .helper import sx_A as local_sx_A
 from .helper import sy_A, sy_B, sz_A, sz_C, sz_total
 

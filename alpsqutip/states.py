@@ -12,13 +12,8 @@ from qutip import tensor as qutip_tensor
 
 from alpsqutip.model import Operator, SystemDescriptor
 from alpsqutip.operator_functions import eigenvalues
-from alpsqutip.operators import (
-    LocalOperator,
-    OneBodyOperator,
-    ProductOperator,
-    QutipOperator,
-    SumOperator,
-)
+from alpsqutip.operators import (LocalOperator, OneBodyOperator,
+                                 ProductOperator, QutipOperator, SumOperator)
 
 
 def safe_exp_and_normalize(operator):
