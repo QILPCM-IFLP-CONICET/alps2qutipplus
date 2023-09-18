@@ -210,6 +210,10 @@ class QuadraticFormOperator(Operator):
             self.system,
         )
 
+    @property
+    def isherm(self):
+        return all(isinstance(weight, (int, float)) for weight in self.weights)
+
     def partial_trace(self, sites):
         return SumOperator(
             [
@@ -278,6 +282,14 @@ def simplify_quadratic_form(
     # that diagonalizes the quadratic form in the new basis
     # (v_transp):
     rows = v_transp.conj().dot(u_transp)
+
+    w_and_rows = zip(
+        *sorted(
+            ([weight, row] for weight, row in zip(weights, rows)), key=lambda x: x[0]
+        )
+    )
+
+    weights, rows = (list(data) for data in w_and_rows)
     new_basis = [
         OneBodyOperator([c * old_op for c, old_op in zip(row, local_ops)], system)
         for row in rows
@@ -294,26 +306,39 @@ def simplify_quadratic_form(
 
 
 def selfconsistent_meanfield_from_quadratic_form(
-    quadratic_form: QuadraticFormOperator, max_it
+    quadratic_form: QuadraticFormOperator, max_it, logdict=None
 ):
     """Build a self-consistent mean field approximation to the gibbs state associated to
     the quadratic form.
     """
-    quadratic_form = simplify_quadratic_form(quadratic_form)
+    #    quadratic_form = simplify_quadratic_form(quadratic_form)
     system = quadratic_form.system
-    weights_and_basis = [
-        (w, b) for w, b in zip(quadratic_form.weights, quadratic_form.terms) if w < 0
-    ]
+    terms = quadratic_form.terms
+    weights = quadratic_form.weights
 
-    phi = [c[0] * (2.0 * random() - 1.0) for c in weights_and_basis]
+    operators = [2 * w * b for w, b in zip(weights, terms)]
+    basis = [b for w, b in zip(weights, terms)]
+
+    phi = [(2.0 * random() - 1.0)]
+
+    evolution = []
+    timestamps = []
+    from time import time
+
+    if isinstance(logdict, dict):
+        logdict["states"] = evolution
+        logdict["timestamps"] = timestamps
+
     for it in range(max_it):
         k_exp = OneBodyOperator(
-            [phi_i * wb_i[1] for phi_i, wb_i in zip(phi, weights_and_basis)], system
+            [phi_i * operator for phi_i, operator in zip(phi, basis)], system
         )
         rho = GibbsProductDensityOperator(k_exp, 1.0, system)
-        new_phi = [
-            2 * w_and_b[0] * rho.expect(w_and_b[1]) for w_and_b in weights_and_basis
-        ]
+        new_phi = rho.expect(operators)
+        if isinstance(logdict, dict):
+            evolution.append(new_phi)
+            timestamps.append(time())
+
         change = sum(
             abs(old_phi_i - new_phi_i) for old_phi_i, new_phi_i in zip(new_phi, phi)
         )

@@ -345,7 +345,7 @@ class SystemDescriptor:
                     )
 
                 result_terms.append(term_op)
-        return SumOperator(result_terms)
+        return SumOperator(result_terms, self, True)
 
     def global_operator(self, name):
         """Return a global operator by its name"""
@@ -390,9 +390,9 @@ class SystemDescriptor:
             return None
 
         if bond_terms:
-            result = SumOperator(site_terms + bond_terms, self)
+            result = SumOperator(site_terms + bond_terms, self, True)
         else:
-            result = OneBodyOperator(site_terms, self)
+            result = OneBodyOperator(site_terms, self, True)
         self.operators["global_operators"][name] = result
         return result
 
@@ -451,6 +451,11 @@ class Operator:
         """Adjoint operator of quantum object"""
         return self.to_qutip_operator().dag()
 
+    @property
+    def isherm(self) -> bool:
+        """Check if the operator is hermitician"""
+        return self.to_qutip().isherm
+
     def expm(self):
         """Produce a Qutip representation of the operator"""
         from alpsqutip.operators import QutipOperator
@@ -487,7 +492,7 @@ class Operator:
         return self.partial_trace([]).prefactor
 
 
-def build_spin_chain(l: int = 2):
+def build_spin_chain(l: int = 2, field=0.0):
     """Build a spin chain of length `l`"""
     from alpsqutip.alpsmodels import model_from_alps_xml
     from alpsqutip.geometry import graph_from_alps_xml
@@ -498,5 +503,5 @@ def build_spin_chain(l: int = 2):
         graph=graph_from_alps_xml(
             LATTICE_LIB_FILE, "chain lattice", parms={"L": l, "a": 1}
         ),
-        parms={"h": 1, "J": 1, "Jz0": 1, "Jxy0": 1},
+        parms={"h": field, "J": 1, "Jz0": 1, "Jxy0": 1},
     )

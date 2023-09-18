@@ -39,8 +39,6 @@ class DensityOperatorMixin:
     `expect`.
     """
 
-    isherm: bool = True
-
     def __add__(self, operand):
         if isinstance(operand, DensityOperatorMixin):
             return MixtureDensityOperator([self, operand])
@@ -55,6 +53,10 @@ class DensityOperatorMixin:
             return np.array([self.expect(operator) for operator in obs])
 
         return (self * obs).tr()
+
+    @property
+    def isherm(self) -> bool:
+        return True
 
 
 class QutipDensityOperator(QutipOperator, DensityOperatorMixin):
@@ -410,6 +412,8 @@ class GibbsProductDensityOperator(Operator, DensityOperatorMixin):
     prefactor: float
     free_energies: Dict[str, float]
 
+    isherm: bool = True
+
     def __init__(
         self,
         k: Union[Operator, dict],
@@ -510,9 +514,11 @@ class GibbsProductDensityOperator(Operator, DensityOperatorMixin):
 
     def to_product_state(self):
         """Convert the operator in a productstate"""
-
+        local_states = {
+            site: (-local_k).expm() for site, local_k in self.k_by_site.items()
+        }
         return ProductDensityOperator(
-            {site: (-local_k).expm() for site, local_k in self.k_by_site.items()},
+            local_states,
             self.prefactor,
             system=self.system,
             normalize=False,

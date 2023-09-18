@@ -1,12 +1,20 @@
+"""
+Function to read xml alps libraries to produce model descriptors.
+"""
+
 import xml.etree.ElementTree as ET
 from typing import Optional
 
 import qutip
 
+from alpsqutip.settings import VERBOSITY_LEVEL
 from alpsqutip.utils import eval_expr, find_ref
 
 
 def list_operators_in_alps_xml(filename="models.xml"):
+    """
+    List the models available in the library
+    """
     result = set()
     xmltree = ET.parse(filename)
     models = xmltree.getroot()
@@ -51,7 +59,7 @@ def build_local_basis_from_qn_descriptors(
                 qn_dict = qns[qn]
                 lower = eval_expr(qn_dict["min"], parms)
                 upper = eval_expr(qn_dict["max"], parms)
-                fermionic = qn_dict["fermionic"]
+                # fermionic = qn_dict["fermionic"]
                 if isinstance(lower, (int, float)) and isinstance(upper, (int, float)):
                     new_qn = (qn, lower, int(upper - lower + 1))
                     break
@@ -255,11 +263,13 @@ def model_from_alps_xml(filename="lattices.xml", name="spin", parms=None):
         # And the basic local operators.
         parms_qn = parms.copy()
         dim = len(local_basis)
+
+        operators["identity"] = qutip.qeye(dim)
         for name, od in operators_descr.items():
             terms = []
             for qns, src in local_basis_pos.items():
                 parms_qn.update({qn: qns[qn_pos[qn]] for qn in qn_pos})
-                dest_qn = [qn for qn in qns]
+                dest_qn = list(qns)
                 fermionic = False
                 for qn, offset in od["changing"].items():
                     offset = eval_expr(offset, parms)
@@ -298,14 +308,18 @@ def model_from_alps_xml(filename="lattices.xml", name="spin", parms=None):
         site_terms = []
         bond_terms = []
 
-        for basis in ham.findall("./BASIS"):
-            basis = process_basis(find_ref(basis, models), parms)
+        basis = None
+        for basis_entry in ham.findall("./BASIS"):
+            basis = process_basis(find_ref(basis_entry, models), parms)
+            break
 
-        for op in ham.findall("./SITETERM"):
-            site_terms.append(process_site_term(find_ref(op, models), parms))
+        assert basis is not None
 
-        for op in ham.findall("./BONDTERM"):
-            bond_terms.append(process_bondterm(find_ref(op, models), parms))
+        for op_site in ham.findall("./SITETERM"):
+            site_terms.append(process_site_term(find_ref(op_site, models), parms))
+
+        for op_bond in ham.findall("./BONDTERM"):
+            bond_terms.append(process_bondterm(find_ref(op_bond, models), parms))
 
         basis.global_ops["Hamiltonian"] = {
             "site terms": site_terms,
@@ -343,10 +357,10 @@ class ModelDescriptor:
     def __init__(
         self,
         site_basis: dict,
-        constraints: dict = {},
-        bond_op_descr={},
-        global_op_descr={},
-        parms: dict = {},
+        constraints: Optional[dict] = None,
+        bond_op_descr: Optional[dict] = None,
+        global_op_descr: Optional[dict] = None,
+        parms: Optional[dict] = None,
     ):
         self.site_basis = site_basis
         self.constraints = constraints or {}
@@ -359,6 +373,9 @@ class ModelDescriptor:
 
 
 def qutip_model_from_dims(dims, local_ops=None, global_ops=None):
+    """
+    Produce a basic model descriptor from the dimensions
+    """
     site_basis = {}
     for i, d in enumerate(dims):
         name = f"qutip_{i}"
@@ -367,6 +384,7 @@ def qutip_model_from_dims(dims, local_ops=None, global_ops=None):
             "qn": {"n"},
             "dimension": d,
             "operators": {
+                "identity": qutip.qeye(d),
                 "n": qutip.num(d),
                 "GS": qutip.projection(d, 0, 0),
                 "raise": qutip.create(d),

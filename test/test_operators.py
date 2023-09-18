@@ -2,7 +2,7 @@
 Basic unit test.
 """
 
-
+from alpsqutip.model import Operator
 from alpsqutip.operators import (
     LocalOperator,
     OneBodyOperator,
@@ -11,7 +11,13 @@ from alpsqutip.operators import (
     SumOperator,
 )
 
-from .helper import CHAIN_SIZE, check_operator_equality, hamiltonian, sites
+from .helper import (
+    CHAIN_SIZE,
+    check_operator_equality,
+    hamiltonian,
+    observable_cases,
+    sites,
+)
 from .helper import sx_A as local_sx_A
 from .helper import sy_A, sy_B, sz_A, sz_C, sz_total
 
@@ -31,6 +37,27 @@ def test_build_hamiltonian():
         (hamiltonian_with_field).to_qutip(),
         (hamiltonian.to_qutip() + sz_total.to_qutip()),
     )
+
+
+def test_isherm_operator():
+    for key, observable in observable_cases.items():
+        if not isinstance(observable, Operator):
+            continue
+        assert observable.isherm, f"{key} is not hermitician?"
+
+        ham = observable_cases["hamiltonian"]
+        sz = observable_cases["sz_total"]
+        print("***addition***")
+        assert (ham + 1.0).isherm
+        assert (ham + sz).isherm
+        print("***scalar multiplication***")
+        assert (2.0 * ham).isherm
+        print("***scalar multiplication for a OneBody Operator")
+        assert (2.0 * sz).isherm
+        assert (ham * 2.0).isherm
+        assert (sz * 2.0).isherm
+        assert (sz.expm()).isherm
+        assert (ham**3).isherm
 
 
 def test_type_operator():

@@ -61,8 +61,10 @@ observable_cases = {
     "Identity": ProductOperator({}, 1.0, system),
     "sz_total": sz_total,
     "sx_A": sx_A,
+    "sy_A": sy_A,
     "sz_B": sz_B,
     "sh_AB": sh_AB,
+    "exchange_AB": sx_A * sx_B + sy_A * sy_B,
     "hamiltonian": hamiltonian,
     "observable array": [[sh_AB, sh_A], [sz_A, sx_A]],
 }

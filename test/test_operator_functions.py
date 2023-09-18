@@ -43,9 +43,15 @@ def test_eigenvalues():
     spectrum = sorted(eigenvalues(test_cases_states["fully mixed"]))
     assert all(abs(s - 0.5**CHAIN_SIZE) < 1e-6 for s in spectrum)
 
+    # Ground state energy
+    # Compute the minimum eigenenergy with qutip
+    e0_qutip = min(
+        hamiltonian.to_qutip().eigenenergies(sparse=True, sort="low", eigvals=10)
+    )
+    # use the alpsqutip routine
     e0 = min(eigenvalues(hamiltonian, sparse=True, sort="low", eigvals=10))
     print("e0=", e0)
-    assert abs(e0 + 3.00199535) < 1.0e-6
+    assert abs(e0 - e0_qutip) < 1.0e-6
 
     #  e^(sz)/Tr e^(sz)
     spectrum = sorted(eigenvalues(test_cases_states["gibbs_sz"]))

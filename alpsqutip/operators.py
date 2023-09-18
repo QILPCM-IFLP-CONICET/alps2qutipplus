@@ -128,6 +128,10 @@ class QutipOperator(Operator):
             prefactor=1 / self.prefactor,
         )
 
+    @property
+    def isherm(self) -> bool:
+        return self.operator.isherm
+
     def partial_trace(self, sites: list):
         site_names = self.site_names
         sites = sorted(
@@ -284,6 +288,15 @@ class LocalOperator(Operator):
             site, operator.inv() if hasattr(operator, "inv") else 1 / operator, system
         )
 
+    @property
+    def isherm(self) -> bool:
+        operator = self.operator
+        if isinstance(operator, (float, int)):
+            return True
+        if isinstance(operator, complex):
+            return operator.imag == 0.0
+        return operator.isherm
+
     def partial_trace(self, sites: list):
         system = self.system
         if system is None:
@@ -339,16 +352,16 @@ class ProductOperator(Operator):
         system: Optional[SystemDescriptor] = None,
     ):
         remove_numbers = False
-        for site, op in sites_operators.items():
-            if isinstance(op, (int, float, complex)):
-                prefactor *= op
+        for site, local_op in sites_operators.items():
+            if isinstance(local_op, (int, float, complex)):
+                prefactor *= local_op
                 remove_numbers = True
 
         if remove_numbers:
             sites_operators = {
-                s: op
-                for s, op in sites_operators.items()
-                if not isinstance(op, (int, float, complex))
+                s: local_op
+                for s, local_op in sites_operators.items()
+                if not isinstance(local_op, (int, float, complex))
             }
 
         self.sites_op = sites_operators
@@ -364,15 +377,15 @@ class ProductOperator(Operator):
             }
 
     def __add__(self, operand):
+        if not bool(operand):
+            return self
         if self.prefactor == 0:
             return operand
+
+        isherm = None
         if isinstance(operand, (int, float, complex)):
-            if operand == 0:
-                return self
             operand = ProductOperator({}, operand, self.system)
         elif isinstance(operand, ProductOperator):
-            if operand.prefactor == 0:
-                return self
             if len(operand.sites_op) == 1 and len(self.sites_op) == 1:
                 site = next(iter(self.sites_op))
                 if site in operand.sites_op:
@@ -407,10 +420,11 @@ class ProductOperator(Operator):
                 )
             new_terms = [operand, self]
         elif isinstance(operand, SumOperator):
+            isherm = operand.isherm and self.isherm
             new_terms = operand.terms + [self]
         else:
             new_terms = [self, operand]
-        return SumOperator(new_terms)
+        return SumOperator(new_terms, self.system, isherm)
 
     def __bool__(self):
         return bool(self.prefactor) or all(bool(factor) for factor in self.sites_op)
@@ -524,6 +538,12 @@ class ProductOperator(Operator):
             return LocalOperator(site, op_local / prefactor, system)
         return ProductOperator(sites_op, 1 / prefactor, system)
 
+    @property
+    def isherm(self) -> bool:
+        if not all(loc_op.isherm for loc_op in self.sites_op.values()):
+            return False
+        return isinstance(self.prefactor, (int, float))
+
     def partial_trace(self, sites: list):
         full_system_sites = self.system.sites
         dimensions = self.dimensions
@@ -577,7 +597,7 @@ class SumOperator(Operator):
     terms: List[Operator]
     system: Optional[SystemDescriptor]
 
-    def __init__(self, terms_coeffs: list, system=None):
+    def __init__(self, terms_coeffs: list, system=None, isherm: Optional[bool] = None):
         self.terms = terms_coeffs
         assert all(isinstance(t, Operator) for t in terms_coeffs)
 
@@ -587,13 +607,29 @@ class SumOperator(Operator):
                     system = term.system
                 else:
                     system = system.union(term.system)
+
+        if isherm is None:
+
+            def check_is_herm(term):
+                if isinstance(term, (int, float)):
+                    return True
+                if isinstance(term, complex):
+                    return term.imag == 0.0
+                return term.isherm
+
+            isherm = all(check_is_herm(term) for term in terms_coeffs)
         self.system = system
+        self._isherm = isherm
 
     def __add__(self, operand):
+        system = self.system
+        if not bool(operand):
+            return self
+
         if isinstance(operand, (int, float, complex)):
-            if operand == 0.0:
-                return self
-            operand = ProductOperator({}, operand, self.system)
+            operand = ProductOperator({}, operand, system)
+
+        isherm = self._isherm and operand.isherm
 
         if isinstance(operand, ProductOperator):
             if operand.prefactor == 0:
@@ -609,7 +645,7 @@ class SumOperator(Operator):
             raise ValueError(type(self), type(operand))
 
         new_terms = [t for t in new_terms if t]
-        return SumOperator(new_terms).simplify()
+        return SumOperator(new_terms, system, isherm)
 
     def __bool__(self):
         if len(self.terms) == 0:
@@ -620,14 +656,22 @@ class SumOperator(Operator):
         return False
 
     def __pow__(self, exp):
+        isherm = self._isherm
         if isinstance(exp, int):
             if exp == 0:
                 return 1
             if exp == 1:
                 return self
             if exp > 1:
+                result = self
                 exp -= 1
-                return self * (self**exp)
+                while exp:
+                    exp -= 1
+                    result = result * self
+                if isherm:
+                    result = SumOperator(result.terms, self.system, True)
+                return result
+
             raise TypeError("SumOperator does not support negative powers")
         raise TypeError(
             (
@@ -637,18 +681,27 @@ class SumOperator(Operator):
         )
 
     def __mul__(self, operand):
+        system = self.system
+        if not bool(operand):
+            return SumOperator([], system, True)
         if isinstance(operand, QutipOperator):
             return self.to_qutip_operator() * operand
-        if isinstance(operand, (int, float, complex)):
-            if operand == 0:
-                return operand
+
+        isherm = self._isherm
+
+        if isinstance(operand, (int, float)):
+            new_terms = [operand * operand1 for operand1 in self.terms if operand1]
+        elif isinstance(operand, complex):
+            isherm = isherm and (operand.imag == 0.0)
             new_terms = [operand * operand1 for operand1 in self.terms if operand1]
         elif isinstance(operand, (ProductOperator, LocalOperator)):
+            isherm = None
             if operand.prefactor:
                 new_terms = [operand1 * operand for operand1 in self.terms if operand1]
             else:
                 new_terms = []
         elif isinstance(operand, SumOperator):
+            isherm = None
             new_terms = [op_1 * op_2 for op_1 in self.terms for op_2 in operand.terms]
         else:
             raise TypeError(type(operand))
@@ -658,10 +711,10 @@ class SumOperator(Operator):
             return 0.0
         if len(new_terms) == 1:
             return new_terms[0]
-        return SumOperator(new_terms)
+        return SumOperator(new_terms, system, isherm)
 
     def __neg__(self):
-        return SumOperator([-t for t in self.terms])
+        return SumOperator([-t for t in self.terms], self.system, self._isherm)
 
     def __repr__(self):
         return "(\n" + "\n  +".join(repr(t) for t in self.terms) + "\n)"
@@ -673,7 +726,13 @@ class SumOperator(Operator):
 
     def dag(self):
         """return the adjoint operator"""
+        if self._isherm:
+            return self
         return SumOperator([t.dag() for t in self.terms])
+
+    @property
+    def isherm(self) -> bool:
+        return self._isherm
 
     def partial_trace(self, sites: list):
         return sum(term.prefactor * term.partial_trace(sites) for term in self.terms)
@@ -681,6 +740,7 @@ class SumOperator(Operator):
     def simplify(self):
         system = self.system
         general_terms = []
+        isherm = self._isherm
         # First, shallow the list of terms:
         for term in (t.simplify() for t in self.terms):
             if isinstance(term, SumOperator):
@@ -710,7 +770,7 @@ class SumOperator(Operator):
         qutip_term = sum(qutip_terms)
         qutip_terms = qutip_term if qutip_terms else []
         terms = general_terms + loc_ops_lst + qutip_terms
-        return SumOperator(terms, system)
+        return SumOperator(terms, system, isherm)
 
     def to_qutip(self):
         """Produce a qutip compatible object"""
@@ -750,7 +810,7 @@ class OneBodyOperator(SumOperator):
                     n_factors = len(term.sites_op)
                     if n_factors > 1:
                         raise ValueError("All the terms must be local", term)
-                    elif n_factors == 0:
+                    if n_factors == 0:
                         if term.system:
                             site = next(iter(term.system.sites))
                             terms_by_site.setdefault(site, []).append(term.prefactor)
