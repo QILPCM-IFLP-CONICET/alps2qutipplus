@@ -32,7 +32,8 @@ def test_build_hamiltonian():
     hamiltonian_with_field = hamiltonian + 1.27 * sz_total
 
     ham_qf = QuadraticFormOperator.build_from_operator(hamiltonian_with_field)
-    assert check_operator_equality(ham_qf.to_qutip(), hamiltonian_with_field.to_qutip())
+    assert check_operator_equality(
+        ham_qf.to_qutip(), hamiltonian_with_field.to_qutip())
 
     ham_qf_simp = simplify_quadratic_form(ham_qf)
     assert check_operator_equality(
@@ -47,3 +48,18 @@ def test_build_hamiltonian():
         ham_qf_simp.to_qutip(), hamiltonian_with_field.to_qutip()
     )
     assert len(ham_qf_simp.terms) == len(ham_qf.terms)
+
+
+def notest_meanfield():
+    from alpsqutip.model import build_spin_chain
+    from alpsqutip.quadratic import QuadraticFormOperator, selfconsistent_meanfield_from_quadratic_form
+    system = build_spin_chain(10)
+    sx_1 = system.site_operator("Sx", "1[0]")
+    sx_2 = system.site_operator("Sx", "1[1]")
+    sy_1 = system.site_operator("Sy", "1[0]")
+    sy_2 = system.site_operator("Sy", "1[1]")
+
+    hamiltonian = system.global_operator("Hamiltonian")
+    qhamiltonian = QuadraticFormOperator.build_from_operator(hamiltonian)
+    result = selfconsistent_meanfield_from_quadratic_form(qhamiltonian, 40)
+    result.expect(sx_1*sx_2+sy_1*sy_2)

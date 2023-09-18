@@ -75,6 +75,7 @@ def eval_expr(expr: str, parms: dict):
         for p in parms:
             if parms[p] is None:
                 print("   ", p, "->", parms[p])
+        return None
     return expr
 
 

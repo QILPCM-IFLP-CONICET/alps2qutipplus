@@ -265,6 +265,10 @@ class LocalOperator(Operator):
         Return the adjoint operator
         """
         operator = self.operator
+        if isinstance(operator, (int, float)):
+            return True
+        if isinstance(operator, complex):
+            return operator.imag == 0
         if operator.isherm:
             return self
         return LocalOperator(self.site, operator.dag(), self.system)
@@ -379,7 +383,6 @@ class ProductOperator(Operator):
                         + operand.sites_op[site] * operand.prefactor,
                         system=self.system,
                     )
-                print("One Body operator...")
                 return OneBodyOperator([operand, self], self.system, True)
             new_terms = [operand, self]
         elif isinstance(operand, LocalOperator):
@@ -463,8 +466,8 @@ class ProductOperator(Operator):
             new_terms = [term for term in new_terms if term]
             return SumOperator(new_terms)
 
-        print(type(operand))
-        raise NotImplementedError
+        raise NotImplementedError(
+            "__mul__ not implemented for a Product operator and a", type(operand))
 
     def __neg__(self):
         return ProductOperator(self.sites_op, -self.prefactor, self.system)
@@ -579,7 +582,6 @@ class SumOperator(Operator):
 
     def __init__(self, terms_coeffs: list, system=None):
         self.terms = terms_coeffs
-        print([type(t) for t in terms_coeffs])
         assert all(isinstance(t, Operator) for t in terms_coeffs)
 
         if system is None and terms_coeffs:
