@@ -5,8 +5,15 @@ Basic unit test for states.
 
 from alpsqutip.operators import OneBodyOperator
 
-from .helper import (alert, check_equality, expect_from_qutip,
-                     observable_cases, subsystems, sz_total, test_cases_states)
+from .helper import (
+    alert,
+    check_equality,
+    expect_from_qutip,
+    observable_cases,
+    subsystems,
+    sz_total,
+    test_cases_states,
+)
 
 # from alpsqutip.settings import VERBOSITY_LEVEL
 
@@ -31,8 +38,7 @@ def test_states():
         # Check Expectation Values
 
         expectation_values = rho.expect(observable_cases)
-        qt_expectation_values = expect_from_qutip(
-            qt_test_cases[name], observable_cases)
+        qt_expectation_values = expect_from_qutip(qt_test_cases[name], observable_cases)
 
         assert isinstance(expectation_values, dict)
         assert isinstance(qt_expectation_values, dict)
@@ -40,8 +46,7 @@ def test_states():
             alert(0, "\n     ", 80 * "*", "\n     ", name, obs)
             alert(0, expectation_values)
             alert(0, qt_expectation_values)
-            assert check_equality(
-                expectation_values[obs], qt_expectation_values[obs])
+            assert check_equality(expectation_values[obs], qt_expectation_values[obs])
 
 
 # test_load()

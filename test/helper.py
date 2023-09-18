@@ -11,9 +11,11 @@ import qutip
 from alpsqutip.model import Operator, SystemDescriptor, build_spin_chain
 from alpsqutip.operators import OneBodyOperator, ProductOperator, SumOperator
 from alpsqutip.settings import VERBOSITY_LEVEL
-from alpsqutip.states import (GibbsDensityOperator,
-                              GibbsProductDensityOperator,
-                              ProductDensityOperator)
+from alpsqutip.states import (
+    GibbsDensityOperator,
+    GibbsProductDensityOperator,
+    ProductDensityOperator,
+)
 
 CHAIN_SIZE = 6
 
@@ -68,11 +70,9 @@ observable_cases = {
 
 test_cases_states = {}
 
-test_cases_states["fully mixed"] = ProductDensityOperator(
-    {}, 1.0, system=system)
+test_cases_states["fully mixed"] = ProductDensityOperator({}, 1.0, system=system)
 
-test_cases_states["gibbs_sz"] = GibbsProductDensityOperator(
-    sz_total, system=system)
+test_cases_states["gibbs_sz"] = GibbsProductDensityOperator(sz_total, system=system)
 
 test_cases_states["gibbs_sz_as_product"] = GibbsProductDensityOperator(
     sz_total, system=system

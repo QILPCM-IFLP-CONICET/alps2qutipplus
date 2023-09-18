@@ -9,9 +9,14 @@ import numpy as np
 from numpy.linalg import eigh, svd
 from numpy.random import random
 
-from alpsqutip.operators import (LocalOperator, OneBodyOperator, Operator,
-                                 ProductOperator, SumOperator,
-                                 SystemDescriptor)
+from alpsqutip.operators import (
+    LocalOperator,
+    OneBodyOperator,
+    Operator,
+    ProductOperator,
+    SumOperator,
+    SystemDescriptor,
+)
 from alpsqutip.states import GibbsProductDensityOperator
 
 
@@ -40,8 +45,9 @@ class QuadraticFormOperator(Operator):
         # If check_and_simplify, ensure that all the terms are one-body operators
         # and try to use the simplified forms of the operators.
 
-        assert all(isinstance(term, (OneBodyOperator, LocalOperator, Number))
-                   for term in terms)
+        assert all(
+            isinstance(term, (OneBodyOperator, LocalOperator, Number)) for term in terms
+        )
         if check_and_simplify:
             tested_terms = []
             tested_weights = []
@@ -99,8 +105,7 @@ class QuadraticFormOperator(Operator):
                 return QuadraticFormOperator(terms, weights, system, None, False)
             if num_factors == 1:
                 site, local_op = next(iter(sites_op))
-                operator = LocalOperator(
-                    site, operator.prefactor * local_op, system)
+                operator = LocalOperator(site, operator.prefactor * local_op, system)
                 return QuadraticFormOperator.build_from_operator(
                     operator, system, False
                 )
@@ -125,7 +130,8 @@ class QuadraticFormOperator(Operator):
             return QuadraticFormOperator(terms, weights, system, None, False)
 
         raise TypeError(
-            "argument is not a quadratic form on local operators", type(operator))
+            "argument is not a quadratic form on local operators", type(operator)
+        )
 
     def __bool__(self):
         return len(self.weights) > 0 and any(self.weights) and any(self.terms)
@@ -171,12 +177,10 @@ class QuadraticFormOperator(Operator):
 
         if isinstance(operand, (int, float, complex)):
             return QuadraticFormOperator(
-                self.terms, [
-                    w * operand for w in self.weights], self.system, False
+                self.terms, [w * operand for w in self.weights], self.system, False
             )
         return SumOperator(
-            [w * term * term * operand for w,
-                term in zip(self.terms, self.weights)],
+            [w * term * term * operand for w, term in zip(self.terms, self.weights)],
             self.system,
         )
 
@@ -198,13 +202,11 @@ class QuadraticFormOperator(Operator):
 
         if isinstance(operand, (int, float, complex)):
             return QuadraticFormOperator(
-                self.terms, [
-                    w * operand for w in self.weights], self.system, False
+                self.terms, [w * operand for w in self.weights], self.system, False
             )
 
         return SumOperator(
-            [w * operand * term * term for w,
-                term in zip(self.terms, self.weights)],
+            [w * operand * term * term for w, term in zip(self.terms, self.weights)],
             self.system,
         )
 
@@ -235,8 +237,7 @@ def matrix_change_to_orthogonal_basis(
     Build the coefficient matrix of the base change to an orthogonal base.
     """
 
-    gram = np.array([[scalar_product(o_1, o_2)
-                    for o_1 in basis] for o_2 in basis])
+    gram = np.array([[scalar_product(o_1, o_2) for o_1 in basis] for o_2 in basis])
 
     u, s_diag, v_h = svd(gram, hermitian=True, full_matrices=False)
     kappa = len([sv for sv in s_diag if sv > threeshold])
@@ -278,42 +279,45 @@ def simplify_quadratic_form(
     # (v_transp):
     rows = v_transp.conj().dot(u_transp)
     new_basis = [
-        OneBodyOperator(
-            [c * old_op for c, old_op in zip(row, local_ops)], system)
+        OneBodyOperator([c * old_op for c, old_op in zip(row, local_ops)], system)
         for row in rows
     ]
 
     # Until here, we assumed that
     if not hermitic:
         antihermitic_part = 1j * simplify_quadratic_form(-1j * operator, True)
-        weights = weights + \
-            [1j * weight for weight in antihermitic_part.weights]
+        weights = weights + [1j * weight for weight in antihermitic_part.weights]
         new_basis = new_basis + antihermitic_part.terms
     return QuadraticFormOperator(
         new_basis, weights, system, offset=offset, check_and_simplify=False
     )
 
 
-def selfconsistent_meanfield_from_quadratic_form(quadratic_form: QuadraticFormOperator, max_it):
-    """Build a self-consistent mean field approximation to the gibbs state associated to 
+def selfconsistent_meanfield_from_quadratic_form(
+    quadratic_form: QuadraticFormOperator, max_it
+):
+    """Build a self-consistent mean field approximation to the gibbs state associated to
     the quadratic form.
     """
     quadratic_form = simplify_quadratic_form(quadratic_form)
     system = quadratic_form.system
-    weights_and_basis = [(w, b) for w, b in zip(quadratic_form.weights,
-                                                quadratic_form.terms) if w < 0]
+    weights_and_basis = [
+        (w, b) for w, b in zip(quadratic_form.weights, quadratic_form.terms) if w < 0
+    ]
 
-    phi = [c[0] * (2.*random()-1.) for c in weights_and_basis]
+    phi = [c[0] * (2.0 * random() - 1.0) for c in weights_and_basis]
     for it in range(max_it):
-        k_exp = OneBodyOperator([phi_i*wb_i[1]
-                                 for phi_i, wb_i in zip(phi, weights_and_basis)],
-                                system)
-        rho = GibbsProductDensityOperator(k_exp, 1., system)
-        new_phi = [2 * w_and_b[0] *
-                   rho.expect(w_and_b[1]) for w_and_b in weights_and_basis]
-        change = sum(abs(old_phi_i-new_phi_i)
-                     for old_phi_i, new_phi_i in zip(new_phi, phi))
-        if change < 1.e-10:
+        k_exp = OneBodyOperator(
+            [phi_i * wb_i[1] for phi_i, wb_i in zip(phi, weights_and_basis)], system
+        )
+        rho = GibbsProductDensityOperator(k_exp, 1.0, system)
+        new_phi = [
+            2 * w_and_b[0] * rho.expect(w_and_b[1]) for w_and_b in weights_and_basis
+        ]
+        change = sum(
+            abs(old_phi_i - new_phi_i) for old_phi_i, new_phi_i in zip(new_phi, phi)
+        )
+        if change < 1.0e-10:
             break
         phi = new_phi
 
