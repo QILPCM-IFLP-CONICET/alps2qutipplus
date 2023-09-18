@@ -36,7 +36,9 @@ def eval_expr(expr: str, parms: dict):
             pass
 
     parms = {
-        key.replace("'", "_prima"): val for key, val in parms.items() if val is not None
+        key.replace("'", "_prima"): val
+        for key, val in parms.items()
+        if val is not None
     }
     expr = expr.replace("'", "_prima")
 
@@ -70,11 +72,13 @@ def eval_expr(expr: str, parms: dict):
         return result
     except NameError:
         pass
-    except TypeError as e:
-        print("Type Error. Undefined variables in ", expr, e)
+    except TypeError as exc:
+        print("Type Error. Undefined variables in ", expr, exc)
+        assert False
         for p in parms:
             if parms[p] is None:
                 print("   ", p, "->", parms[p])
+        return None
     return expr
 
 

@@ -2,7 +2,6 @@
 Basic unit test.
 """
 
-
 from alpsqutip.operators import (
     LocalOperator,
     OneBodyOperator,
@@ -11,17 +10,61 @@ from alpsqutip.operators import (
     SumOperator,
 )
 
-from .helper import CHAIN_SIZE, check_operator_equality, hamiltonian, sites
-from .helper import sx_A as local_sx_A
-from .helper import sy_A, sy_B, sz_A, sz_C, sz_total
-
+from .helper import (
+    CHAIN_SIZE,
+    check_operator_equality,
+    hamiltonian,
+    observable_cases,
+    operator_type_cases,
+    sites,
+    sx_A as local_sx_A,
+    sy_A,
+    sy_B,
+    sz_A,
+    sz_C,
+    sz_total,
+)
 
 sx_A = ProductOperator(
-    {local_sx_A.site: local_sx_A.operator}, 1.0, local_sx_A.system)
+    {local_sx_A.site: local_sx_A.operator}, 1.0, local_sx_A.system
+)
 sx_A2 = sx_A * sx_A
 sx_Asy_B = sx_A * sy_B
 sx_AsyB_times_2 = 2 * sx_Asy_B
 opglobal = sz_C + sx_AsyB_times_2
+
+
+def test_act_over():
+    """Check act_over method"""
+
+    results = {
+        "scalar, real": set(),
+        "scalar, complex": set(),
+        "local operator, hermitician": {"1[0]"},
+        "local operator, non hermitician": {"1[0]"},
+        "One body, hermitician": {f"1[{s}]" for s in range(CHAIN_SIZE)},
+        "One body, non hermitician": {f"1[{s}]" for s in range(CHAIN_SIZE)},
+        "three body, hermitician": {"1[0]", "1[1]", "1[2]"},
+        "three body, non hermitician": {f"1[{s}]" for s in range(CHAIN_SIZE)},
+        "product operator, hermitician": {"1[0]", "1[1]"},
+        "product operator, non hermitician": {"1[0]", "1[1]"},
+        "sum operator, hermitician": {"1[0]", "1[1]"},
+        "sum operator, hermitician from non hermitician": {"1[0]", "1[1]"},
+        "sum operator, anti-hermitician": {"1[0]", "1[1]"},
+        "qutip operator": None,
+        "hermitician quadratic operator": {
+            f"1[{s}]" for s in range(CHAIN_SIZE)
+        },
+        "non hermitician quadratic operator": {
+            f"1[{s}]" for s in range(CHAIN_SIZE)
+        },
+    }
+
+    for name, operator in operator_type_cases.items():
+        print(name)
+        act_over = operator.act_over()
+        print("    acts over ", act_over)
+        assert act_over == results[name]
 
 
 def test_build_hamiltonian():
@@ -35,6 +78,36 @@ def test_build_hamiltonian():
     )
 
 
+def test_isherm_operator():
+    """
+    Check if hermiticity is correctly determined
+    """
+
+    def do_test_case(name, observable):
+        if isinstance(observable, list):
+            for op_case in observable:
+                do_test_case(name, op_case)
+            return
+
+        assert observable.isherm, f"{key} is not hermitician?"
+
+        ham = observable_cases["hamiltonian"]
+        print("***addition***")
+        assert (ham + 1.0).isherm
+        assert (ham + sz_total).isherm
+        print("***scalar multiplication***")
+        assert (2.0 * ham).isherm
+        print("***scalar multiplication for a OneBody Operator")
+        assert (2.0 * sz_total).isherm
+        assert (ham * 2.0).isherm
+        assert (sz_total * 2.0).isherm
+        assert (sz_total.expm()).isherm
+        assert (ham**3).isherm
+
+    for key, observable in observable_cases.items():
+        do_test_case(key, observable)
+
+
 def test_type_operator():
     """Tests for operator types"""
     assert isinstance(sx_A, ProductOperator)
@@ -46,6 +119,7 @@ def test_type_operator():
     assert isinstance(sx_A + sy_B + sz_C, OneBodyOperator)
     assert isinstance(sx_A + sy_B + sx_A * sz_C, SumOperator)
     assert isinstance(3.0 * (sx_A + sy_B), OneBodyOperator)
+    print(type((sx_A + sy_B) * 2.0))
     assert isinstance((sx_A + sy_B) * 2.0, OneBodyOperator)
     assert isinstance(sy_B + sx_A, OneBodyOperator)
     assert isinstance(sx_Asy_B, ProductOperator)
@@ -62,7 +136,8 @@ def test_type_operator():
     assert check_operator_equality(sx_A, sx_A.to_qutip())
     terms = [sx_A, sy_A, sz_A]
     assert check_operator_equality(
-        sum(terms), sum(t.to_qutip() for t in terms))
+        sum(terms), sum(t.to_qutip() for t in terms)
+    )
     assert check_operator_equality(sx_A.inv(), sx_A.to_qutip().inv())
     opglobal_offset = opglobal + 1.3821
     assert check_operator_equality(
@@ -72,21 +147,23 @@ def test_type_operator():
 
 def test_inv_operator():
     """test the exponentiation of different kind of operators"""
-    sx_A_inv = sx_A.inv()
-    assert isinstance(sx_A_inv, LocalOperator)
-    assert check_operator_equality(sx_A_inv.to_qutip(), sx_A.to_qutip().inv())
+    sx_a_inv = sx_A.inv()
+    assert isinstance(sx_a_inv, LocalOperator)
+    assert check_operator_equality(sx_a_inv.to_qutip(), sx_A.to_qutip().inv())
 
     sx_obl = sx_A + sy_B + sz_C
     sx_obl_inv = sx_obl.inv()
     assert isinstance(sx_obl_inv, QutipOperator)
     assert check_operator_equality(
-        sx_obl_inv.to_qutip(), sx_obl.to_qutip().inv())
+        sx_obl_inv.to_qutip(), sx_obl.to_qutip().inv()
+    )
 
     s_prod = sx_A * sy_B * sz_C
     s_prod_inv = s_prod.inv()
     assert isinstance(s_prod, ProductOperator)
     assert check_operator_equality(
-        s_prod_inv.to_qutip(), s_prod.to_qutip().inv())
+        s_prod_inv.to_qutip(), s_prod.to_qutip().inv()
+    )
 
     opglobal_offset = opglobal + 1.3821
     opglobal_offset_inv = opglobal_offset.inv()
@@ -106,12 +183,14 @@ def test_exp_operator():
     sx_obl_exp = sx_obl.expm()
     assert isinstance(sx_obl_exp, ProductOperator)
     assert check_operator_equality(
-        sx_obl_exp.to_qutip(), sx_obl.to_qutip().expm())
+        sx_obl_exp.to_qutip(), sx_obl.to_qutip().expm()
+    )
 
     opglobal_exp = opglobal.expm()
     assert isinstance(opglobal_exp, QutipOperator)
     assert check_operator_equality(
-        opglobal_exp.to_qutip(), opglobal.to_qutip().expm())
+        opglobal_exp.to_qutip(), opglobal.to_qutip().expm()
+    )
 
 
 def test_local_operator():
@@ -122,8 +201,10 @@ def test_local_operator():
     print("product * local", type(sx_A * sy_A))
     print("local * product", type(sy_A * sx_A))
     print("commutator:", type(sx_A * sy_A - sy_A * sx_A))
-    print(((sx_A * sy_A - sy_A * sx_A) * sz_A).tr(), -
-          1j * 0.5 * 2 ** (CHAIN_SIZE - 1))
+    print(
+        ((sx_A * sy_A - sy_A * sx_A) * sz_A).tr(),
+        -1j * 0.5 * 2 ** (CHAIN_SIZE - 1),
+    )
     assert ((sx_A * sy_A - sy_A * sx_A) * sz_A).tr() == (
         -1j * 0.5 * 2 ** (CHAIN_SIZE - 1)
     )
@@ -173,7 +254,9 @@ def test_product_operator():
     assert (sx_AsyB_qt * sx_A_qt * syB_qt).tr() == 0.25 * 2 ** (CHAIN_SIZE - 2)
     assert (opglobal_qt * sx_A_qt * syB_qt).tr() == 0.5 * 2 ** (CHAIN_SIZE - 2)
     assert (szC_qt * szC_qt).tr() == 0.5 * 2 ** (CHAIN_SIZE - 1)
-    assert (sx_AsyB_times_2_qt * sx_AsyB_times_2_qt).tr() == 2 ** (CHAIN_SIZE - 2)
+    assert (sx_AsyB_times_2_qt * sx_AsyB_times_2_qt).tr() == 2 ** (
+        CHAIN_SIZE - 2
+    )
     assert (opglobal_qt * opglobal_qt).tr() == 2 ** (CHAIN_SIZE - 2) * 2
 
 
@@ -198,8 +281,9 @@ def test_qutip_operators():
 
     for subsystem in subsystems:
         assert (sx_A_qt).partial_trace(subsystem).tr() == 0.0
-        assert (sx_A2_qt).partial_trace(
-            subsystem).tr() == 0.5 * 2 ** (CHAIN_SIZE - 1)
+        assert (sx_A2_qt).partial_trace(subsystem).tr() == 0.5 * 2 ** (
+            CHAIN_SIZE - 1
+        )
         assert (sx_AsyB_qt * sx_A_qt * syB_qt).partial_trace(
             subsystem
         ).tr() == 0.25 * 2 ** (CHAIN_SIZE - 2)
@@ -212,9 +296,9 @@ def test_qutip_operators():
         assert (sx_AsyB_times_2_qt * sx_AsyB_times_2_qt).partial_trace(
             subsystem
         ).tr() == 2 ** (CHAIN_SIZE - 2)
-        assert (opglobal_qt * opglobal_qt).partial_trace(subsystem).tr() == 2 ** (
-            CHAIN_SIZE - 2
-        ) * 2
+        assert (opglobal_qt * opglobal_qt).partial_trace(
+            subsystem
+        ).tr() == 2 ** (CHAIN_SIZE - 2) * 2
         assert (opglobal_qt * sx_A_qt).partial_trace(subsystem).tr() == 0.0
         assert (opglobal_qt * opglobal).partial_trace(subsystem).tr() == 2 ** (
             CHAIN_SIZE - 2
@@ -225,14 +309,46 @@ def test_qutip_operators():
 
     # Tests for QutipOperators defined without a system
     detached_qutip_operator = QutipOperator(sx_AsyB_times_2_qt.operator)
-    assert ((sx_AsyB_times_2_qt.operator) ** 2).tr() == 2 ** (CHAIN_SIZE - 2)
-    assert (detached_qutip_operator * detached_qutip_operator).tr() == 2 ** (
+    assert ((sx_AsyB_times_2_qt.operator) ** 2).tr() == 0.5**2 * 2 ** (
         CHAIN_SIZE - 2
     )
+    assert (
+        detached_qutip_operator * detached_qutip_operator
+    ).tr() == 0.5**2 * 2 ** (CHAIN_SIZE - 2)
 
     detached_qutip_operator = QutipOperator(
         sx_AsyB_times_2_qt.operator, names={s: i for i, s in enumerate(sites)}
     )
     assert (detached_qutip_operator * detached_qutip_operator).partial_trace(
         sites[0]
-    ).tr() == 2 ** (CHAIN_SIZE - 2)
+    ).tr() == 0.5**2 * 2 ** (CHAIN_SIZE - 2)
+
+
+def test_arithmetic_operators():
+    """
+    Test consistency of arithmetic expressions
+    """
+    operator_type_cases_qutip = {
+        key: operator.to_qutip()
+        for key, operator in operator_type_cases.items()
+    }
+
+    for key1, test_operator1 in operator_type_cases.items():
+        op1_qutip = operator_type_cases_qutip[key1]
+        result = -test_operator1
+        check_operator_equality(result.to_qutip(), -op1_qutip)
+
+        result = test_operator1.dag()
+        check_operator_equality(result.to_qutip(), op1_qutip.dag())
+
+        for key2, test_operator2 in operator_type_cases.items():
+            # print("add ", key1, " and ", key2)
+            op2_qutip = operator_type_cases_qutip[key2]
+            result = test_operator1 + test_operator2
+
+            check_operator_equality(result.to_qutip(), (op1_qutip + op2_qutip))
+
+            # print("product of ", key1, " and ", key2)
+            result = test_operator1 * test_operator2
+
+            check_operator_equality(result.to_qutip(), (op1_qutip * op2_qutip))

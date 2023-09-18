@@ -6,9 +6,7 @@ from numbers import Number
 from typing import Dict, Iterable, Optional, Union
 
 import numpy as np
-from qutip import Qobj
-from qutip import qeye as qutip_qeye
-from qutip import tensor as qutip_tensor
+from qutip import Qobj, qeye as qutip_qeye, tensor as qutip_tensor
 
 from alpsqutip.model import Operator, SystemDescriptor
 from alpsqutip.operator_functions import eigenvalues
@@ -39,22 +37,28 @@ class DensityOperatorMixin:
     `expect`.
     """
 
-    isherm: bool = True
-
     def __add__(self, operand):
         if isinstance(operand, DensityOperatorMixin):
-            return MixtureDensityOperator([self, operand])
+            return MixtureDensityOperator((self, operand,), self.system)
         return super().__add__(operand)
 
-    def expect(self, obs: Union[Operator, Iterable]) -> Union[np.ndarray, dict, Number]:
+    def expect(
+        self, obs: Union[Operator, Iterable]
+    ) -> Union[np.ndarray, dict, Number]:
         """Compute the expectation value of an observable"""
         if isinstance(obs, dict):
-            return {name: self.expect(operator) for name, operator in obs.items()}
+            return {
+                name: self.expect(operator) for name, operator in obs.items()
+            }
 
         if isinstance(obs, (tuple, list)):
             return np.array([self.expect(operator) for operator in obs])
 
         return (self * obs).tr()
+
+    @property
+    def isherm(self) -> bool:
+        return True
 
 
 class QutipDensityOperator(QutipOperator, DensityOperatorMixin):
@@ -79,7 +83,10 @@ class QutipDensityOperator(QutipOperator, DensityOperatorMixin):
         if isinstance(operand, (int, float)):
             assert operand >= 0
             return QutipDensityOperator(
-                self.operator, self.system, self.site_names, self.prefactor * operand
+                self.operator,
+                self.system,
+                self.site_names,
+                self.prefactor * operand,
             )
 
         return super().__mul__(operand)
@@ -88,7 +95,10 @@ class QutipDensityOperator(QutipOperator, DensityOperatorMixin):
         if isinstance(operand, (int, float)):
             assert operand >= 0
             return QutipDensityOperator(
-                self.operator, self.system, self.site_names, self.prefactor * operand
+                self.operator,
+                self.system,
+                self.site_names,
+                self.prefactor * operand,
             )
 
         return super().__mul__(operand)
@@ -109,7 +119,9 @@ class ProductDensityOperator(ProductOperator, DensityOperatorMixin):
         dimensions = system.dimensions
         local_zs = {
             site: (
-                local_states[site].tr() if site in local_states else dimensions[site]
+                local_states[site].tr()
+                if site in local_states
+                else dimensions[site]
             )
             for site in sites
         }
@@ -117,13 +129,17 @@ class ProductDensityOperator(ProductOperator, DensityOperatorMixin):
         if normalize:
             assert (z > 0 for z in local_zs.values())
             local_states = {
-                site: sigma / local_zs[site] for site, sigma in local_states.items()
+                site: sigma / local_zs[site]
+                for site, sigma in local_states.items()
             }
-
+        # TODO: remove me
+        self.tagged_scalar = True
         super().__init__(local_states, prefactor=weight, system=system)
         self.local_fs = {site: -np.log(z) for site, z in local_zs.items()}
 
-    def expect(self, obs: Union[Operator, Iterable]) -> Union[np.ndarray, dict, Number]:
+    def expect(
+        self, obs: Union[Operator, Iterable]
+    ) -> Union[np.ndarray, dict, Number]:
         if isinstance(obs, LocalOperator):
             operator = obs.operator
             site = obs.site
@@ -145,7 +161,9 @@ class ProductDensityOperator(ProductOperator, DensityOperatorMixin):
                 if site in local_states:
                     result *= (local_states[site] * obs_op).tr()
                 else:
-                    result *= obs_op.tr() / reduce((lambda x, y: x * y), obs_op.dims[0])
+                    result *= obs_op.tr() / reduce(
+                        (lambda x, y: x * y), obs_op.dims[0]
+                    )
             return result
         return super().expect(obs)
 
@@ -154,7 +172,6 @@ class ProductDensityOperator(ProductOperator, DensityOperatorMixin):
         sites_in = [site for site in sites if site in sites_op]
         local_states = {site: sites_op[site] for site in sites_in}
         subsystem = self.system.subsystem(sites_in)
-        print("partial trace of a product state", self.prefactor, local_states)
         return ProductDensityOperator(
             local_states, self.prefactor, subsystem, normalize=False
         )
@@ -170,7 +187,9 @@ class ProductDensityOperator(ProductOperator, DensityOperatorMixin):
                 )
             if n_factors == 1:
                 site, sigma = next(sites_op.items())
-                local_dim = 1 / system.dimensions.get(site, 1) if system else 1.0
+                local_dim = (
+                    1 / system.dimensions.get(site, 1) if system else 1.0
+                )
                 prefactor = self.prefactor
                 new_prefactor = prefactor + rho / local_dim
                 return ProductDensityOperator(
@@ -200,7 +219,10 @@ class ProductDensityOperator(ProductOperator, DensityOperatorMixin):
                 if other_sigma is not None:
                     a_float, b_float = self.prefactor, rho.prefactor
                     new_prefactor = a_float + b_float
-                    a_float, b_float = a_float / new_prefactor, b_float / new_prefactor
+                    a_float, b_float = (
+                        a_float / new_prefactor,
+                        b_float / new_prefactor,
+                    )
                     new_sigma = a_float * sigma + b_float * other_sigma
                     return ProductDensityOperator(
                         {
@@ -255,11 +277,13 @@ class MixtureDensityOperator(SumOperator, DensityOperatorMixin):
     A mixture of density operators
     """
 
-    def __init__(self, terms: list, system: SystemDescriptor = None):
+    def __init__(self, terms: tuple, system: SystemDescriptor = None):
         assert (isinstance(t, ProductDensityOperator) for t in terms)
         super().__init__(terms, system)
 
-    def expect(self, obs: Union[Operator, Iterable]) -> Union[np.ndarray, dict, Number]:
+    def expect(
+        self, obs: Union[Operator, Iterable]
+    ) -> Union[np.ndarray, dict, Number]:
         strip = False
         if isinstance(obs, Operator):
             strip = True
@@ -267,13 +291,18 @@ class MixtureDensityOperator(SumOperator, DensityOperatorMixin):
 
         av_terms = tuple(term.expect(obs) for term in self.terms)
         if isinstance(obs, dict):
-            return {op_name: sum(term[op_name] for term in av_terms) for op_name in obs}
+            return {
+                op_name: sum(term[op_name] for term in av_terms)
+                for op_name in obs
+            }
         if strip:
             return sum(term for term in av_terms)[0]
         return sum(term for term in av_terms)
 
     def partial_trace(self, sites: list):
-        return MixtureDensityOperator([t.partial_trace(sites) for t in self.terms])
+        return MixtureDensityOperator(
+            tuple(t.partial_trace(sites) for t in self.terms), self.system
+        )
 
     def __add__(self, rho: Operator):
         terms = self.terms
@@ -282,9 +311,9 @@ class MixtureDensityOperator(SumOperator, DensityOperatorMixin):
         if isinstance(rho, MixtureDensityOperator):
             terms = terms + rho.terms
         elif isinstance(rho, DensityOperatorMixin):
-            terms = terms + [rho]
+            terms = terms + (rho,)
         elif isinstance(rho, (int, float)):
-            terms = terms + [ProductDensityOperator({}, rho, system, False)]
+            terms = terms + (ProductDensityOperator({}, rho, system, False),)
         else:
             return super().__add__(rho)
         return MixtureDensityOperator(terms, system)
@@ -292,10 +321,12 @@ class MixtureDensityOperator(SumOperator, DensityOperatorMixin):
     def __mul__(self, a):
         if isinstance(a, float):
             return MixtureDensityOperator(
-                [
-                    ProductDensityOperator(t.sites_op, t.prefactor * a, t.system, False)
+                tuple(
+                    ProductDensityOperator(
+                        t.sites_op, t.prefactor * a, t.system, False
+                    )
                     for t in self.terms
-                ]
+                )
             )
         return super().__mul__(a)
 
@@ -367,9 +398,13 @@ class GibbsDensityOperator(Operator, DensityOperatorMixin):
             )
         if isinstance(operand, Operator):
             return self * operand.inv()
-        raise ValueError("Division of an operator by ", type(operand), " not defined.")
+        raise ValueError(
+            "Division of an operator by ", type(operand), " not defined."
+        )
 
-    def expect(self, obs: Union[Operator, Iterable]) -> Union[np.ndarray, dict, Number]:
+    def expect(
+        self, obs: Union[Operator, Iterable]
+    ) -> Union[np.ndarray, dict, Number]:
         return self.to_qutip_operator().expect(obs)
 
     def normalize(self) -> Operator:
@@ -411,6 +446,8 @@ class GibbsProductDensityOperator(Operator, DensityOperatorMixin):
     prefactor: float
     free_energies: Dict[str, float]
 
+    isherm: bool = True
+
     def __init__(
         self,
         k: Union[Operator, dict],
@@ -420,7 +457,6 @@ class GibbsProductDensityOperator(Operator, DensityOperatorMixin):
     ):
         assert prefactor > 0.0
         self.prefactor = prefactor
-
         if isinstance(k, LocalOperator):
             self.system = system or k.system
             k_by_site = {k.site: k.operator}
@@ -430,6 +466,11 @@ class GibbsProductDensityOperator(Operator, DensityOperatorMixin):
         elif isinstance(k, dict):
             self.system = system
             k_by_site = k
+        elif isinstance(k, Number):
+            self.system = system
+            site, dim = next(iter(system.dimensions.items()))
+            operator = k * qutip_qeye(dim)
+            k_by_site = {site: operator}
         else:
             raise ValueError(
                 "ProductGibbsOperator cannot be initialized from a ", type(k)
@@ -445,7 +486,8 @@ class GibbsProductDensityOperator(Operator, DensityOperatorMixin):
                 self.free_energies = {site: 0 for site in k_by_site}
         else:
             f_locals = {
-                site: np.log((-l_op).expm().tr()) for site, l_op in k_by_site.items()
+                site: np.log((-l_op).expm().tr())
+                for site, l_op in k_by_site.items()
             }
 
             if system:
@@ -457,7 +499,8 @@ class GibbsProductDensityOperator(Operator, DensityOperatorMixin):
                 self.free_energies = f_locals
 
             k_by_site = {
-                site: local_k + f_locals[site] for site, local_k in k_by_site.items()
+                site: local_k + f_locals[site]
+                for site, local_k in k_by_site.items()
             }
 
         self.k_by_site = k_by_site
@@ -481,7 +524,9 @@ class GibbsProductDensityOperator(Operator, DensityOperatorMixin):
                 )
         return operand * self.to_product_state()
 
-    def expect(self, obs: Union[Operator, Iterable]) -> Union[np.ndarray, dict, Number]:
+    def expect(
+        self, obs: Union[Operator, Iterable]
+    ) -> Union[np.ndarray, dict, Number]:
         # TODO: write a better implementation
         if isinstance(obs, Operator):
             return (self.to_product_state()).expect(obs) * self.prefactor
@@ -493,11 +538,11 @@ class GibbsProductDensityOperator(Operator, DensityOperatorMixin):
         k_by_site = self.k_by_site
         return GibbsProductDensityOperator(
             OneBodyOperator(
-                [
+                tuple(
                     LocalOperator(site, k_by_site[site], subsystem)
                     for site in sites
                     if site in k_by_site
-                ],
+                ),
                 subsystem,
             ),
             self.prefactor,
@@ -507,9 +552,11 @@ class GibbsProductDensityOperator(Operator, DensityOperatorMixin):
 
     def to_product_state(self):
         """Convert the operator in a productstate"""
-
+        local_states = {
+            site: (-local_k).expm() for site, local_k in self.k_by_site.items()
+        }
         return ProductDensityOperator(
-            {site: (-local_k).expm() for site, local_k in self.k_by_site.items()},
+            local_states,
             self.prefactor,
             system=self.system,
             normalize=False,

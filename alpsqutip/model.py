@@ -1,7 +1,8 @@
 """
 Define SystemDescriptors and different kind of operators
 """
-from typing import Optional
+from typing import Callable, Dict, Optional, Tuple
+from numbers import Number
 
 import numpy as np
 import qutip
@@ -37,10 +38,13 @@ class SystemDescriptor:
             self.sites = sites
         else:
             self.sites = {
-                node: site_basis[attr["type"]] for node, attr in graph.nodes.items()
+                node: site_basis[attr["type"]]
+                for node, attr in graph.nodes.items()
             }
 
-        self.dimensions = {name: site["dimension"] for name, site in self.sites.items()}
+        self.dimensions = {
+            name: site["dimension"] for name, site in self.sites.items()
+        }
         self.operators = {
             "site_operators": {},
             "bond_operators": {},
@@ -79,21 +83,26 @@ class SystemDescriptor:
                 self.site_operator(op_site)
 
     def _load_global_ops(self):
-        # First, load conserved quantum numbers:
-        from alpsqutip.operators import LocalOperator, OneBodyOperator
+        # Import here to avoid circular dependency
+        # pylint: disable=import-outside-toplevel
+        from alpsqutip.operators import (
+            LocalOperator,
+            OneBodyOperator,
+        )
 
+        # First, load conserved quantum numbers:
         for constraint_qn in self.spec["model"].constraints:
-            global_qn = OneBodyOperator(
-                [],
-                self,
-            )
+            global_qn_terms = []
             for site, site_basis in self.sites.items():
                 local_qn = site_basis["qn"].get(constraint_qn, None)
                 if local_qn is None:
                     continue
                 op_name = local_qn["operator"]
                 operator = site_basis["operators"][op_name]
-                global_qn = global_qn + LocalOperator(site, operator, self)
+
+                global_qn_terms.append(LocalOperator(site, operator, self))
+
+            global_qn = OneBodyOperator(tuple(global_qn_terms), self, True)
 
             if bool(global_qn):
                 self.operators["global_operators"][constraint_qn] = global_qn
@@ -110,7 +119,9 @@ class SystemDescriptor:
             return self
         if all(site in system.sites for site in self.sites):
             return system
-        raise NotImplementedError("Union of disjoint systems are not implemented.")
+        raise NotImplementedError(
+            "Union of disjoint systems are not implemented."
+        )
 
     def site_operator(self, name: str, site: str = "") -> "Operator":
         """
@@ -118,6 +129,8 @@ class SystemDescriptor:
         acting over the site `site`. By default, the name is assumed
         to specify both the name and site in the form `"name@site"`.
         """
+        # Import here to avoid circular dependency
+        # pylint: disable=import-outside-toplevel
         from alpsqutip.operators import LocalOperator
 
         if site != "":
@@ -126,7 +139,9 @@ class SystemDescriptor:
         else:
             op_name, site = name.split("@")
 
-        site_op = self.operators["site_operators"].get(site, {}).get(name, None)
+        site_op = (
+            self.operators["site_operators"].get(site, {}).get(name, None)
+        )
         if site_op is not None:
             return site_op
 
@@ -138,7 +153,9 @@ class SystemDescriptor:
         self.operators["site_operators"][site][op_name] = result_op
         return result_op
 
-    def bond_operator(self, name: str, src: str, dst: str, skip=None) -> "Operator":
+    def bond_operator(
+        self, name: str, src: str, dst: str, skip=None
+    ) -> "Operator":
         """Bond operator by name and sites"""
 
         result_op = self.operators["global_operators"].get(
@@ -192,7 +209,6 @@ class SystemDescriptor:
                 )
             ] = result
             return result
-
         # Now, try to include existent bond operators
         parms_and_ops.update(
             {
@@ -256,6 +272,8 @@ class SystemDescriptor:
 
     def site_term_from_descriptor(self, term_spec, graph, parms):
         """Build a site term from a site term specification"""
+        # Import here to avoid circular dependency
+        # pylint: disable=import-outside-toplevel
         from alpsqutip.operators import OneBodyOperator
 
         expr = term_spec["expr"]
@@ -270,7 +288,9 @@ class SystemDescriptor:
             if site_type is not None and site_type != node_type:
                 continue
             s_expr = expr.replace("#", node_type).replace("@", "__")
-            s_parm = {key.replace("#", node_type): val for key, val in t_parm.items()}
+            s_parm = {
+                key.replace("#", node_type): val for key, val in t_parm.items()
+            }
             s_parm.update(
                 {
                     f"{name_op}_local": local_op
@@ -284,16 +304,19 @@ class SystemDescriptor:
                 raise ValueError(f"<<{s_expr}>> could not be evaluated.")
             term_ops.append(term_op)
 
-        return OneBodyOperator(term_ops, self)
+        return OneBodyOperator(tuple(term_ops), self)
 
     def bond_term_from_descriptor(self, term_spec, graph, model, parms):
         """Build a bond term from a bond term speficication"""
+        # Import here to avoid circular dependency
+        # pylint: disable=import-outside-toplevel
         from alpsqutip.operators import SumOperator
 
         def process_edge(e_expr, bond, model, t_parm):
             edge_type, src, dst = bond
             e_parms = {
-                key.replace("#", f"{edge_type}"): val for key, val in t_parm.items()
+                key.replace("#", f"{edge_type}"): val
+                for key, val in t_parm.items()
             }
             for op_idx in ([src, "src"], [dst, "dst"]):
                 e_parms.update(
@@ -306,6 +329,7 @@ class SystemDescriptor:
                 )
 
             # Try to compute using only site terms
+
             term_op = eval_expr(e_expr, e_parms)
             if not isinstance(term_op, str):
                 return term_op
@@ -319,10 +343,13 @@ class SystemDescriptor:
                 e_parms.update(
                     {
                         f"{key[0]}__src_dst": val
-                        for key, val in self.operators["bond_operators"].items()
+                        for key, val in self.operators[
+                            "bond_operators"
+                        ].items()
                         if key[src_idx] == src and key[dst_idx] == dst
                     }
                 )
+
             return eval_expr(e_expr, e_parms)
 
         expr = term_spec["expr"]
@@ -332,23 +359,26 @@ class SystemDescriptor:
         if parms:
             t_parm.update(parms)
         result_terms = []
-
         for edge_type, edges in graph.edges.items():
             if term_type is not None and term_type != edge_type:
                 continue
             e_expr = expr.replace("#", edge_type).replace("@", "__")
             for src, dst in edges:
-                term_op = process_edge(e_expr, (edge_type, src, dst), model, t_parm)
+                term_op = process_edge(
+                    e_expr, (edge_type, src, dst), model, t_parm
+                )
                 if isinstance(term_op, str):
                     raise ValueError(
                         f"   Bond term <<{term_op}>> could not be evaluated."
                     )
 
                 result_terms.append(term_op)
-        return SumOperator(result_terms)
+
+        return SumOperator(tuple(result_terms), self, True)
 
     def global_operator(self, name):
         """Return a global operator by its name"""
+        # pylint: disable=import-outside-toplevel
         from alpsqutip.operators import OneBodyOperator, SumOperator
 
         result = self.operators["global_operators"].get(name, None)
@@ -362,13 +392,15 @@ class SystemDescriptor:
         graph = self.spec["graph"]
         parms = self.spec["parms"]
         model = self.spec["model"]
+
+
         # Process site terms
         try:
-            site_terms = [
+            site_terms = (
                 self.site_term_from_descriptor(term_spec, graph, parms)
                 for term_spec in op_descr["site terms"]
-            ]
-            site_terms = [term for term in site_terms if term]
+            )
+            site_terms = tuple(term for term in site_terms if term)
         except ValueError as exc:
             if VERBOSITY_LEVEL > 2:
                 print(*exc.args, f"Aborting evaluation of {name}.")
@@ -377,11 +409,11 @@ class SystemDescriptor:
 
         # Process bond terms
         try:
-            bond_terms = [
+            bond_terms = tuple(
                 self.bond_term_from_descriptor(term_spec, graph, model, parms)
                 for term_spec in op_descr["bond terms"]
-            ]
-            bond_terms = [term for term in bond_terms if term]
+            )
+            bond_terms = tuple(term for term in bond_terms if term)
 
         except ValueError as exc:
             if VERBOSITY_LEVEL > 2:
@@ -390,9 +422,9 @@ class SystemDescriptor:
             return None
 
         if bond_terms:
-            result = SumOperator(site_terms + bond_terms, self)
+            result = SumOperator(site_terms + bond_terms, self, True)
         else:
-            result = OneBodyOperator(site_terms, self)
+            result = OneBodyOperator(site_terms, self, True)
         self.operators["global_operators"][name] = result
         return result
 
@@ -403,15 +435,30 @@ class Operator:
     system: SystemDescriptor
     prefactor: float = 1.0
 
-    def __truediv__(self, operand):
-        if isinstance(operand, (int, float, complex)):
-            return self * (1.0 / operand)
-        if isinstance(operand, Operator):
-            return self * operand.inv()
-        raise ValueError("Division of an operator by ", type(operand), " not defined.")
+    # def __add__(self, term):
+    #    # pylint: disable=import-outside-toplevel
+    #    from alpsqutip.operators import SumOperator
+    #
+    #    return SumOperator([self, term], self.system)
+
+    __mul__dispatch__: Dict[Tuple, Callable] = {}
+
+    def __mul__(self, factor):
+        # Use multiple dispatch to determine how to multiply
+        func = self.__mul__dispatch__.get((type(self), type(factor)), None)
+
+        if func is not None:
+            return func(self, factor)
+
+        for key, func in self.__mul__dispatch__.items():
+            lhf, rhf = key
+            if isinstance(self, lhf) and isinstance(factor, rhf):
+                return func(self, factor)
+
+        return self.to_qutip_operator() * factor
 
     def __neg__(self):
-        raise NotImplementedError()
+        return -(self.to_qutip_operator())
 
     def __sub__(self, operand):
         if operand is None:
@@ -423,6 +470,23 @@ class Operator:
         if operand is None:
             raise ValueError("None can not be an operand")
         return self + operand
+
+    def __rmul__(self, factor):
+        # Use __mul__dispatch__ to determine how to evaluate the product
+        if isinstance(factor, Number):
+            return self * factor
+
+        func = self.__mul__dispatch__.get((type(factor), type(self)), None)
+
+        if func is not None:
+            return func(factor, self)
+
+        for key, func in self.__mul__dispatch__.items():
+            lhf, rhf = key
+            if isinstance(factor, lhf) and isinstance(self, rhf):
+                return func(factor, self)
+
+        return factor * self.to_qutip_operator()
 
     def __rsub__(self, operand):
         if operand is None:
@@ -437,26 +501,53 @@ class Operator:
 
         return self.to_qutip_operator() ** exponent
 
+    def __truediv__(self, operand):
+        if isinstance(operand, (int, float, complex)):
+            return self * (1.0 / operand)
+        if isinstance(operand, Operator):
+            return self * operand.inv()
+        raise ValueError(
+            "Division of an operator by ", type(operand), " not defined."
+        )
+
     def _repr_latex_(self):
         """LaTeX Representation"""
         qutip_repr = self.to_qutip()
         if isinstance(qutip_repr, qutip.Qobj):
+            # pylint: disable=protected-access
             parts = qutip_repr._repr_latex_().split("$")
             tex = parts[1] if len(parts) > 2 else "-?-"
         else:
             tex = str(qutip_repr)
         return f"${tex}$"
 
+    def act_over(self) -> Optional[set]:
+        """
+        Return the list of sites over which the operator acts nontrivially.
+        If this cannot be determined, return None.
+        """
+        return None
+
     def dag(self):
         """Adjoint operator of quantum object"""
         return self.to_qutip_operator().dag()
 
+    @property
+    def isherm(self) -> bool:
+        """Check if the operator is hermitician"""
+        return self.to_qutip().isherm
+
     def expm(self):
         """Produce a Qutip representation of the operator"""
-        from alpsqutip.operators import QutipOperator
+
+        # Import here to avoid circular dependency
+        # pylint: disable=import-outside-toplevel
+        from alpsqutip.operators.qutip import QutipOperator
 
         op_qutip = self.to_qutip()
-        max_eval = op_qutip.eigenenergies(sort="high", sparse=True, eigvals=3)[0]
+        max_eval = op_qutip.eigenenergies(sort="high", sparse=True, eigvals=3)[
+            0
+        ]
         op_qutip = (op_qutip - max_eval).expm()
         return QutipOperator(op_qutip, self.system, prefactor=np.exp(max_eval))
 
@@ -478,25 +569,31 @@ class Operator:
 
     def to_qutip_operator(self):
         """Produce a Qutip representation of the operator"""
-        from alpsqutip.operators import QutipOperator
+        from alpsqutip.operators.qutip import QutipOperator
 
         return QutipOperator(self.to_qutip(), self.system)
 
+    # pylint: disable=invalid-name
     def tr(self):
         """The trace of the operator"""
         return self.partial_trace([]).prefactor
 
 
-def build_spin_chain(l: int = 2):
+def build_spin_chain(length: int = 2, field=0.0):
     """Build a spin chain of length `l`"""
+    # pylint: disable=import-outside-toplevel
     from alpsqutip.alpsmodels import model_from_alps_xml
+
+    # pylint: disable=import-outside-toplevel
     from alpsqutip.geometry import graph_from_alps_xml
+
+    # pylint: disable=import-outside-toplevel
     from alpsqutip.settings import LATTICE_LIB_FILE, MODEL_LIB_FILE
 
     return SystemDescriptor(
         model=model_from_alps_xml(MODEL_LIB_FILE, "spin"),
         graph=graph_from_alps_xml(
-            LATTICE_LIB_FILE, "chain lattice", parms={"L": l, "a": 1}
+            LATTICE_LIB_FILE, "chain lattice", parms={"L": length, "a": 1}
         ),
-        parms={"h": 1, "J": 1, "Jz0": 1, "Jxy0": 1},
+        parms={"h": field, "J": 1, "Jz0": 1, "Jxy0": 1},
     )
