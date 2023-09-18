@@ -6,14 +6,17 @@ from numbers import Number
 from typing import Dict, Iterable, Optional, Union
 
 import numpy as np
-from qutip import Qobj
-from qutip import qeye as qutip_qeye
-from qutip import tensor as qutip_tensor
+from qutip import Qobj, qeye as qutip_qeye, tensor as qutip_tensor
 
 from alpsqutip.model import Operator, SystemDescriptor
 from alpsqutip.operator_functions import eigenvalues
-from alpsqutip.operators import (LocalOperator, OneBodyOperator,
-                                 ProductOperator, QutipOperator, SumOperator)
+from alpsqutip.operators import (
+    LocalOperator,
+    OneBodyOperator,
+    ProductOperator,
+    QutipOperator,
+    SumOperator,
+)
 
 
 def safe_exp_and_normalize(operator):

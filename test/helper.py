@@ -11,9 +11,11 @@ import qutip
 from alpsqutip.model import Operator, SystemDescriptor, build_spin_chain
 from alpsqutip.operators import OneBodyOperator, ProductOperator, SumOperator
 from alpsqutip.settings import VERBOSITY_LEVEL
-from alpsqutip.states import (GibbsDensityOperator,
-                              GibbsProductDensityOperator,
-                              ProductDensityOperator)
+from alpsqutip.states import (
+    GibbsDensityOperator,
+    GibbsProductDensityOperator,
+    ProductDensityOperator,
+)
 
 CHAIN_SIZE = 6
 
