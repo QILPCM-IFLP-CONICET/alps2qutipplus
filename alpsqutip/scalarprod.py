@@ -17,7 +17,6 @@ def fetch_kubo_scalar_product(sigma: Operator, threshold=0):
     associated to the state `sigma`
     """
     evals_evecs = sorted(zip(*sigma.eigenstates()), key=lambda x: -x[0])
-    print(" starting with", len(evals_evecs), "basis elements")
     w = 1
     for i, val_vec in enumerate(evals_evecs):
         p = val_vec[0]

@@ -381,7 +381,6 @@ class OneBodyOperator(SumOperator):
             nonlocal terms_by_subsystem
 
             if isinstance(term, Number):
-                print("add ", type(term), "and ", scalar_term)
                 scalar_term = scalar_term + term
                 return
             term = term.simplify()
@@ -421,13 +420,7 @@ class OneBodyOperator(SumOperator):
                 return (scalar_term,), system
 
             first_key, terms_list = next(iter(terms_by_subsystem.items()))
-            print(first_key, "has a first term of type ", terms_list[0], "\n")
             first_term_plus_scalar = terms_list[0] + scalar_term
-            print(
-                " by adding the scalar we get",
-                type(first_term_plus_scalar),
-                "\n",
-            )
             terms_list[0] = first_term_plus_scalar
 
         terms = tuple(

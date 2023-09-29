@@ -74,10 +74,6 @@ def eval_expr(expr: str, parms: dict):
         pass
     except TypeError as exc:
         print("Type Error. Undefined variables in ", expr, exc)
-        assert False
-        for p in parms:
-            if parms[p] is None:
-                print("   ", p, "->", parms[p])
         return None
     return expr
 
