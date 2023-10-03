@@ -20,7 +20,7 @@ from alpsqutip.states import (
     GibbsProductDensityOperator,
     ProductDensityOperator,
 )
-from alpsqutip.quadratic import build_quadratic_form_from_operator
+from alpsqutip.operators.quadratic import build_quadratic_form_from_operator
 
 CHAIN_SIZE = 4
 
@@ -60,7 +60,7 @@ sh_AB = 0.7 * sh_A + 0.3 * sh_B
 
 
 sz_total: OneBodyOperator = system.global_operator("Sz")
-assert isinstance(sz_total, OneBodyOperator) 
+assert isinstance(sz_total, OneBodyOperator)
 
 sx_total: OneBodyOperator = sum(system.site_operator("Sx", s) for s in sites)
 sy_total: OneBodyOperator = sum(system.site_operator("Sy", s) for s in sites)
@@ -100,8 +100,9 @@ operator_type_cases = {
     "One body, hermitician": sz_total,
     "One body, non hermitician": sx_total + sy_total * 1j,
     "three body, hermitician": (sx_A * sy_B * sz_C),
-    "three body, non hermitician": ((sminus_A * sminus_B + sy_A * sy_B)
-    * sz_total),
+    "three body, non hermitician": (
+        (sminus_A * sminus_B + sy_A * sy_B) * sz_total
+    ),
     "product operator, hermitician": sh_AB,
     "product operator, non hermitician": sminus_A * splus_B,
     "sum operator, hermitician": sx_A * sx_B + sy_A * sy_B,  # Sum operator
@@ -158,7 +159,7 @@ def check_equality(lhs, rhs):
     different.
     """
     if isinstance(lhs, Number) and isinstance(rhs, Number):
-        assert abs(lhs - rhs) < 1.0e-10
+        assert abs(lhs - rhs) < 1.0e-10, f"{lhs}!={rhs} + O(10^-10)"
         return True
 
     if isinstance(lhs, Operator) and isinstance(rhs, Operator):

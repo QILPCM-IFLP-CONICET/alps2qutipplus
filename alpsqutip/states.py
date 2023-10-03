@@ -15,6 +15,7 @@ from alpsqutip.operators import (
     OneBodyOperator,
     ProductOperator,
     QutipOperator,
+    ScalarOperator,
     SumOperator,
 )
 
@@ -37,9 +38,18 @@ class DensityOperatorMixin:
     `expect`.
     """
 
-    def __add__(self, operand):
+    def __noadd__(self, operand):
+        if isinstance(operand, MixtureDensityOperator):
+            return operand + self
+
         if isinstance(operand, DensityOperatorMixin):
-            return MixtureDensityOperator((self, operand,), self.system)
+            return MixtureDensityOperator(
+                (
+                    self,
+                    operand,
+                ),
+                self.system,
+            )
         return super().__add__(operand)
 
     def expect(
@@ -54,10 +64,10 @@ class DensityOperatorMixin:
         if isinstance(obs, (tuple, list)):
             return np.array([self.expect(operator) for operator in obs])
 
-        return (self * obs).tr()
+        return (self * obs).tr() / self.prefactor
 
     @property
-    def isherm(self) -> bool:
+    def isherm(self):
         return True
 
 
@@ -103,6 +113,16 @@ class QutipDensityOperator(QutipOperator, DensityOperatorMixin):
 
         return super().__mul__(operand)
 
+    def logm(self):
+        operator = self.operator
+        evals, evecs = operator.eigenstates()
+        evals[abs(evals) < 1.0e-30] = 1.0e-30
+        log_op = sum(
+            np.log(e_val) * e_vec * e_vec.dag()
+            for e_val, e_vec in zip(evals, evecs)
+        )
+        return QutipOperator(log_op, self.system, self.site_names)
+
 
 class ProductDensityOperator(ProductOperator, DensityOperatorMixin):
     """An uncorrelated density operator."""
@@ -137,6 +157,42 @@ class ProductDensityOperator(ProductOperator, DensityOperatorMixin):
         super().__init__(local_states, prefactor=weight, system=system)
         self.local_fs = {site: -np.log(z) for site, z in local_zs.items()}
 
+    def __add__(self, operand):
+        if isinstance(operand, MixtureDensityOperator):
+            return operand + self
+
+        if isinstance(operand, DensityOperatorMixin):
+            return MixtureDensityOperator(
+                (
+                    self,
+                    operand,
+                ),
+                self.system,
+            )
+        return super().__add__(operand)
+
+    def __mul__(self, a):
+        if isinstance(a, float):
+            if a > 0:
+                return ProductDensityOperator(
+                    self.sites_op, self.prefactor * a, self.system, False
+                )
+
+            if a == 0.0:
+                return ProductDensityOperator({}, a, self.system, False)
+        return super().__mul__(a)
+
+    def __rmul__(self, a):
+        if isinstance(a, float):
+            if a > 0:
+                return ProductDensityOperator(
+                    self.sites_op, self.prefactor * a, self.system, False
+                )
+
+            if a == 0.0:
+                return ProductDensityOperator({}, a, self.system, False)
+        return super().__rmul__(a)
+
     def expect(
         self, obs: Union[Operator, Iterable]
     ) -> Union[np.ndarray, dict, Number]:
@@ -167,6 +223,32 @@ class ProductDensityOperator(ProductOperator, DensityOperatorMixin):
             return result
         return super().expect(obs)
 
+    def logm(self):
+        def log_qutip(loc_op):
+            evals, evecs = loc_op.eigenstates()
+            evals[abs(evals) < 1.0e-30] = 1.0e-30
+            return sum(
+                np.log(e_val) * e_vec * e_vec.dag()
+                for e_val, e_vec in zip(evals, evecs)
+            )
+
+        system = self.system
+        sites_op = self.sites_op
+        terms = tuple(
+            LocalOperator(site, log_qutip(loc_op), system)
+            for site, loc_op in sites_op.items()
+        )
+        if system:
+            norm = -sum(
+                np.log(dim)
+                for site, dim in system.dimensions.items()
+                if site not in self.sites_op
+            )
+            return OneBodyOperator(terms, system, False) + ScalarOperator(
+                norm, system
+            )
+        return OneBodyOperator(terms, system, False)
+
     def partial_trace(self, sites: list):
         sites_op = self.sites_op
         sites_in = [site for site in sites if site in sites_op]
@@ -175,89 +257,6 @@ class ProductDensityOperator(ProductOperator, DensityOperatorMixin):
         return ProductDensityOperator(
             local_states, self.prefactor, subsystem, normalize=False
         )
-
-    def __add__(self, rho: Operator):
-        system = self.system
-        if isinstance(rho, float):
-            sites_op = self.sites_op
-            n_factors = len(sites_op)
-            if n_factors == 0:
-                return ProductDensityOperator(
-                    {}, self.prefactor + rho, self.system, False
-                )
-            if n_factors == 1:
-                site, sigma = next(sites_op.items())
-                local_dim = (
-                    1 / system.dimensions.get(site, 1) if system else 1.0
-                )
-                prefactor = self.prefactor
-                new_prefactor = prefactor + rho / local_dim
-                return ProductDensityOperator(
-                    {
-                        site: prefactor * sigma + rho / local_dim,
-                    },
-                    new_prefactor,
-                    system,
-                )
-            return MixtureDensityOperator(
-                [ProductDensityOperator({}, rho, self.system, False)]
-            )
-
-        if isinstance(rho, ProductDensityOperator):
-            sites_op = self.sites_op
-            n_factors = len(sites_op)
-            other_sites_op = rho.sites_op
-            other_n_factors = len(other_sites_op)
-            if len(sites_op) == 0:
-                return rho + self.prefactor
-            if len(other_sites_op) == 0:
-                return self + rho.prefactor
-
-            if 1 == n_factors == other_n_factors:
-                site, sigma = next(sites_op.items())
-                other_sigma = other_sites_op.get(site, None)
-                if other_sigma is not None:
-                    a_float, b_float = self.prefactor, rho.prefactor
-                    new_prefactor = a_float + b_float
-                    a_float, b_float = (
-                        a_float / new_prefactor,
-                        b_float / new_prefactor,
-                    )
-                    new_sigma = a_float * sigma + b_float * other_sigma
-                    return ProductDensityOperator(
-                        {
-                            site: new_sigma,
-                        },
-                        new_prefactor,
-                        self.system,
-                        False,
-                    )
-            return MixtureDensityOperator([self, rho])
-        if isinstance(rho, MixtureDensityOperator):
-            return MixtureDensityOperator(rho.terms + [self])
-        return super().__add__(rho)
-
-    def __mul__(self, a):
-        if isinstance(a, float):
-            if a > 0:
-                return ProductDensityOperator(
-                    self.sites_op, self.prefactor * a, self.system, False
-                )
-
-            if a == 0.0:
-                return ProductDensityOperator({}, a, self.system, False)
-        return super().__mul__(a)
-
-    def __rmul__(self, a):
-        if isinstance(a, float):
-            if a > 0:
-                return ProductDensityOperator(
-                    self.sites_op, self.prefactor * a, self.system, False
-                )
-
-            if a == 0.0:
-                return ProductDensityOperator({}, a, self.system, False)
-        return super().__rmul__(a)
 
     def to_qutip(self):
         prefactor = self.prefactor
@@ -278,31 +277,7 @@ class MixtureDensityOperator(SumOperator, DensityOperatorMixin):
     """
 
     def __init__(self, terms: tuple, system: SystemDescriptor = None):
-        assert (isinstance(t, ProductDensityOperator) for t in terms)
-        super().__init__(terms, system)
-
-    def expect(
-        self, obs: Union[Operator, Iterable]
-    ) -> Union[np.ndarray, dict, Number]:
-        strip = False
-        if isinstance(obs, Operator):
-            strip = True
-            obs = [obs]
-
-        av_terms = tuple(term.expect(obs) for term in self.terms)
-        if isinstance(obs, dict):
-            return {
-                op_name: sum(term[op_name] for term in av_terms)
-                for op_name in obs
-            }
-        if strip:
-            return sum(term for term in av_terms)[0]
-        return sum(term for term in av_terms)
-
-    def partial_trace(self, sites: list):
-        return MixtureDensityOperator(
-            tuple(t.partial_trace(sites) for t in self.terms), self.system
-        )
+        super().__init__(terms, system, True)
 
     def __add__(self, rho: Operator):
         terms = self.terms
@@ -321,20 +296,53 @@ class MixtureDensityOperator(SumOperator, DensityOperatorMixin):
     def __mul__(self, a):
         if isinstance(a, float):
             return MixtureDensityOperator(
-                tuple(
-                    ProductDensityOperator(
-                        t.sites_op, t.prefactor * a, t.system, False
-                    )
-                    for t in self.terms
-                )
+                tuple(term * a for term in self.terms)
             )
         return super().__mul__(a)
+
+    def __rmul__(self, a):
+        if isinstance(a, float) and a >= 0:
+            return MixtureDensityOperator(
+                tuple(term * a for term in self.terms), self.system
+            )
+        return super().__rmul__(a)
+
+    def expect(
+        self, obs: Union[Operator, Iterable]
+    ) -> Union[np.ndarray, dict, Number]:
+        print("expect for", type(obs))
+        strip = False
+        if isinstance(obs, Operator):
+            strip = True
+            obs = [obs]
+
+        print([term.tr() for term in self.terms])
+        av_terms = tuple(
+            (term.expect(obs), term.prefactor) for term in self.terms
+        )
+        print(av_terms)
+        if isinstance(obs, dict):
+            return {
+                op_name: sum(term[0][op_name] * term[1] for term in av_terms)
+                for op_name in obs
+            }
+        if strip:
+            return sum(np.array(term[0]) * term[1] for term in av_terms)[0]
+        return sum(np.array(term[0]) * term[1] for term in av_terms)
+
+    def partial_trace(self, sites: list):
+        return MixtureDensityOperator(
+            tuple(t.partial_trace(sites) for t in self.terms), self.system
+        )
 
     def to_qutip(self):
         """Produce a qutip compatible object"""
         if len(self.terms) == 0:
-            return ProductOperator({}, 0, self.system).to_qutip()
+            return ScalarOperator(0, self.system).to_qutip()
         return sum(term.to_qutip() for term in self.terms)
+
+    def to_qutip_operator(self):
+        return QutipDensityOperator(self.to_qutip(), self.system, prefactor=1)
 
     def tr(self) -> float:
         return sum(term.tr() for term in self.terms)
@@ -407,6 +415,11 @@ class GibbsDensityOperator(Operator, DensityOperatorMixin):
     ) -> Union[np.ndarray, dict, Number]:
         return self.to_qutip_operator().expect(obs)
 
+    def logm(self):
+        self.normalize()
+        k = self.k
+        return -k
+
     def normalize(self) -> Operator:
         """Normalize the operator in a way that exp(-K).tr()==1"""
         if not self.normalized:
@@ -456,6 +469,7 @@ class GibbsProductDensityOperator(Operator, DensityOperatorMixin):
         normalized: bool = False,
     ):
         assert prefactor > 0.0
+
         self.prefactor = prefactor
         if isinstance(k, LocalOperator):
             self.system = system or k.system
@@ -529,8 +543,15 @@ class GibbsProductDensityOperator(Operator, DensityOperatorMixin):
     ) -> Union[np.ndarray, dict, Number]:
         # TODO: write a better implementation
         if isinstance(obs, Operator):
-            return (self.to_product_state()).expect(obs) * self.prefactor
+            return (self.to_product_state()).expect(obs)
         return super().expect(obs)
+
+    def logm(self):
+        terms = tuple(
+            LocalOperator(site, -loc_op, self.system)
+            for site, loc_op in self.k_by_site.items()
+        )
+        return OneBodyOperator(terms, self.system, False)
 
     def partial_trace(self, sites):
         sites = [site for site in sites if site in self.system.dimensions]
@@ -564,3 +585,95 @@ class GibbsProductDensityOperator(Operator, DensityOperatorMixin):
 
     def to_qutip(self):
         return self.to_product_state().to_qutip()
+
+
+# ####################################
+#  Arithmetic
+# ####################################
+
+
+__add__dispatch__ = Operator.__add__dispatch__
+
+
+def sum_two_mixture_operators(
+    x_op: MixtureDensityOperator, y_op: MixtureDensityOperator
+):
+    terms = x_op.terms + y_op.terms
+    # If there is just one term, return it:
+    if len(terms) == 1:
+        return terms[0]
+
+    # For empty terms, return 0
+    system = x_op.system or y_op.system
+    if len(terms) == 0:
+        return ScalarOperator(0.0, system)
+    # General case
+    return MixtureDensityOperator(terms, system)
+
+
+__add__dispatch__[
+    (
+        MixtureDensityOperator,
+        MixtureDensityOperator,
+    )
+] = sum_two_mixture_operators
+
+
+def sum_mixture_and_density_operators(
+    x_op: MixtureDensityOperator, y_op: DensityOperatorMixin
+):
+    terms = x_op.terms + (y_op,)
+    # If there is just one term, return it:
+    if len(terms) == 1:
+        return terms[0]
+
+    # For empty terms, return 0
+    system = x_op.system or y_op.system
+    if len(terms) == 0:
+        return ScalarOperator(0.0, system)
+    # General case
+    return MixtureDensityOperator(terms, system)
+
+
+for dm_type in (
+    DensityOperatorMixin,
+    GibbsDensityOperator,
+    GibbsProductDensityOperator,
+):
+    __add__dispatch__[
+        (
+            MixtureDensityOperator,
+            dm_type,
+        )
+    ] = sum_mixture_and_density_operators
+
+    __add__dispatch__[
+        (
+            dm_type,
+            MixtureDensityOperator,
+        )
+    ] = lambda y_op, x_op: sum_mixture_and_density_operators(x_op, y_op)
+
+
+for dm_type_1 in (
+    DensityOperatorMixin,
+    GibbsDensityOperator,
+    GibbsProductDensityOperator,
+):
+    for dm_type_2 in (
+        DensityOperatorMixin,
+        GibbsDensityOperator,
+        GibbsProductDensityOperator,
+    ):
+        __add__dispatch__[
+            (
+                dm_type_1,
+                dm_type_2,
+            )
+        ] = lambda x_op, y_op: MixtureDensityOperator(
+            (
+                x_op,
+                y_op,
+            ),
+            x_op.system or y_op.system,
+        )

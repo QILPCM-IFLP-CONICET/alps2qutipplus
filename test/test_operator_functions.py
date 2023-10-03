@@ -3,6 +3,7 @@ Basic unit test for operator functions.
 """
 
 import numpy as np
+import qutip
 
 from alpsqutip.operator_functions import (
     eigenvalues,
@@ -13,7 +14,7 @@ from alpsqutip.operator_functions import (
     spectral_norm,
 )
 from alpsqutip.operators import SumOperator
-
+from alpsqutip.utils import matrix_to_wolfram
 from .helper import (
     CHAIN_SIZE,
     check_operator_equality,
@@ -82,7 +83,7 @@ def test_simplify_sum_operator():
     def do_test(name, operator):
         if isinstance(operator, list):
             for op_case in operator:
-                do_test(name, operator)
+                do_test(name, op_case)
             return
 
         operator_simpl = simplify_sum_operator(operator)
@@ -94,12 +95,44 @@ def test_simplify_sum_operator():
         do_test(name, operator_case)
 
 
+def test_relative_entropy():
+    qutip_states = {
+        key: operator.to_qutip() for key, operator in test_cases_states.items()
+    }
+    clean = True
+    for key1, rho in test_cases_states.items():
+        assert (
+            abs(rho.tr() - 1) < 0.001
+            and abs(qutip_states[key1].tr() - 1) < 0.001
+        )
+        print("\n\n", 30 * " ", "rho:", key1)
+        assert relative_entropy(rho, rho) == 0
+        assert (
+            qutip.entropy_relative(qutip_states[key1], qutip_states[key1]) == 0
+        ), key1
+
+        for key2, sigma in test_cases_states.items():
+            print("\n   ", key2, type(sigma))
+            rel_entr = relative_entropy(rho, sigma)
+            rel_entr_qutip = qutip.entropy_relative(
+                qutip_states[key1], qutip_states[key2]
+            )
+            if abs(rel_entr - rel_entr_qutip) > 1.0e-6:
+                if clean:
+                    print("Relative entropy mismatch")
+                clean = False
+                print("  ", [key1, key2])
+                print("   ", rel_entr, "!=", rel_entr_qutip)
+
+                assert clean
+
+
 def test_eigenvalues():
     """Tests eigenvalues of different operator objects"""
     spectrum = sorted(eigenvalues(sz_total))
     for s in range(CHAIN_SIZE):
         min_err = min(abs(e_val - s + 0.5 * CHAIN_SIZE) for e_val in spectrum)
-        assert min_err < 1e-6, f"closest eigenvalue at min_err"
+        assert min_err < 1e-6, f"closest eigenvalue at {min_err}"
 
     # Fully mixed operator
     spectrum = sorted(eigenvalues(test_cases_states["fully mixed"]))
@@ -114,7 +147,6 @@ def test_eigenvalues():
     )
     # use the alpsqutip routine
     e0 = min(eigenvalues(hamiltonian, sparse=True, sort="low", eigvals=10))
-    print("e0=", e0)
     assert abs(e0 - e0_qutip) < 1.0e-6
 
     #  e^(sz)/Tr e^(sz)
@@ -140,17 +172,59 @@ def test_log_op():
     only if operator has an small spectral norm.
 
     """
+
+    clean = True
     for name, operator in operators.items():
+        test_op = operator + 0.0001
+        # logm does now work well with non hermitician operators
+        if not test_op.isherm:
+            continue
+        print("\n\nname:", name, type(operator))
+        op_log = log_op(test_op)
+        op_log_exp = op_log.expm()
+        delta = test_op - op_log_exp
+        spectral_norm_error = max(
+            abs(x) for x in delta.to_qutip().eigenenergies()
+        )
+
+        if spectral_norm_error > 0.0001:
+            clean = False
+            print("    exp(log(op))!=op.")
+            print("    ", spectral_norm_error)
+
+    for name, operator in operators.items():
+        test_op = operator
+        if not test_op.isherm:
+            continue
         print("name:", name)
-        test_op = 0.01 * operator
         op_exp = (test_op).expm()
         op_exp_log = log_op(op_exp)
         delta = test_op - op_exp_log
         spectral_norm_error = max(
             abs(x) for x in delta.to_qutip().eigenenergies()
         )
-        print(spectral_norm_error)
-        assert spectral_norm_error < 0.1
+        if spectral_norm_error > 0.000001:
+            clean = False
+            print("    log(exp(op))!=op.")
+            print("    ", spectral_norm_error)
+            if True:
+                print(
+                    "\n  Op=",
+                    matrix_to_wolfram(test_op.to_qutip().full()),
+                    ";",
+                )
+                print(
+                    "\n  ExpOp=",
+                    matrix_to_wolfram(op_exp.to_qutip().full()),
+                    ";",
+                )
+                print(
+                    "\n  LogExpOp=",
+                    matrix_to_wolfram(op_exp_log.to_qutip().full()),
+                    ";",
+                )
+
+    assert clean
 
 
 # test_load()

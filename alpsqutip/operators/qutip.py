@@ -3,9 +3,13 @@
 Qutip representation of an operator.
 """
 
-from typing import Optional
 
+from typing import Optional, Union
 from numbers import Number
+
+
+from numpy import log as np_log
+import scipy.sparse.linalg as spla
 
 from qutip import Qobj
 
@@ -46,65 +50,13 @@ class QutipOperator(Operator):
         self.site_names = names
         self.prefactor = prefactor
 
-    def __add__(self, operand):
-        if isinstance(operand, Operator):
-            return QutipOperator(
-                self.prefactor * self.operator + operand.to_qutip(),
-                self.system,
-                names=self.site_names,
-            )
-        if isinstance(operand, (int, float, complex, Qobj)):
-            return QutipOperator(
-                self.prefactor * self.operator + operand,
-                self.system,
-                names=self.site_names,
-            )
-        raise ValueError()
-
-    def __mul__(self, operand):
-        if isinstance(operand, Operator):
-            operand = operand.to_qutip()
-
-        if isinstance(operand, Qobj):
-            return QutipOperator(
-                self.operator * operand * self.prefactor,
-                self.system,
-                names=self.site_names,
-            )
-        if isinstance(operand, Number):
-            return QutipOperator(
-                self.operator,
-                self.system,
-                names=self.site_names,
-                prefactor=self.prefactor * operand,
-            )
-        raise ValueError(
-            f"type {type(operand)} cannot multiply a {type(self)}"
-        )
-
     def __neg__(self):
         return QutipOperator(
-            -self.operator, self.system, names=self.site_names
+            self.operator,
+            self.system,
+            names=self.site_names,
+            prefactor=-self.prefactor,
         )
-
-    def __no_rmul__(self, operand):
-        if isinstance(operand, Operator):
-            operand = operand.to_qutip()
-
-        if isinstance(operand, Qobj):
-            return QutipOperator(
-                operand * self.operator * self.prefactor,
-                self.system,
-                names=self.site_names,
-            )
-        if isinstance(operand, Number):
-            return QutipOperator(
-                self.operator,
-                self.system,
-                names=self.site_names,
-                prefactor=self.prefactor * operand,
-            )
-        raise ValueError()
 
     def __pow__(self, exponent):
         operator = self.operator
@@ -116,7 +68,7 @@ class QutipOperator(Operator):
             operator**exponent,
             system=self.system,
             names=self.site_names,
-            prefactor=1 / self.prefactor,
+            prefactor=1 / self.prefactor**exponent,
         )
 
     def dag(self):
@@ -145,6 +97,20 @@ class QutipOperator(Operator):
     def isherm(self) -> bool:
         return self.operator.isherm
 
+    def logm(self):
+        operator = self.operator
+        evals, evecs = operator.eigenstates()
+        evals = evals * self.prefactor
+        evals[abs(evals) < 1.0e-30] = 1.0e-30
+        print("evals:", evals)
+        if any(value < 0 for value in evals):
+            evals = (1.0 + 0j) * evals
+        log_op = sum(
+            np_log(e_val) * e_vec * e_vec.dag()
+            for e_val, e_vec in zip(evals, evecs)
+        )
+        return QutipOperator(log_op, self.system, self.site_names)
+
     def partial_trace(self, sites: list):
         site_names = self.site_names
         sites = sorted(
@@ -171,3 +137,135 @@ class QutipOperator(Operator):
 
     def tr(self):
         return self.operator.tr() * self.prefactor
+
+
+# #################################
+# Arithmetic
+# #################################
+
+
+# Sum Qutip operators
+@Operator.register_add_handler(
+    (
+        QutipOperator,
+        QutipOperator,
+    )
+)
+def sum_qutip_operator_plus_operator(x_op: QutipOperator, y_op: QutipOperator):
+    """Sum two qutip operators"""
+    names = x_op.site_names.copy()
+    names.update(y_op.site_names)
+    return QutipOperator(
+        x_op.operator * x_op.prefactor + y_op.operator * y_op.prefactor,
+        x_op.system or y_op.system,
+        names=names,
+        prefactor=1,
+    )
+
+
+@Operator.register_add_handler(
+    (
+        QutipOperator,
+        Number,
+    )
+)
+@Operator.register_add_handler(
+    (
+        QutipOperator,
+        Qobj,
+    )
+)
+def sum_qutip_operator_plus_number(
+    x_op: QutipOperator, y_val: Union[Number, Qobj]
+):
+    """Sum an operator and a number  or a Qobj"""
+    return QutipOperator(
+        x_op.operator + y_val,
+        x_op.system or y_val.system,
+        names=x_op.site_names,
+        prefactor=x_op.prefactor,
+    )
+
+
+@Operator.register_mul_handler(
+    (
+        QutipOperator,
+        QutipOperator,
+    )
+)
+def mul_qutip_operator_qutip_operator(
+    x_op: QutipOperator, y_op: QutipOperator
+):
+    """Product of two qutip operators"""
+    names = x_op.site_names.copy()
+    names.update(y_op.site_names)
+    return QutipOperator(
+        x_op.operator * y_op.operator,
+        x_op.system or y_op.system,
+        names=names,
+        prefactor=x_op.prefactor * y_op.prefactor,
+    )
+
+
+@Operator.register_mul_handler(
+    (
+        QutipOperator,
+        Number,
+    )
+)
+def mul_qutip_operator_times_number(x_op: QutipOperator, y_val: Number):
+    """product of a QutipOperator and a number."""
+    return QutipOperator(
+        x_op.operator,
+        x_op.system or y_val.system,
+        names=x_op.site_names,
+        prefactor=x_op.prefactor * y_val,
+    )
+
+
+@Operator.register_mul_handler(
+    (
+        Number,
+        QutipOperator,
+    )
+)
+def mul_number_and_qutipoperator(y_val: Number, x_op: QutipOperator):
+    """product of a number and a QutipOperator."""
+    return QutipOperator(
+        x_op.operator,
+        x_op.system or y_val.system,
+        names=x_op.site_names,
+        prefactor=x_op.prefactor * y_val,
+    )
+
+
+@Operator.register_mul_handler(
+    (
+        QutipOperator,
+        Qobj,
+    )
+)
+def mul_qutip_operator_times_qobj(x_op: QutipOperator, y_op: Qobj):
+    """product of a QutipOperator and a Qobj."""
+    return QutipOperator(
+        x_op.operator * y_op,
+        x_op.system,
+        names=x_op.site_names,
+        prefactor=x_op.prefactor,
+    )
+
+
+@Operator.register_mul_handler(
+    (
+        Qobj,
+        QutipOperator,
+    )
+)
+def mul_qutip_obj_times_qutip_operator(y_op: Qobj, x_op: QutipOperator):
+    """product of a Qobj and a QutipOperator."""
+    return QutipOperator(
+        y_op * x_op.operator,
+        x_op.system,
+        names=x_op.site_names,
+        prefactor=x_op.prefactor,
+    )

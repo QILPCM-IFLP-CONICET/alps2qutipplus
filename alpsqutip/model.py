@@ -393,7 +393,6 @@ class SystemDescriptor:
         parms = self.spec["parms"]
         model = self.spec["model"]
 
-
         # Process site terms
         try:
             site_terms = (
@@ -441,20 +440,76 @@ class Operator:
     #
     #    return SumOperator([self, term], self.system)
 
+    # TODO check the possibility of implementing this with multimethods
+    __add__dispatch__: Dict[Tuple, Callable] = {}
     __mul__dispatch__: Dict[Tuple, Callable] = {}
+
+    @staticmethod
+    def register_add_handler(key: Tuple):
+        def register_func(func):
+            Operator.__add__dispatch__[key] = func
+            return func
+
+        return register_func
+
+    @staticmethod
+    def register_mul_handler(key: Tuple):
+        def register_func(func):
+            Operator.__mul__dispatch__[key] = func
+            return func
+
+        return register_func
+
+    def __add__(self, term):
+        # Use multiple dispatch to determine how to add
+        func = self.__add__dispatch__.get((type(self), type(term)), None)
+        if func is not None:
+            return func(self, term)
+
+        func = self.__add__dispatch__.get((type(term), type(self)), None)
+        if func is not None:
+            return func(term, self)
+
+        for key, func in self.__add__dispatch__.items():
+            lhf, rhf = key
+            if isinstance(self, lhf) and isinstance(term, rhf):
+                self.__add__dispatch__[
+                    (
+                        lhf,
+                        rhf,
+                    )
+                ] = func
+                return func(self, term)
+            rhf, lhf = key
+            if isinstance(self, lhf) and isinstance(term, rhf):
+                self.__add__dispatch__[
+                    (
+                        lhf,
+                        rhf,
+                    )
+                ] = lambda x, y: func(y, x)
+                return func(term, self)
+
+        raise ValueError(type(self), "cannot be added with ", type(term))
 
     def __mul__(self, factor):
         # Use multiple dispatch to determine how to multiply
-        func = self.__mul__dispatch__.get((type(self), type(factor)), None)
+        key = (
+            type(self),
+            type(factor),
+        )
+        func = self.__mul__dispatch__.get(key, None)
 
         if func is not None:
             return func(self, factor)
 
-        for key, func in self.__mul__dispatch__.items():
-            lhf, rhf = key
+        for try_key, func in Operator.__mul__dispatch__.items():
+            lhf, rhf = try_key
             if isinstance(self, lhf) and isinstance(factor, rhf):
+                Operator.__mul__dispatch__[key] = func
                 return func(self, factor)
-
+        if hasattr(factor, "to_qutip_operator"):
+            factor = factor.to_qutip_operator()
         return self.to_qutip_operator() * factor
 
     def __neg__(self):
@@ -466,27 +521,75 @@ class Operator:
         neg_op = -operand
         return self + neg_op
 
-    def __radd__(self, operand):
-        if operand is None:
-            raise ValueError("None can not be an operand")
-        return self + operand
+    def __radd__(self, term):
+        # Use multiple dispatch to determine how to add
+        lhf, rhf = type(term), type(self)
+        func = self.__add__dispatch__.get(
+            (
+                lhf,
+                rhf,
+            ),
+            None,
+        )
+        if func is not None:
+            return func(term, self)
+
+        func = self.__add__dispatch__.get(
+            (
+                rhf,
+                lhf,
+            ),
+            None,
+        )
+        if func is not None:
+            self.__add__dispatch__[
+                (
+                    lhf,
+                    rhf,
+                )
+            ] = lambda x, y: func(y, x)
+            return func(self, term)
+
+        for key, func in self.__add__dispatch__.items():
+            rhf, lhf = key
+            if isinstance(self, lhf) and isinstance(term, rhf):
+                self.__add__dispatch__[
+                    (
+                        lhf,
+                        rhf,
+                    )
+                ] = lambda x, y: func(y, x)
+                return func(term, self)
+            lhf, rhf = key
+            if isinstance(self, lhf) and isinstance(term, rhf):
+                self.__add__dispatch__[
+                    (
+                        lhf,
+                        rhf,
+                    )
+                ] = func
+                return func(self, term)
+
+        raise ValueError(type(term), "cannot be added with ", type(self))
 
     def __rmul__(self, factor):
         # Use __mul__dispatch__ to determine how to evaluate the product
-        if isinstance(factor, Number):
-            return self * factor
 
-        func = self.__mul__dispatch__.get((type(factor), type(self)), None)
+        key = (
+            type(factor),
+            type(self),
+        )
+        func = self.__mul__dispatch__.get(key, None)
 
         if func is not None:
             return func(factor, self)
-
-        for key, func in self.__mul__dispatch__.items():
-            lhf, rhf = key
+        for try_key, func in Operator.__mul__dispatch__.items():
+            lhf, rhf = try_key
             if isinstance(factor, lhf) and isinstance(self, rhf):
+                Operator.__mul__dispatch__[key] = func
                 return func(factor, self)
 
-        return factor * self.to_qutip_operator()
+        return factor.to_qutip_operator() * self.to_qutip_operator()
 
     def __rsub__(self, operand):
         if operand is None:
@@ -543,17 +646,26 @@ class Operator:
         # Import here to avoid circular dependency
         # pylint: disable=import-outside-toplevel
         from alpsqutip.operators.qutip import QutipOperator
+        from scipy.sparse.linalg import ArpackError
 
         op_qutip = self.to_qutip()
-        max_eval = op_qutip.eigenenergies(sort="high", sparse=True, eigvals=3)[
-            0
-        ]
+        try:
+            max_eval = op_qutip.eigenenergies(
+                sort="high", sparse=True, eigvals=3
+            )[0]
+        except ArpackError:
+            max_eval = max(op_qutip.diag())
+
         op_qutip = (op_qutip - max_eval).expm()
         return QutipOperator(op_qutip, self.system, prefactor=np.exp(max_eval))
 
     def inv(self):
         """the inverse of the operator"""
         return self.to_qutip_operator().inv()
+
+    def logm(self):
+        """Logarithm of the operator"""
+        return self.to_qutip_operator().logm()
 
     def partial_trace(self, sites: list):
         """Partial trace over sites not listed in `sites`"""

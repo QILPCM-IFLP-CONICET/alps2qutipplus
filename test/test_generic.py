@@ -18,6 +18,7 @@ from .helper import alert
 
 
 def test_eval_expr():
+    """Test basic evaluation of expressions"""
     parms = {"a": "J", "J": 2, "subexpr": "a*J"}
     test_cases = [
         ("2+a", 4),
@@ -35,7 +36,7 @@ def test_eval_expr():
         )
 
 
-def test_load():
+def test_load_and_plot_graph():
     for name in list_graph_in_alps_xml(LATTICE_LIB_FILE):
         try:
             g = graph_from_alps_xml(
@@ -74,12 +75,13 @@ def test_load():
             assert False, f"{model} could not be loaded due to {e}"
 
 
-def test_all():
+def test_load_all_models_and_lattices():
+    """Try to load each model and lattice."""
     models = list_operators_in_alps_xml(MODEL_LIB_FILE)
     graphs = list_graph_in_alps_xml(LATTICE_LIB_FILE)
 
     for model_name in models:
-        alert(1, model_name, "\n", 10 * "*")
+        print(model_name, "\n", 10 * "*")
         for graph_name in graphs:
             g = graph_from_alps_xml(
                 LATTICE_LIB_FILE,
@@ -93,10 +95,7 @@ def test_all():
             )
             try:
                 system = SystemDescriptor(g, model, {})
-                alert(1, system.operators["global_operators"].keys())
-            except Exception as e:
+            except Exception as exc:
                 # assert False, f"model {model_name} over graph {graph_name} could not be loaded due to {type(e)}:{e}"
-                alert(1, "   ", graph_name, "  [failed]", e)
+                alert(1, "   ", graph_name, "  [failed]", exc)
                 continue
-            alert(1, "   ", graph_name, "  [OK]")
-        alert(1, "\n-------------")

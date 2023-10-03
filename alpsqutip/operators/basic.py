@@ -1,7 +1,7 @@
 """
 Different representations for operators
 """
-import sys
+
 from functools import reduce
 from typing import Optional
 
@@ -12,8 +12,6 @@ import qutip
 from qutip import Qobj
 
 from alpsqutip.model import Operator, SystemDescriptor
-from alpsqutip.operators.qutip import QutipOperator
-from alpsqutip.settings import VERBOSITY_LEVEL
 
 
 class LocalOperator(Operator):
@@ -27,50 +25,11 @@ class LocalOperator(Operator):
         local_operator,
         system: Optional[SystemDescriptor] = None,
     ):
+        assert isinstance(site, str)
+        assert system is not None
         self.site = site
         self.operator = local_operator
         self.system = system
-
-    def __add__(self, operand):
-        # pylint: disable=import-outside-toplevel
-        from alpsqutip.operators.arithmetic import OneBodyOperator
-
-        site = self.site
-        if isinstance(operand, ScalarOperator):
-            return LocalOperator(
-                site, self.operator + operand.prefactor, self.system
-            )
-
-        if isinstance(operand, LocalOperator):
-            system = self.system or operand.system
-            if site == operand.site:
-                return LocalOperator(
-                    site, self.operator + operand.operator, system
-                )
-            return OneBodyOperator(
-                tuple(
-                    (
-                        LocalOperator(site, self.operator, system),
-                        LocalOperator(operand.site, operand.operator, system),
-                    )
-                ),
-                system,
-                check_and_convert=False,
-            )
-
-        if isinstance(operand, (int, float, complex)):
-            return LocalOperator(site, self.operator + operand, self.system)
-
-        if isinstance(operand, Qobj):
-            return QutipOperator(operand) + self.to_qutip_operator()
-
-        try:
-            result = operand + self
-        except RecursionError:
-            if VERBOSITY_LEVEL > 0:
-                print("recursion error", type(operand), type(self))
-            sys.exit()
-        return result
 
     def __bool__(self):
         operator = self.operator
@@ -90,7 +49,10 @@ class LocalOperator(Operator):
         return LocalOperator(self.site, operator**exp, self.system)
 
     def __repr__(self):
-        return f"Local Operator on site {self.site}:\n {repr(self.operator.full())}"
+        return (
+            f"Local Operator on site {self.site}:"
+            f"\n {repr(self.operator.full())}"
+        )
 
     def act_over(self):
         return set((self.site,))
@@ -125,6 +87,17 @@ class LocalOperator(Operator):
         if isinstance(operator, complex):
             return operator.imag == 0.0
         return operator.isherm
+
+    def logm(self):
+        def log_qutip(loc_op):
+            evals, evecs = loc_op.eigenstates()
+            evals[abs(evals) < 1.0e-30] = 1.0e-30
+            return sum(
+                np.log(e_val) * e_vec * e_vec.dag()
+                for e_val, e_vec in zip(evals, evecs)
+            )
+
+        return LocalOperator(self.site, log_qutip(self.operator), self.system)
 
     def partial_trace(self, sites: list):
         system = self.system
@@ -185,6 +158,7 @@ class ProductOperator(Operator):
         prefactor=1.0,
         system: Optional[SystemDescriptor] = None,
     ):
+        assert system is not None
         remove_numbers = False
         for site, local_op in sites_operators.items():
             if isinstance(local_op, (int, float, complex)):
@@ -211,43 +185,6 @@ class ProductOperator(Operator):
             self.dimensions = {
                 name: site["dimension"] for name, site in system.sites.items()
             }
-
-    def __add__(self, operand):
-        # pylint: disable=import-outside-toplevel
-        from alpsqutip.operators.arithmetic import SumOperator
-
-        if not bool(operand):
-            return self
-        if self.prefactor == 0:
-            return operand
-
-        if isinstance(operand, (int, float, complex)):
-            operand = ScalarOperator(operand, self.system)
-        else:
-            operand = operand.simplify()
-
-        self_simpl = self.simplify()
-        if not isinstance(self_simpl, ProductOperator):
-            if isinstance(operand, ProductOperator):
-                self_simpl, operand = operand, self_simpl
-            else:
-                return self_simpl + operand
-        if isinstance(operand, SumOperator):
-            return SumOperator(
-                (self_simpl,) + operand.terms,
-                self.system,
-                operand._isherm and self_simpl.isherm,
-            )
-        return SumOperator(
-            tuple(
-                (
-                    self_simpl,
-                    operand,
-                )
-            ),
-            self.system,
-            operand.isherm and self_simpl.isherm,
-        )
 
     def __bool__(self):
         return bool(self.prefactor) and all(
@@ -320,6 +257,25 @@ class ProductOperator(Operator):
             return False
         return isinstance(self.prefactor, (int, float))
 
+    def logm(self):
+        # pylint: disable=import-outside-toplevel
+        from alpsqutip.operators.arithmetic import OneBodyOperator
+
+        def log_qutip(loc_op):
+            evals, evecs = loc_op.eigenstates()
+            evals[abs(evals) < 1.0e-30] = 1.0e-30
+            return sum(
+                np.log(e_val) * e_vec * e_vec.dag()
+                for e_val, e_vec in zip(evals, evecs)
+            )
+
+        system = self.system
+        terms = tuple(
+            LocalOperator(site, log_qutip(loc_op), system)
+            for site, loc_op in self.sites_op.items()
+        )
+        return OneBodyOperator(terms, system, False) + np.log(self.prefactor)
+
     def partial_trace(self, sites: list):
         full_system_sites = self.system.sites
         dimensions = self.dimensions
@@ -375,81 +331,12 @@ class ScalarOperator(ProductOperator):
         assert system is not None
         super().__init__({}, prefactor, system)
 
-    def __add__(self, operand):
-        # pylint: disable=import-outside-toplevel
-        from alpsqutip.operators.arithmetic import OneBodyOperator, SumOperator
-
-        if isinstance(operand, ScalarOperator):
-            operand = operand.prefactor
-        if isinstance(operand, Number):
-            return ScalarOperator(self.prefactor + operand, self.system)
-
-        def add_product_operator():
-            """add scalar to a product operator"""
-            sites_op = operand.sites_op.copy()
-            first_site, first_op = next(iter(sites_op.items()))
-            sites_op[first_site] = first_op + self.prefactor
-            return ProductOperator(sites_op, operand.prefactor, self.system)
-
-        def add_default():
-            """default case"""
-            return SumOperator(
-                tuple(
-                    (
-                        operand,
-                        self,
-                    )
-                ),
-                self.system or operand.system,
-            )
-
-        dispatch_table = {
-            LocalOperator: (
-                lambda: LocalOperator(
-                    operand.site,
-                    operand.operator + self.prefactor,
-                    self.system,
-                )
-            ),
-            OneBodyOperator: (
-                lambda: OneBodyOperator(
-                    tuple(term + self for term in operand.terms), self.system
-                )
-            ),
-            ProductOperator: add_product_operator,
-            SumOperator: (
-                lambda: SumOperator(
-                    operand.terms + (self,), self.system or operand.sytem
-                )
-            ),
-        }
-
-        return dispatch_table.get(type(operand), add_default)()
-
-    def __no_mul__(self, operand):
-        if isinstance(operand, ScalarOperator):
-            return ScalarOperator(
-                self.prefactor * operand.prefactor, self.system
-            )
-        if isinstance(operand, (int, float, complex)):
-            return ScalarOperator(self.prefactor + operand, self.system)
-        return super().__mul__(operand)
-
     def __neg__(self):
         return ScalarOperator(-self.prefactor, self.system)
 
     def __repr__(self):
         result = str(self.prefactor) + " * Identity "
         return result
-
-    def __rmul__(self, operand):
-        if isinstance(operand, ScalarOperator):
-            return ScalarOperator(
-                self.prefactor * operand.prefactor, self.system
-            )
-        if isinstance(operand, (int, float, complex)):
-            return ScalarOperator(self.prefactor + operand, self.system)
-        return super().__mul__(operand)
 
     def act_over(self):
         return set()
@@ -463,3 +350,290 @@ class ScalarOperator(ProductOperator):
     def isherm(self):
         prefactor = self.prefactor
         return not (isinstance(prefactor, complex) and prefactor.imag != 0)
+
+    def logm(self):
+        return ScalarOperator(np.log(self.prefactor), self.system)
+
+
+# ##########################################
+#
+#        Arithmetic for ScalarOperators
+#
+# #########################################
+
+
+@Operator.register_add_handler(
+    (
+        ScalarOperator,
+        ScalarOperator,
+    )
+)
+def _(x_op: ScalarOperator, y_op: ScalarOperator):
+    return ScalarOperator(
+        x_op.prefactor + y_op.prefactor, x_op.system or y_op.system
+    )
+
+
+@Operator.register_mul_handler(
+    (
+        ScalarOperator,
+        ScalarOperator,
+    )
+)
+def _(x_op: ScalarOperator, y_op: ScalarOperator):
+    return ScalarOperator(
+        x_op.prefactor * y_op.prefactor, x_op.system or y_op.system
+    )
+
+
+@Operator.register_add_handler(
+    (
+        ScalarOperator,
+        Number,
+    )
+)
+def _(x_op: ScalarOperator, y_value: Number):
+    return ScalarOperator(x_op.prefactor + y_value, x_op.system)
+
+
+@Operator.register_mul_handler(
+    (
+        ScalarOperator,
+        Number,
+    )
+)
+def _(x_op: ScalarOperator, y_value: Number):
+    return ScalarOperator(x_op.prefactor * y_value, x_op.system)
+
+
+@Operator.register_mul_handler(
+    (
+        Number,
+        ScalarOperator,
+    )
+)
+def _(y_value: Number, x_op: ScalarOperator):
+    return ScalarOperator(x_op.prefactor * y_value, x_op.system)
+
+
+# #########################################
+#
+#        Arithmetic for LocalOperator
+#
+# #########################################
+
+
+@Operator.register_add_handler(
+    (
+        LocalOperator,
+        Number,
+    )
+)
+def _(x_op: LocalOperator, y_val: Number):
+    return LocalOperator(x_op.site, x_op.operator + y_val, x_op.system)
+
+
+@Operator.register_add_handler(
+    (
+        LocalOperator,
+        ScalarOperator,
+    )
+)
+def _(x_op: LocalOperator, y_op: ScalarOperator):
+    return LocalOperator(
+        x_op.site, x_op.operator + y_op.prefactor, x_op.system or y_op.system
+    )
+
+
+@Operator.register_mul_handler(
+    (
+        LocalOperator,
+        LocalOperator,
+    )
+)
+def _(x_op: LocalOperator, y_op: LocalOperator):
+    site_x = x_op.site
+    site_y = y_op.site
+    system = x_op.system or y_op.system
+    if site_x == site_y:
+        return LocalOperator(site_x, x_op.operator * y_op.operator, system)
+    return ProductOperator(
+        {
+            site_x: x_op.operator,
+            site_y: y_op.operator,
+        },
+        1,
+        system,
+    )
+
+
+@Operator.register_mul_handler(
+    (
+        LocalOperator,
+        Number,
+    )
+)
+def _(x_op: LocalOperator, y_value: Number):
+    return LocalOperator(x_op.site, x_op.operator * y_value, x_op.system)
+
+
+@Operator.register_mul_handler(
+    (
+        Number,
+        LocalOperator,
+    )
+)
+def _(y_value: Number, x_op: LocalOperator):
+    return LocalOperator(x_op.site, x_op.operator * y_value, x_op.system)
+
+
+@Operator.register_mul_handler(
+    (
+        LocalOperator,
+        ScalarOperator,
+    )
+)
+def _(x_op: LocalOperator, y_op: ScalarOperator):
+    return LocalOperator(
+        x_op.site, x_op.operator * y_op.prefactor, x_op.system or y_op.system
+    )
+
+
+@Operator.register_mul_handler(
+    (
+        ScalarOperator,
+        LocalOperator,
+    )
+)
+def _(y_op: ScalarOperator, x_op: LocalOperator):
+    return LocalOperator(
+        x_op.site, x_op.operator * y_op.prefactor, x_op.system or y_op.system
+    )
+
+
+# #########################################
+#
+#        Arithmetic for ProductOperator
+#
+# #########################################
+
+
+@Operator.register_mul_handler(
+    (
+        ProductOperator,
+        ProductOperator,
+    )
+)
+def _(x_op: ProductOperator, y_op: ProductOperator):
+    system = x_op.system or y_op.system
+    site_op = x_op.sites_op.copy()
+    site_op_y = y_op.sites_op
+    for site, op_local in site_op_y.items():
+        site_op[site] = (
+            site_op[site] * op_local if site in site_op else op_local
+        )
+    prefactor = x_op.prefactor * y_op.prefactor
+    if len(site_op) == 0 or prefactor == 0:
+        return ScalarOperator(prefactor, system)
+    if len(site_op) == 1:
+        site, op_local = next(iter(site_op.items()))
+        return LocalOperator(site, op_local * prefactor, system)
+    return ProductOperator(site_op, prefactor, system)
+
+
+@Operator.register_mul_handler(
+    (
+        ProductOperator,
+        Number,
+    )
+)
+def _(x_op: ProductOperator, y_value: Number):
+    if y_value:
+        prefactor = x_op.prefactor * y_value
+        return ProductOperator(x_op.sites_op, prefactor, x_op.system)
+    return ScalarOperator(0, x_op.system)
+
+
+@Operator.register_mul_handler(
+    (
+        Number,
+        ProductOperator,
+    )
+)
+def _(y_value: Number, x_op: ProductOperator):
+    if y_value:
+        prefactor = x_op.prefactor * y_value
+        return ProductOperator(x_op.sites_op, prefactor, x_op.system)
+    return ScalarOperator(0, x_op.system)
+
+
+@Operator.register_mul_handler(
+    (
+        ProductOperator,
+        ScalarOperator,
+    )
+)
+def _(x_op: ProductOperator, y_op: ScalarOperator):
+    prefactor = y_op.prefactor
+    if prefactor:
+        prefactor = x_op.prefactor * prefactor
+        return ProductOperator(x_op.sites_op, prefactor, x_op.system)
+    return ScalarOperator(0, x_op.system)
+
+
+@Operator.register_mul_handler(
+    (
+        ScalarOperator,
+        ProductOperator,
+    )
+)
+def _(y_op: ScalarOperator, x_op: ProductOperator):
+    prefactor = y_op.prefactor
+    if prefactor:
+        prefactor = x_op.prefactor * prefactor
+        return ProductOperator(x_op.sites_op, prefactor, x_op.system)
+    return ScalarOperator(0, x_op.system)
+
+
+@Operator.register_mul_handler(
+    (
+        ProductOperator,
+        LocalOperator,
+    )
+)
+def _(x_op: ProductOperator, y_op: LocalOperator):
+    site = y_op.site
+    op_local = y_op.operator
+    system = x_op.system or y_op.system
+    site_op = x_op.sites_op.copy()
+    if site in site_op:
+        op_local = site_op[site] * op_local
+
+    site_op[site] = op_local
+
+    if len(site_op) == 1:
+        site, op_local = next(iter(site_op.items()))
+        return LocalOperator(site, op_local * x_op.prefactor, system)
+    return ProductOperator(site_op, x_op.prefactor, system)
+
+
+@Operator.register_mul_handler(
+    (
+        LocalOperator,
+        ProductOperator,
+    )
+)
+def _(y_op: LocalOperator, x_op: ProductOperator):
+    site = y_op.site
+    op_local = y_op.operator
+    system = x_op.system or y_op.system
+    site_op = x_op.sites_op.copy()
+    if site in site_op:
+        op_local = op_local * site_op[site]
+
+    site_op[site] = op_local
+
+    if len(site_op) == 1:
+        site, op_local = next(iter(site_op.items()))
+        return LocalOperator(site, op_local * x_op.prefactor, system)
+    return ProductOperator(site_op, x_op.prefactor, system)

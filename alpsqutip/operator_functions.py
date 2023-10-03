@@ -6,7 +6,7 @@ Functions for operators.
 # from typing import Callable, List, Optional, Tuple
 from numbers import Number
 from typing import Tuple
-from numpy import array as np_array, log, real
+from numpy import array as np_array, real
 
 from alpsqutip.model import Operator
 from alpsqutip.operators import (
@@ -248,42 +248,15 @@ def spectral_norm(operator: Operator) -> float:
 def log_op(operator: Operator) -> Operator:
     """The logarithm of an operator"""
 
-    def qutip_log(local_op):
-        if isinstance(local_op, (int, float, complex)):
-            return log(local_op)
-
-        evals, evecs = local_op.eigenstates()
-        return sum(
-            v * v.dag() * log(x)
-            for x, v in zip(evals, evecs)
-            if abs(x) > 1.0e-10
-        )
-
-    system = operator.system
-    prefactor = operator.prefactor
-    if isinstance(operator, LocalOperator):
-        return LocalOperator(
-            operator.site, qutip_log(operator.operator), system
-        )
-    if isinstance(operator, ProductOperator):
-        one_body_terms = OneBodyOperator(
-            tuple(
-                LocalOperator(site, qutip_log(loc_op), system)
-                for site, loc_op in operator.sites_op.items()
-            ),
-            system,
-            False,
-        )
-        if prefactor != 1:
-            return SumOperator(
-                (one_body_terms, ScalarOperator(log(prefactor), system)),
-                system,
-            )
-        return one_body_terms
-
-    return QutipOperator(qutip_log(operator.to_qutip()), system, None, 1)
+    if hasattr(operator, "logm"):
+        return operator.logm()
+    return operator.to_qutip_operator().logm()
 
 
 def relative_entropy(rho: Operator, sigma: Operator) -> float:
     """Compute the relative entropy"""
-    return real(rho.expect(log_op(rho) - log_op(sigma)))
+
+    log_rho = log_op(rho)
+    log_sigma = log_op(sigma)
+
+    return real(rho.expect(log_rho - log_sigma))

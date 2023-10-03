@@ -88,6 +88,28 @@ def find_ref(node, root):
     return node
 
 
+def matrix_to_wolfram(matr: np.ndarray):
+    """Produce a string representing the data in the matrix"""
+
+    def process_number(num):
+        if isinstance(num, complex):
+            if num.imag == 0:
+                return str(num.real).replace("e", "*^")
+        return (
+            str(num)
+            .replace("(", "")
+            .replace(")", "")
+            .replace("e", "*^")
+            .replace("j", "I")
+        )
+
+    rows = [
+        "{" + (", ".join(process_number(elem) for elem in row)) + "}"
+        for row in matr
+    ]
+    return "{\n" + ",\n".join(rows) + "\n}"
+
+
 def next_name(dictionary: dict, s: int = 1, prefix: str = "") -> str:
     """
     Produces a new key for the `dictionary` with a

@@ -11,7 +11,7 @@ from alpsqutip.operators import (
     QutipOperator,
     SumOperator,
 )
-from alpsqutip.quadratic import (
+from alpsqutip.operators.quadratic import (
     QuadraticFormOperator,
     simplify_quadratic_form,
     build_quadratic_form_from_operator,
