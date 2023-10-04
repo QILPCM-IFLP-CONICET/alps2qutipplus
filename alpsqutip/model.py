@@ -1,11 +1,7 @@
 """
 Define SystemDescriptors and different kind of operators
 """
-from typing import Callable, Dict, Optional, Tuple
-from numbers import Number
-
-import numpy as np
-import qutip
+from typing import Optional
 
 from alpsqutip.geometry import GraphDescriptor
 from alpsqutip.settings import VERBOSITY_LEVEL
@@ -123,7 +119,7 @@ class SystemDescriptor:
             "Union of disjoint systems are not implemented."
         )
 
-    def site_operator(self, name: str, site: str = "") -> "Operator":
+    def site_operator(self, name: str, site: str = ""):  # -> "Operator"
         """
         Return a global operator representing an operator `name`
         acting over the site `site`. By default, the name is assumed
@@ -155,7 +151,7 @@ class SystemDescriptor:
 
     def bond_operator(
         self, name: str, src: str, dst: str, skip=None
-    ) -> "Operator":
+    ):  # -> "Operator":
         """Bond operator by name and sites"""
 
         result_op = self.operators["global_operators"].get(
@@ -426,269 +422,6 @@ class SystemDescriptor:
             result = OneBodyOperator(site_terms, self, True)
         self.operators["global_operators"][name] = result
         return result
-
-
-class Operator:
-    """Base class for operators"""
-
-    system: SystemDescriptor
-    prefactor: float = 1.0
-
-    # def __add__(self, term):
-    #    # pylint: disable=import-outside-toplevel
-    #    from alpsqutip.operators import SumOperator
-    #
-    #    return SumOperator([self, term], self.system)
-
-    # TODO check the possibility of implementing this with multimethods
-    __add__dispatch__: Dict[Tuple, Callable] = {}
-    __mul__dispatch__: Dict[Tuple, Callable] = {}
-
-    @staticmethod
-    def register_add_handler(key: Tuple):
-        def register_func(func):
-            Operator.__add__dispatch__[key] = func
-            return func
-
-        return register_func
-
-    @staticmethod
-    def register_mul_handler(key: Tuple):
-        def register_func(func):
-            Operator.__mul__dispatch__[key] = func
-            return func
-
-        return register_func
-
-    def __add__(self, term):
-        # Use multiple dispatch to determine how to add
-        func = self.__add__dispatch__.get((type(self), type(term)), None)
-        if func is not None:
-            return func(self, term)
-
-        func = self.__add__dispatch__.get((type(term), type(self)), None)
-        if func is not None:
-            return func(term, self)
-
-        for key, func in self.__add__dispatch__.items():
-            lhf, rhf = key
-            if isinstance(self, lhf) and isinstance(term, rhf):
-                self.__add__dispatch__[
-                    (
-                        lhf,
-                        rhf,
-                    )
-                ] = func
-                return func(self, term)
-            rhf, lhf = key
-            if isinstance(self, lhf) and isinstance(term, rhf):
-                self.__add__dispatch__[
-                    (
-                        lhf,
-                        rhf,
-                    )
-                ] = lambda x, y: func(y, x)
-                return func(term, self)
-
-        raise ValueError(type(self), "cannot be added with ", type(term))
-
-    def __mul__(self, factor):
-        # Use multiple dispatch to determine how to multiply
-        key = (
-            type(self),
-            type(factor),
-        )
-        func = self.__mul__dispatch__.get(key, None)
-
-        if func is not None:
-            return func(self, factor)
-
-        for try_key, func in Operator.__mul__dispatch__.items():
-            lhf, rhf = try_key
-            if isinstance(self, lhf) and isinstance(factor, rhf):
-                Operator.__mul__dispatch__[key] = func
-                return func(self, factor)
-        if hasattr(factor, "to_qutip_operator"):
-            factor = factor.to_qutip_operator()
-        return self.to_qutip_operator() * factor
-
-    def __neg__(self):
-        return -(self.to_qutip_operator())
-
-    def __sub__(self, operand):
-        if operand is None:
-            raise ValueError("None can not be an operand")
-        neg_op = -operand
-        return self + neg_op
-
-    def __radd__(self, term):
-        # Use multiple dispatch to determine how to add
-        lhf, rhf = type(term), type(self)
-        func = self.__add__dispatch__.get(
-            (
-                lhf,
-                rhf,
-            ),
-            None,
-        )
-        if func is not None:
-            return func(term, self)
-
-        func = self.__add__dispatch__.get(
-            (
-                rhf,
-                lhf,
-            ),
-            None,
-        )
-        if func is not None:
-            self.__add__dispatch__[
-                (
-                    lhf,
-                    rhf,
-                )
-            ] = lambda x, y: func(y, x)
-            return func(self, term)
-
-        for key, func in self.__add__dispatch__.items():
-            rhf, lhf = key
-            if isinstance(self, lhf) and isinstance(term, rhf):
-                self.__add__dispatch__[
-                    (
-                        lhf,
-                        rhf,
-                    )
-                ] = lambda x, y: func(y, x)
-                return func(term, self)
-            lhf, rhf = key
-            if isinstance(self, lhf) and isinstance(term, rhf):
-                self.__add__dispatch__[
-                    (
-                        lhf,
-                        rhf,
-                    )
-                ] = func
-                return func(self, term)
-
-        raise ValueError(type(term), "cannot be added with ", type(self))
-
-    def __rmul__(self, factor):
-        # Use __mul__dispatch__ to determine how to evaluate the product
-
-        key = (
-            type(factor),
-            type(self),
-        )
-        func = self.__mul__dispatch__.get(key, None)
-
-        if func is not None:
-            return func(factor, self)
-        for try_key, func in Operator.__mul__dispatch__.items():
-            lhf, rhf = try_key
-            if isinstance(factor, lhf) and isinstance(self, rhf):
-                Operator.__mul__dispatch__[key] = func
-                return func(factor, self)
-
-        return factor.to_qutip_operator() * self.to_qutip_operator()
-
-    def __rsub__(self, operand):
-        if operand is None:
-            raise ValueError("None can not be an operand")
-
-        neg_self = -self
-        return operand + neg_self
-
-    def __pow__(self, exponent):
-        if exponent is None:
-            raise ValueError("None can not be an operand")
-
-        return self.to_qutip_operator() ** exponent
-
-    def __truediv__(self, operand):
-        if isinstance(operand, (int, float, complex)):
-            return self * (1.0 / operand)
-        if isinstance(operand, Operator):
-            return self * operand.inv()
-        raise ValueError(
-            "Division of an operator by ", type(operand), " not defined."
-        )
-
-    def _repr_latex_(self):
-        """LaTeX Representation"""
-        qutip_repr = self.to_qutip()
-        if isinstance(qutip_repr, qutip.Qobj):
-            # pylint: disable=protected-access
-            parts = qutip_repr._repr_latex_().split("$")
-            tex = parts[1] if len(parts) > 2 else "-?-"
-        else:
-            tex = str(qutip_repr)
-        return f"${tex}$"
-
-    def act_over(self) -> Optional[set]:
-        """
-        Return the list of sites over which the operator acts nontrivially.
-        If this cannot be determined, return None.
-        """
-        return None
-
-    def dag(self):
-        """Adjoint operator of quantum object"""
-        return self.to_qutip_operator().dag()
-
-    @property
-    def isherm(self) -> bool:
-        """Check if the operator is hermitician"""
-        return self.to_qutip().isherm
-
-    def expm(self):
-        """Produce a Qutip representation of the operator"""
-
-        # Import here to avoid circular dependency
-        # pylint: disable=import-outside-toplevel
-        from alpsqutip.operators.qutip import QutipOperator
-        from scipy.sparse.linalg import ArpackError
-
-        op_qutip = self.to_qutip()
-        try:
-            max_eval = op_qutip.eigenenergies(
-                sort="high", sparse=True, eigvals=3
-            )[0]
-        except ArpackError:
-            max_eval = max(op_qutip.diag())
-
-        op_qutip = (op_qutip - max_eval).expm()
-        return QutipOperator(op_qutip, self.system, prefactor=np.exp(max_eval))
-
-    def inv(self):
-        """the inverse of the operator"""
-        return self.to_qutip_operator().inv()
-
-    def logm(self):
-        """Logarithm of the operator"""
-        return self.to_qutip_operator().logm()
-
-    def partial_trace(self, sites: list):
-        """Partial trace over sites not listed in `sites`"""
-        raise NotImplementedError
-
-    def simplify(self):
-        """Returns a more efficient representation"""
-        return self
-
-    def to_qutip(self):
-        """Convert to a Qutip object"""
-        raise NotImplementedError
-
-    def to_qutip_operator(self):
-        """Produce a Qutip representation of the operator"""
-        from alpsqutip.operators.qutip import QutipOperator
-
-        return QutipOperator(self.to_qutip(), self.system)
-
-    # pylint: disable=invalid-name
-    def tr(self):
-        """The trace of the operator"""
-        return self.partial_trace([]).prefactor
 
 
 def build_spin_chain(length: int = 2, field=0.0):

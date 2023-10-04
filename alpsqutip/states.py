@@ -8,11 +8,12 @@ from typing import Dict, Iterable, Optional, Union
 import numpy as np
 from qutip import Qobj, qeye as qutip_qeye, tensor as qutip_tensor
 
-from alpsqutip.model import Operator, SystemDescriptor
+from alpsqutip.model import SystemDescriptor
 from alpsqutip.operator_functions import eigenvalues
 from alpsqutip.operators import (
     LocalOperator,
     OneBodyOperator,
+    Operator,
     ProductOperator,
     QutipOperator,
     ScalarOperator,

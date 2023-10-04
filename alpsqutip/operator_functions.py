@@ -8,11 +8,11 @@ from numbers import Number
 from typing import Tuple
 from numpy import array as np_array, real
 
-from alpsqutip.model import Operator
 from alpsqutip.operators import (
     ScalarOperator,
     LocalOperator,
     OneBodyOperator,
+    Operator,
     ProductOperator,
     SumOperator,
     QutipOperator,

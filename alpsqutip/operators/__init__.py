@@ -5,6 +5,7 @@ Operators
 
 from alpsqutip.operators.qutip import QutipOperator
 from alpsqutip.operators.basic import (
+    Operator,
     LocalOperator,
     ProductOperator,
     ScalarOperator,
@@ -15,10 +16,11 @@ from alpsqutip.operators.arithmetic import (
 )
 
 __all__ = [
-    "QutipOperator",
     "LocalOperator",
+    "OneBodyOperator",
+    "Operator",
     "ProductOperator",
+    "QutipOperator",
     "ScalarOperator",
     "SumOperator",
-    "OneBodyOperator",
 ]

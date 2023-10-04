@@ -8,8 +8,9 @@ from typing import Iterable
 import numpy as np
 import qutip
 
-from alpsqutip.model import Operator, SystemDescriptor, build_spin_chain
+from alpsqutip.model import SystemDescriptor, build_spin_chain
 from alpsqutip.operators import (
+    Operator,
     OneBodyOperator,
     ScalarOperator,
     SumOperator,

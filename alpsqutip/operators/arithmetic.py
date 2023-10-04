@@ -13,12 +13,13 @@ import numpy as np
 from qutip import Qobj
 
 
-from alpsqutip.model import Operator, SystemDescriptor
+from alpsqutip.model import SystemDescriptor
 from alpsqutip.operators.qutip import QutipOperator
 from alpsqutip.operators.basic import (
-    ScalarOperator,
     LocalOperator,
+    Operator,
     ProductOperator,
+    ScalarOperator,
 )
 
 
@@ -330,9 +331,12 @@ class OneBodyOperator(SumOperator):
 # ####################################
 
 
-# #####################################
-# Sum operators
-# ####################################
+# #######################################################
+#               Sum operators
+# #######################################################
+
+
+# Sum with numbers
 
 
 @Operator.register_add_handler(
@@ -379,6 +383,9 @@ def _(y_value: Number, x_op: SumOperator):
     return SumOperator(terms, x_op.system, isherm).simplify()
 
 
+# Sum with ScalarOperator
+
+
 @Operator.register_mul_handler(
     (
         SumOperator,
@@ -417,6 +424,9 @@ def _(y_op: ScalarOperator, x_op: SumOperator):
     return SumOperator(terms, system, isherm)
 
 
+# Sum with LocalOperator
+
+
 @Operator.register_mul_handler(
     (
         LocalOperator,
@@ -424,6 +434,25 @@ def _(y_op: ScalarOperator, x_op: SumOperator):
     )
 )
 def _(y_op: LocalOperator, x_op: SumOperator):
+    system = x_op.system or y_op.system()
+
+    terms_it = (y_op * term for term in x_op.terms)
+    terms = tuple(term for term in terms_it if bool(term))
+    if len(terms) == 0:
+        return ScalarOperator(0, system)
+    if len(terms) == 1:
+        return terms[0]
+    isherm = x_op._isherm and y_op.isherm
+    return SumOperator(terms, system, isherm)
+
+
+@Operator.register_mul_handler(
+    (
+        SumOperator,
+        LocalOperator,
+    )
+)
+def _(x_op: SumOperator, y_op: LocalOperator):
     system = x_op.system or y_op.system()
 
     terms_it = (term * y_op for term in x_op.terms)
@@ -434,6 +463,9 @@ def _(y_op: LocalOperator, x_op: SumOperator):
         return terms[0]
     isherm = x_op._isherm and y_op.isherm
     return SumOperator(terms, system, isherm)
+
+
+# SumOperator and any Operator
 
 
 @Operator.register_add_handler(
@@ -449,6 +481,9 @@ def _(x_op: SumOperator, y_op: Operator):
         return terms[0]
     isherm = x_op._isherm and y_op.isherm
     return SumOperator(terms, system, isherm)
+
+
+# SumOperator plus SumOperator
 
 
 @Operator.register_add_handler(
@@ -509,6 +544,28 @@ def _(x_op: SumOperator, y_op: SumOperator):
 def _(x_op: SumOperator, y_op: Union[Operator, Qobj]):
     system = x_op.system or y_op.system
     terms = tuple(factor_x * y_op for factor_x in x_op.terms)
+    if len(terms) == 0:
+        return ScalarOperator(0, system)
+    if len(terms) == 1:
+        return terms[0]
+    return SumOperator(terms, system)
+
+
+@Operator.register_mul_handler(
+    (
+        Operator,
+        SumOperator,
+    )
+)
+@Operator.register_mul_handler(
+    (
+        Qobj,
+        SumOperator,
+    )
+)
+def _(y_op: Union[Operator, Qobj], x_op: SumOperator):
+    system = x_op.system or y_op.system
+    terms = tuple(y_op * factor_x for factor_x in x_op.terms)
     if len(terms) == 0:
         return ScalarOperator(0, system)
     if len(terms) == 1:
@@ -829,3 +886,73 @@ def _(x_op: QutipOperator, y_op: Operator):
         ),
         system,
     )
+
+
+@Operator.register_mul_handler(
+    (
+        QutipOperator,
+        ScalarOperator,
+    )
+)
+def _(x_op: QutipOperator, y_op: ScalarOperator):
+    system = x_op.system or y_op.system
+    return QutipOperator(
+        x_op.operator, system, x_op.site_names, x_op.prefactor * y_op.prefactor
+    )
+
+
+@Operator.register_mul_handler(
+    (
+        ScalarOperator,
+        QutipOperator,
+    )
+)
+def _(y_op: ScalarOperator, x_op: QutipOperator):
+    system = x_op.system or y_op.system
+    return QutipOperator(
+        x_op.operator, system, x_op.site_names, x_op.prefactor * y_op.prefactor
+    )
+
+
+@Operator.register_mul_handler(
+    (
+        QutipOperator,
+        LocalOperator,
+    )
+)
+@Operator.register_mul_handler(
+    (
+        QutipOperator,
+        ProductOperator,
+    )
+)
+@Operator.register_mul_handler(
+    (
+        QutipOperator,
+        SumOperator,
+    )
+)
+def _(x_op: QutipOperator, y_op: Operator):
+    return x_op * y_op.to_qutip()
+
+
+@Operator.register_mul_handler(
+    (
+        LocalOperator,
+        QutipOperator,
+    )
+)
+@Operator.register_mul_handler(
+    (
+        ProductOperator,
+        QutipOperator,
+    )
+)
+@Operator.register_mul_handler(
+    (
+        SumOperator,
+        QutipOperator,
+    )
+)
+def _(y_op: Operator, x_op: QutipOperator):
+    return y_op.to_qutip() * x_op

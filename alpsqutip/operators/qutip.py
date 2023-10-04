@@ -15,7 +15,8 @@ from qutip import Qobj
 
 from alpsqutip.alpsmodels import qutip_model_from_dims
 from alpsqutip.geometry import GraphDescriptor
-from alpsqutip.model import Operator, SystemDescriptor
+from alpsqutip.model import SystemDescriptor
+from alpsqutip.operators.basic import Operator
 
 
 class QutipOperator(Operator):
