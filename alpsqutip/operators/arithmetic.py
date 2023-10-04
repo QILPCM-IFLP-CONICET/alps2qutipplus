@@ -30,9 +30,7 @@ class SumOperator(Operator):
     terms: List[Operator]
     system: Optional[SystemDescriptor]
 
-    def __init__(
-        self, term_list: tuple, system=None, isherm: Optional[bool] = None
-    ):
+    def __init__(self, term_list: tuple, system=None, isherm: Optional[bool] = None):
         assert isinstance(term_list, tuple)
         assert system is not None
         self.terms = tuple(term_list)
@@ -81,9 +79,7 @@ class SumOperator(Operator):
         )
 
     def __neg__(self):
-        return SumOperator(
-            tuple(-t for t in self.terms), self.system, self._isherm
-        )
+        return SumOperator(tuple(-t for t in self.terms), self.system, self._isherm)
 
     def __repr__(self):
         return "(\n" + "\n  +".join(repr(t) for t in self.terms) + "\n)"
@@ -101,9 +97,7 @@ class SumOperator(Operator):
         """return the adjoint operator"""
         if self._isherm:
             return self
-        return SumOperator(
-            tuple(term.dag() for term in self.terms), self.system
-        )
+        return SumOperator(tuple(term.dag() for term in self.terms), self.system)
 
     @property
     def isherm(self) -> bool:
@@ -139,9 +133,7 @@ class SumOperator(Operator):
         return self._isherm
 
     def partial_trace(self, sites: list):
-        return sum(
-            term.partial_trace(sites) * term.prefactor for term in self.terms
-        )
+        return sum(term.partial_trace(sites) * term.prefactor for term in self.terms)
 
     def simplify(self):
         system = self.system
@@ -221,14 +213,10 @@ class OneBodyOperator(SumOperator):
         super().__init__(terms, system, isherm)
 
     def __repr__(self):
-        return "  " + "\n  +".join(
-            "(" + repr(term) + ")" for term in self.terms
-        )
+        return "  " + "\n  +".join("(" + repr(term) + ")" for term in self.terms)
 
     def __neg__(self):
-        return OneBodyOperator(
-            tuple(-term for term in self.terms), self.system
-        )
+        return OneBodyOperator(tuple(-term for term in self.terms), self.system)
 
     def dag(self):
         return OneBodyOperator(
@@ -272,16 +260,14 @@ class OneBodyOperator(SumOperator):
             subsystem = term.act_over()
             if subsystem is None:
                 raise ValueError(
-                    f"   {term} acting over the whole system "
-                    "is not a one body term."
+                    f"   {term} acting over the whole system " "is not a one body term."
                 )
             if len(subsystem) == 0:
                 scalar_term = term + scalar_term
                 return
             if len(subsystem) != 1:
                 raise ValueError(
-                    f"   {term} acting over {subsystem} "
-                    "is not a one body term."
+                    f"   {term} acting over {subsystem} " "is not a one body term."
                 )
             terms_by_subsystem.setdefault(tuple(subsystem), []).append(term)
 
@@ -359,9 +345,7 @@ def _(x_op: SumOperator, y_value: Number):
         return ScalarOperator(0, x_op.system)
 
     terms = tuple(term * y_value for term in x_op.terms)
-    isherm = x_op._isherm and (
-        not isinstance(y_value, complex) or y_value.imag == 0
-    )
+    isherm = x_op._isherm and (not isinstance(y_value, complex) or y_value.imag == 0)
     return SumOperator(terms, x_op.system, isherm).simplify()
 
 
@@ -376,9 +360,7 @@ def _(y_value: Number, x_op: SumOperator):
         return ScalarOperator(0, x_op.system)
 
     terms = tuple(term * y_value for term in x_op.terms)
-    isherm = x_op._isherm and (
-        not isinstance(y_value, complex) or y_value.imag == 0
-    )
+    isherm = x_op._isherm and (not isinstance(y_value, complex) or y_value.imag == 0)
     return SumOperator(terms, x_op.system, isherm).simplify()
 
 
@@ -398,9 +380,7 @@ def _(x_op: SumOperator, y_op: ScalarOperator):
         return ScalarOperator(0, system)
 
     terms = tuple(term * y_value for term in x_op.terms)
-    isherm = x_op._isherm and (
-        not isinstance(y_value, complex) or y_value.imag == 0
-    )
+    isherm = x_op._isherm and (not isinstance(y_value, complex) or y_value.imag == 0)
     return SumOperator(terms, system, isherm)
 
 
@@ -417,9 +397,7 @@ def _(y_op: ScalarOperator, x_op: SumOperator):
         return ScalarOperator(0, system)
 
     terms = tuple(term * y_value for term in x_op.terms)
-    isherm = x_op._isherm and (
-        not isinstance(y_value, complex) or y_value.imag == 0
-    )
+    isherm = x_op._isherm and (not isinstance(y_value, complex) or y_value.imag == 0)
     return SumOperator(terms, system, isherm)
 
 
@@ -511,9 +489,7 @@ def _(x_op: SumOperator, y_op: SumOperator):
 def _(x_op: SumOperator, y_op: SumOperator):
     system = x_op.system or y_op.system
     terms = tuple(
-        factor_x * factor_y
-        for factor_x in x_op.terms
-        for factor_y in y_op.terms
+        factor_x * factor_y for factor_x in x_op.terms for factor_y in y_op.terms
     )
     if len(terms) == 0:
         return ScalarOperator(0, system)
@@ -782,9 +758,7 @@ def _(x_op: ProductOperator, y_value: Number):
         return ScalarOperator(prefactor + y_value, system)
     if len(site_op) == 1:
         first_site, first_loc_op = next(iter(site_op.items()))
-        return LocalOperator(
-            first_site, first_loc_op * prefactor + y_value, system
-        )
+        return LocalOperator(first_site, first_loc_op * prefactor + y_value, system)
     y_op = ScalarOperator(y_value, system)
     return SumOperator(
         (

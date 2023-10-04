@@ -79,9 +79,7 @@ def test_quadratic():
             quadratic_form.to_qutip(), self_adjoint_part(qutip_operator)
         )
         print("quadratic form. Force hermitician, simplify")
-        quadratic_form = build_quadratic_form_from_operator(
-            operator, None, True, True
-        )
+        quadratic_form = build_quadratic_form_from_operator(operator, None, True, True)
         check_operator_equality(
             quadratic_form.to_qutip(), self_adjoint_part(qutip_operator)
         )
@@ -93,9 +91,7 @@ def test_quadratic():
         check_operator_equality(quadratic_form.to_qutip(), qutip_operator)
 
         print("quadratic form for the general case. Simplify")
-        quadratic_form = build_quadratic_form_from_operator(
-            operator, None, True, False
-        )
+        quadratic_form = build_quadratic_form_from_operator(operator, None, True, False)
         print(
             quadratic_form.weights,
             "\n----\n".join(repr(term) for term in quadratic_form.terms),

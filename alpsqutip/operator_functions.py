@@ -27,23 +27,16 @@ def commutator(op_1: Operator, op_2: Operator) -> Operator:
     """
     system = op_1.system or op_2.system
     if isinstance(op_1, SumOperator):
-        return SumOperator(
-            [commutator(term, op_2) for term in op_1.terms], system
-        )
+        return SumOperator([commutator(term, op_2) for term in op_1.terms], system)
     if isinstance(op_2, SumOperator):
-        return SumOperator(
-            [commutator(op_1, term) for term in op_2.terms], system
-        )
+        return SumOperator([commutator(op_1, term) for term in op_2.terms], system)
 
     act_over_1, act_over_2 = op_1.act_over(), op_2.act_over()
     if act_over_1 is not None:
         if len(act_over_1) == 0:
             return ScalarOperator(0, system)
         if act_over_2 is not None:
-            if (
-                len(act_over_2) == 0
-                or len(act_over_1.intersection(act_over_2)) == 0
-            ):
+            if len(act_over_2) == 0 or len(act_over_1.intersection(act_over_2)) == 0:
                 return ScalarOperator(0, system)
 
     return simplify_sum_operator(op_1 * op_2 - op_2 * op_1)
@@ -72,9 +65,7 @@ def eigenvalues(
     maxiter: int = 100000,
 ) -> np_array:
     """Compute the eigenvalues of operator"""
-    return operator.to_qutip().eigenenergies(
-        sparse, sort, eigvals, tol, maxiter
-    )
+    return operator.to_qutip().eigenenergies(sparse, sort, eigvals, tol, maxiter)
 
 
 def hermitian_and_antihermitian_parts(operator) -> Tuple[Operator]:
@@ -137,8 +128,7 @@ def reduce_by_orthogonalization(operator_list):
     if len(basis) > len(operator_list):
         return operator_list
     coeffs = [
-        sum(scalar_product(op_b, term) for term in operator_list)
-        for op_b in basis
+        sum(scalar_product(op_b, term) for term in operator_list) for op_b in basis
     ]
 
     return [op_b * coeff for coeff, op_b in zip(coeffs, basis)]

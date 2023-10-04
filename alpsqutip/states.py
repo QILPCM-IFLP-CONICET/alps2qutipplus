@@ -53,14 +53,10 @@ class DensityOperatorMixin:
             )
         return super().__add__(operand)
 
-    def expect(
-        self, obs: Union[Operator, Iterable]
-    ) -> Union[np.ndarray, dict, Number]:
+    def expect(self, obs: Union[Operator, Iterable]) -> Union[np.ndarray, dict, Number]:
         """Compute the expectation value of an observable"""
         if isinstance(obs, dict):
-            return {
-                name: self.expect(operator) for name, operator in obs.items()
-            }
+            return {name: self.expect(operator) for name, operator in obs.items()}
 
         if isinstance(obs, (tuple, list)):
             return np.array([self.expect(operator) for operator in obs])
@@ -119,8 +115,7 @@ class QutipDensityOperator(QutipOperator, DensityOperatorMixin):
         evals, evecs = operator.eigenstates()
         evals[abs(evals) < 1.0e-30] = 1.0e-30
         log_op = sum(
-            np.log(e_val) * e_vec * e_vec.dag()
-            for e_val, e_vec in zip(evals, evecs)
+            np.log(e_val) * e_vec * e_vec.dag() for e_val, e_vec in zip(evals, evecs)
         )
         return QutipOperator(log_op, self.system, self.site_names)
 
@@ -140,9 +135,7 @@ class ProductDensityOperator(ProductOperator, DensityOperatorMixin):
         dimensions = system.dimensions
         local_zs = {
             site: (
-                local_states[site].tr()
-                if site in local_states
-                else dimensions[site]
+                local_states[site].tr() if site in local_states else dimensions[site]
             )
             for site in sites
         }
@@ -150,8 +143,7 @@ class ProductDensityOperator(ProductOperator, DensityOperatorMixin):
         if normalize:
             assert (z > 0 for z in local_zs.values())
             local_states = {
-                site: sigma / local_zs[site]
-                for site, sigma in local_states.items()
+                site: sigma / local_zs[site] for site, sigma in local_states.items()
             }
         # TODO: remove me
         self.tagged_scalar = True
@@ -194,9 +186,7 @@ class ProductDensityOperator(ProductOperator, DensityOperatorMixin):
                 return ProductDensityOperator({}, a, self.system, False)
         return super().__rmul__(a)
 
-    def expect(
-        self, obs: Union[Operator, Iterable]
-    ) -> Union[np.ndarray, dict, Number]:
+    def expect(self, obs: Union[Operator, Iterable]) -> Union[np.ndarray, dict, Number]:
         if isinstance(obs, LocalOperator):
             operator = obs.operator
             site = obs.site
@@ -218,9 +208,7 @@ class ProductDensityOperator(ProductOperator, DensityOperatorMixin):
                 if site in local_states:
                     result *= (local_states[site] * obs_op).tr()
                 else:
-                    result *= obs_op.tr() / reduce(
-                        (lambda x, y: x * y), obs_op.dims[0]
-                    )
+                    result *= obs_op.tr() / reduce((lambda x, y: x * y), obs_op.dims[0])
             return result
         return super().expect(obs)
 
@@ -245,9 +233,7 @@ class ProductDensityOperator(ProductOperator, DensityOperatorMixin):
                 for site, dim in system.dimensions.items()
                 if site not in self.sites_op
             )
-            return OneBodyOperator(terms, system, False) + ScalarOperator(
-                norm, system
-            )
+            return OneBodyOperator(terms, system, False) + ScalarOperator(norm, system)
         return OneBodyOperator(terms, system, False)
 
     def partial_trace(self, sites: list):
@@ -296,9 +282,7 @@ class MixtureDensityOperator(SumOperator, DensityOperatorMixin):
 
     def __mul__(self, a):
         if isinstance(a, float):
-            return MixtureDensityOperator(
-                tuple(term * a for term in self.terms)
-            )
+            return MixtureDensityOperator(tuple(term * a for term in self.terms))
         return super().__mul__(a)
 
     def __rmul__(self, a):
@@ -308,9 +292,7 @@ class MixtureDensityOperator(SumOperator, DensityOperatorMixin):
             )
         return super().__rmul__(a)
 
-    def expect(
-        self, obs: Union[Operator, Iterable]
-    ) -> Union[np.ndarray, dict, Number]:
+    def expect(self, obs: Union[Operator, Iterable]) -> Union[np.ndarray, dict, Number]:
         print("expect for", type(obs))
         strip = False
         if isinstance(obs, Operator):
@@ -318,9 +300,7 @@ class MixtureDensityOperator(SumOperator, DensityOperatorMixin):
             obs = [obs]
 
         print([term.tr() for term in self.terms])
-        av_terms = tuple(
-            (term.expect(obs), term.prefactor) for term in self.terms
-        )
+        av_terms = tuple((term.expect(obs), term.prefactor) for term in self.terms)
         print(av_terms)
         if isinstance(obs, dict):
             return {
@@ -407,13 +387,9 @@ class GibbsDensityOperator(Operator, DensityOperatorMixin):
             )
         if isinstance(operand, Operator):
             return self * operand.inv()
-        raise ValueError(
-            "Division of an operator by ", type(operand), " not defined."
-        )
+        raise ValueError("Division of an operator by ", type(operand), " not defined.")
 
-    def expect(
-        self, obs: Union[Operator, Iterable]
-    ) -> Union[np.ndarray, dict, Number]:
+    def expect(self, obs: Union[Operator, Iterable]) -> Union[np.ndarray, dict, Number]:
         return self.to_qutip_operator().expect(obs)
 
     def logm(self):
@@ -501,8 +477,7 @@ class GibbsProductDensityOperator(Operator, DensityOperatorMixin):
                 self.free_energies = {site: 0 for site in k_by_site}
         else:
             f_locals = {
-                site: np.log((-l_op).expm().tr())
-                for site, l_op in k_by_site.items()
+                site: np.log((-l_op).expm().tr()) for site, l_op in k_by_site.items()
             }
 
             if system:
@@ -514,8 +489,7 @@ class GibbsProductDensityOperator(Operator, DensityOperatorMixin):
                 self.free_energies = f_locals
 
             k_by_site = {
-                site: local_k + f_locals[site]
-                for site, local_k in k_by_site.items()
+                site: local_k + f_locals[site] for site, local_k in k_by_site.items()
             }
 
         self.k_by_site = k_by_site
@@ -539,9 +513,7 @@ class GibbsProductDensityOperator(Operator, DensityOperatorMixin):
                 )
         return operand * self.to_product_state()
 
-    def expect(
-        self, obs: Union[Operator, Iterable]
-    ) -> Union[np.ndarray, dict, Number]:
+    def expect(self, obs: Union[Operator, Iterable]) -> Union[np.ndarray, dict, Number]:
         # TODO: write a better implementation
         if isinstance(obs, Operator):
             return (self.to_product_state()).expect(obs)

@@ -34,13 +34,10 @@ class SystemDescriptor:
             self.sites = sites
         else:
             self.sites = {
-                node: site_basis[attr["type"]]
-                for node, attr in graph.nodes.items()
+                node: site_basis[attr["type"]] for node, attr in graph.nodes.items()
             }
 
-        self.dimensions = {
-            name: site["dimension"] for name, site in self.sites.items()
-        }
+        self.dimensions = {name: site["dimension"] for name, site in self.sites.items()}
         self.operators = {
             "site_operators": {},
             "bond_operators": {},
@@ -112,9 +109,7 @@ class SystemDescriptor:
             return self
         if all(site in system.sites for site in self.sites):
             return system
-        raise NotImplementedError(
-            "Union of disjoint systems are not implemented."
-        )
+        raise NotImplementedError("Union of disjoint systems are not implemented.")
 
     def site_operator(self, name: str, site: str = ""):  # -> "Operator"
         """
@@ -132,9 +127,7 @@ class SystemDescriptor:
         else:
             op_name, site = name.split("@")
 
-        site_op = (
-            self.operators["site_operators"].get(site, {}).get(name, None)
-        )
+        site_op = self.operators["site_operators"].get(site, {}).get(name, None)
         if site_op is not None:
             return site_op
 
@@ -146,9 +139,7 @@ class SystemDescriptor:
         self.operators["site_operators"][site][op_name] = result_op
         return result_op
 
-    def bond_operator(
-        self, name: str, src: str, dst: str, skip=None
-    ):  # -> "Operator":
+    def bond_operator(self, name: str, src: str, dst: str, skip=None):  # -> "Operator":
         """Bond operator by name and sites"""
 
         result_op = self.operators["global_operators"].get(
@@ -281,9 +272,7 @@ class SystemDescriptor:
             if site_type is not None and site_type != node_type:
                 continue
             s_expr = expr.replace("#", node_type).replace("@", "__")
-            s_parm = {
-                key.replace("#", node_type): val for key, val in t_parm.items()
-            }
+            s_parm = {key.replace("#", node_type): val for key, val in t_parm.items()}
             s_parm.update(
                 {
                     f"{name_op}_local": local_op
@@ -308,8 +297,7 @@ class SystemDescriptor:
         def process_edge(e_expr, bond, model, t_parm):
             edge_type, src, dst = bond
             e_parms = {
-                key.replace("#", f"{edge_type}"): val
-                for key, val in t_parm.items()
+                key.replace("#", f"{edge_type}"): val for key, val in t_parm.items()
             }
             for op_idx in ([src, "src"], [dst, "dst"]):
                 e_parms.update(
@@ -336,9 +324,7 @@ class SystemDescriptor:
                 e_parms.update(
                     {
                         f"{key[0]}__src_dst": val
-                        for key, val in self.operators[
-                            "bond_operators"
-                        ].items()
+                        for key, val in self.operators["bond_operators"].items()
                         if key[src_idx] == src and key[dst_idx] == dst
                     }
                 )
@@ -357,9 +343,7 @@ class SystemDescriptor:
                 continue
             e_expr = expr.replace("#", edge_type).replace("@", "__")
             for src, dst in edges:
-                term_op = process_edge(
-                    e_expr, (edge_type, src, dst), model, t_parm
-                )
+                term_op = process_edge(e_expr, (edge_type, src, dst), model, t_parm)
                 if isinstance(term_op, str):
                     raise ValueError(
                         f"   Bond term <<{term_op}>> could not be evaluated."
