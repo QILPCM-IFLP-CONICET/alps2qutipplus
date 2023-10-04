@@ -4,18 +4,17 @@ Qutip representation of an operator.
 """
 
 
-from typing import Optional, Union
 from numbers import Number
+from typing import Optional, Union
 
-
-from numpy import log as np_log
 import scipy.sparse.linalg as spla
-
+from numpy import log as np_log
 from qutip import Qobj
 
 from alpsqutip.alpsmodels import qutip_model_from_dims
 from alpsqutip.geometry import GraphDescriptor
-from alpsqutip.model import Operator, SystemDescriptor
+from alpsqutip.model import SystemDescriptor
+from alpsqutip.operators.basic import Operator
 
 
 class QutipOperator(Operator):
@@ -79,9 +78,7 @@ class QutipOperator(Operator):
         else:
             if operator.isherm:
                 return self
-        return QutipOperator(
-            operator.dag(), self.system, self.site_names, prefactor
-        )
+        return QutipOperator(operator.dag(), self.system, self.site_names, prefactor)
 
     def inv(self):
         """the inverse of the operator"""
@@ -106,8 +103,7 @@ class QutipOperator(Operator):
         if any(value < 0 for value in evals):
             evals = (1.0 + 0j) * evals
         log_op = sum(
-            np_log(e_val) * e_vec * e_vec.dag()
-            for e_val, e_vec in zip(evals, evecs)
+            np_log(e_val) * e_vec * e_vec.dag() for e_val, e_vec in zip(evals, evecs)
         )
         return QutipOperator(log_op, self.system, self.site_names)
 
@@ -175,9 +171,7 @@ def sum_qutip_operator_plus_operator(x_op: QutipOperator, y_op: QutipOperator):
         Qobj,
     )
 )
-def sum_qutip_operator_plus_number(
-    x_op: QutipOperator, y_val: Union[Number, Qobj]
-):
+def sum_qutip_operator_plus_number(x_op: QutipOperator, y_val: Union[Number, Qobj]):
     """Sum an operator and a number  or a Qobj"""
     return QutipOperator(
         x_op.operator + y_val,
@@ -193,9 +187,7 @@ def sum_qutip_operator_plus_number(
         QutipOperator,
     )
 )
-def mul_qutip_operator_qutip_operator(
-    x_op: QutipOperator, y_op: QutipOperator
-):
+def mul_qutip_operator_qutip_operator(x_op: QutipOperator, y_op: QutipOperator):
     """Product of two qutip operators"""
     names = x_op.site_names.copy()
     names.update(y_op.site_names)

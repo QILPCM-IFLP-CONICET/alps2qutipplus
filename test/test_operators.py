@@ -25,9 +25,7 @@ from .helper import (
     sz_total,
 )
 
-sx_A = ProductOperator(
-    {local_sx_A.site: local_sx_A.operator}, 1.0, local_sx_A.system
-)
+sx_A = ProductOperator({local_sx_A.site: local_sx_A.operator}, 1.0, local_sx_A.system)
 sx_A2 = sx_A * sx_A
 sx_Asy_B = sx_A * sy_B
 sx_AsyB_times_2 = 2 * sx_Asy_B
@@ -52,12 +50,8 @@ def test_act_over():
         "sum operator, hermitician from non hermitician": {"1[0]", "1[1]"},
         "sum operator, anti-hermitician": {"1[0]", "1[1]"},
         "qutip operator": None,
-        "hermitician quadratic operator": {
-            f"1[{s}]" for s in range(CHAIN_SIZE)
-        },
-        "non hermitician quadratic operator": {
-            f"1[{s}]" for s in range(CHAIN_SIZE)
-        },
+        "hermitician quadratic operator": {f"1[{s}]" for s in range(CHAIN_SIZE)},
+        "non hermitician quadratic operator": {f"1[{s}]" for s in range(CHAIN_SIZE)},
     }
 
     for name, operator in operator_type_cases.items():
@@ -143,9 +137,7 @@ def test_type_operator():
 
     assert check_operator_equality(sx_A, sx_A.to_qutip())
     terms = [sx_A, sy_A, sz_A]
-    assert check_operator_equality(
-        sum(terms), sum(t.to_qutip() for t in terms)
-    )
+    assert check_operator_equality(sum(terms), sum(t.to_qutip() for t in terms))
     assert check_operator_equality(sx_A.inv(), sx_A.to_qutip().inv())
     opglobal_offset = opglobal + 1.3821
     assert check_operator_equality(
@@ -162,16 +154,12 @@ def test_inv_operator():
     sx_obl = sx_A + sy_B + sz_C
     sx_obl_inv = sx_obl.inv()
     assert isinstance(sx_obl_inv, QutipOperator)
-    assert check_operator_equality(
-        sx_obl_inv.to_qutip(), sx_obl.to_qutip().inv()
-    )
+    assert check_operator_equality(sx_obl_inv.to_qutip(), sx_obl.to_qutip().inv())
 
     s_prod = sx_A * sy_B * sz_C
     s_prod_inv = s_prod.inv()
     assert isinstance(s_prod, ProductOperator)
-    assert check_operator_equality(
-        s_prod_inv.to_qutip(), s_prod.to_qutip().inv()
-    )
+    assert check_operator_equality(s_prod_inv.to_qutip(), s_prod.to_qutip().inv())
 
     opglobal_offset = opglobal + 1.3821
     opglobal_offset_inv = opglobal_offset.inv()
@@ -190,15 +178,11 @@ def test_exp_operator():
     sx_obl = sx_A + sy_B + sz_C
     sx_obl_exp = sx_obl.expm()
     assert isinstance(sx_obl_exp, ProductOperator)
-    assert check_operator_equality(
-        sx_obl_exp.to_qutip(), sx_obl.to_qutip().expm()
-    )
+    assert check_operator_equality(sx_obl_exp.to_qutip(), sx_obl.to_qutip().expm())
 
     opglobal_exp = opglobal.expm()
     assert isinstance(opglobal_exp, QutipOperator)
-    assert check_operator_equality(
-        opglobal_exp.to_qutip(), opglobal.to_qutip().expm()
-    )
+    assert check_operator_equality(opglobal_exp.to_qutip(), opglobal.to_qutip().expm())
 
 
 def test_local_operator():
@@ -262,9 +246,7 @@ def test_product_operator():
     assert (sx_AsyB_qt * sx_A_qt * syB_qt).tr() == 0.25 * 2 ** (CHAIN_SIZE - 2)
     assert (opglobal_qt * sx_A_qt * syB_qt).tr() == 0.5 * 2 ** (CHAIN_SIZE - 2)
     assert (szC_qt * szC_qt).tr() == 0.5 * 2 ** (CHAIN_SIZE - 1)
-    assert (sx_AsyB_times_2_qt * sx_AsyB_times_2_qt).tr() == 2 ** (
-        CHAIN_SIZE - 2
-    )
+    assert (sx_AsyB_times_2_qt * sx_AsyB_times_2_qt).tr() == 2 ** (CHAIN_SIZE - 2)
     assert (opglobal_qt * opglobal_qt).tr() == 2 ** (CHAIN_SIZE - 2) * 2
 
 
@@ -289,9 +271,7 @@ def test_qutip_operators():
 
     for subsystem in subsystems:
         assert (sx_A_qt).partial_trace(subsystem).tr() == 0.0
-        assert (sx_A2_qt).partial_trace(subsystem).tr() == 0.5 * 2 ** (
-            CHAIN_SIZE - 1
-        )
+        assert (sx_A2_qt).partial_trace(subsystem).tr() == 0.5 * 2 ** (CHAIN_SIZE - 1)
         assert (sx_AsyB_qt * sx_A_qt * syB_qt).partial_trace(
             subsystem
         ).tr() == 0.25 * 2 ** (CHAIN_SIZE - 2)
@@ -304,9 +284,9 @@ def test_qutip_operators():
         assert (sx_AsyB_times_2_qt * sx_AsyB_times_2_qt).partial_trace(
             subsystem
         ).tr() == 2 ** (CHAIN_SIZE - 2)
-        assert (opglobal_qt * opglobal_qt).partial_trace(
-            subsystem
-        ).tr() == 2 ** (CHAIN_SIZE - 2) * 2
+        assert (opglobal_qt * opglobal_qt).partial_trace(subsystem).tr() == 2 ** (
+            CHAIN_SIZE - 2
+        ) * 2
         assert (opglobal_qt * sx_A_qt).partial_trace(subsystem).tr() == 0.0
         assert (opglobal_qt * opglobal).partial_trace(subsystem).tr() == 2 ** (
             CHAIN_SIZE - 2
@@ -317,12 +297,10 @@ def test_qutip_operators():
 
     # Tests for QutipOperators defined without a system
     detached_qutip_operator = QutipOperator(sx_AsyB_times_2_qt.operator)
-    assert ((sx_AsyB_times_2_qt.operator) ** 2).tr() == 0.5**2 * 2 ** (
+    assert ((sx_AsyB_times_2_qt.operator) ** 2).tr() == 0.5**2 * 2 ** (CHAIN_SIZE - 2)
+    assert (detached_qutip_operator * detached_qutip_operator).tr() == 0.5**2 * 2 ** (
         CHAIN_SIZE - 2
     )
-    assert (
-        detached_qutip_operator * detached_qutip_operator
-    ).tr() == 0.5**2 * 2 ** (CHAIN_SIZE - 2)
 
     detached_qutip_operator = QutipOperator(
         sx_AsyB_times_2_qt.operator, names={s: i for i, s in enumerate(sites)}
@@ -337,8 +315,7 @@ def test_arithmetic_operators():
     Test consistency of arithmetic expressions
     """
     operator_type_cases_qutip = {
-        key: operator.to_qutip()
-        for key, operator in operator_type_cases.items()
+        key: operator.to_qutip() for key, operator in operator_type_cases.items()
     }
 
     for key1, test_operator1 in operator_type_cases.items():

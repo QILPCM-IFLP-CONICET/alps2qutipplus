@@ -7,23 +7,24 @@ import qutip
 
 from alpsqutip.operator_functions import (
     eigenvalues,
-    log_op,
     hermitian_and_antihermitian_parts,
+    log_op,
     relative_entropy,
     simplify_sum_operator,
     spectral_norm,
 )
 from alpsqutip.operators import SumOperator
 from alpsqutip.utils import matrix_to_wolfram
+
 from .helper import (
     CHAIN_SIZE,
-    check_operator_equality,
     check_equality,
+    check_operator_equality,
     global_identity,
     hamiltonian,
     sites,
-    system,
     sx_total,
+    system,
     sz_total,
     test_cases_states,
 )
@@ -58,10 +59,7 @@ operators = {
 
 
 def compare_spectrum(spectrum1, spectrum2):
-    assert (
-        max(abs(np.array(sorted(spectrum1)) - np.array(sorted(spectrum2))))
-        < 1.0e-12
-    )
+    assert max(abs(np.array(sorted(spectrum1)) - np.array(sorted(spectrum2)))) < 1.0e-12
 
 
 def test_decompose_hermitician():
@@ -101,10 +99,7 @@ def test_relative_entropy():
     }
     clean = True
     for key1, rho in test_cases_states.items():
-        assert (
-            abs(rho.tr() - 1) < 0.001
-            and abs(qutip_states[key1].tr() - 1) < 0.001
-        )
+        assert abs(rho.tr() - 1) < 0.001 and abs(qutip_states[key1].tr() - 1) < 0.001
         print("\n\n", 30 * " ", "rho:", key1)
         check_equality(relative_entropy(rho, rho), 0)
         check_equality(
@@ -141,9 +136,7 @@ def test_eigenvalues():
     # Ground state energy
     # Compute the minimum eigenenergy with qutip
     e0_qutip = min(
-        hamiltonian.to_qutip().eigenenergies(
-            sparse=True, sort="low", eigvals=10
-        )
+        hamiltonian.to_qutip().eigenenergies(sparse=True, sort="low", eigvals=10)
     )
     # use the alpsqutip routine
     e0 = min(eigenvalues(hamiltonian, sparse=True, sort="low", eigvals=10))
@@ -152,9 +145,7 @@ def test_eigenvalues():
     #  e^(sz)/Tr e^(sz)
     spectrum = sorted(eigenvalues(test_cases_states["gibbs_sz"]))
     expected_local_spectrum = np.array([np.exp(-0.5), np.exp(0.5)])
-    expected_local_spectrum = expected_local_spectrum / sum(
-        expected_local_spectrum
-    )
+    expected_local_spectrum = expected_local_spectrum / sum(expected_local_spectrum)
 
     expected_spectrum = expected_local_spectrum.copy()
     for i in range(CHAIN_SIZE - 1):
@@ -183,9 +174,7 @@ def test_log_op():
         op_log = log_op(test_op)
         op_log_exp = op_log.expm()
         delta = test_op - op_log_exp
-        spectral_norm_error = max(
-            abs(x) for x in delta.to_qutip().eigenenergies()
-        )
+        spectral_norm_error = max(abs(x) for x in delta.to_qutip().eigenenergies())
 
         if spectral_norm_error > 0.0001:
             clean = False
@@ -200,9 +189,7 @@ def test_log_op():
         op_exp = (test_op).expm()
         op_exp_log = log_op(op_exp)
         delta = test_op - op_exp_log
-        spectral_norm_error = max(
-            abs(x) for x in delta.to_qutip().eigenenergies()
-        )
+        spectral_norm_error = max(abs(x) for x in delta.to_qutip().eigenenergies())
         if spectral_norm_error > 0.000001:
             clean = False
             print("    log(exp(op))!=op.")

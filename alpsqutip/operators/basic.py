@@ -3,15 +3,230 @@ Different representations for operators
 """
 
 from functools import reduce
-from typing import Optional
-
 from numbers import Number
+from typing import Callable, Dict, Optional, Tuple
 
 import numpy as np
 import qutip
 from qutip import Qobj
 
-from alpsqutip.model import Operator, SystemDescriptor
+from alpsqutip.model import SystemDescriptor
+
+
+class Operator:
+    """Base class for operators"""
+
+    system: SystemDescriptor
+    prefactor: float = 1.0
+
+    # def __add__(self, term):
+    #    # pylint: disable=import-outside-toplevel
+    #    from alpsqutip.operators import SumOperator
+    #
+    #    return SumOperator([self, term], self.system)
+
+    # TODO check the possibility of implementing this with multimethods
+    __add__dispatch__: Dict[Tuple, Callable] = {}
+    __mul__dispatch__: Dict[Tuple, Callable] = {}
+
+    @staticmethod
+    def register_add_handler(key: Tuple):
+        def register_func(func):
+            Operator.__add__dispatch__[key] = func
+            return func
+
+        return register_func
+
+    @staticmethod
+    def register_mul_handler(key: Tuple):
+        def register_func(func):
+            Operator.__mul__dispatch__[key] = func
+            return func
+
+        return register_func
+
+    def __add__(self, term):
+        # Use multiple dispatch to determine how to add
+        func = self.__add__dispatch__.get((type(self), type(term)), None)
+        if func is not None:
+            return func(self, term)
+
+        func = self.__add__dispatch__.get((type(term), type(self)), None)
+        if func is not None:
+            return func(term, self)
+
+        for key, func in self.__add__dispatch__.items():
+            lhf, rhf = key
+            if isinstance(self, lhf) and isinstance(term, rhf):
+                self.__add__dispatch__[
+                    (
+                        lhf,
+                        rhf,
+                    )
+                ] = func
+                return func(self, term)
+            rhf, lhf = key
+            if isinstance(self, lhf) and isinstance(term, rhf):
+                self.__add__dispatch__[
+                    (
+                        lhf,
+                        rhf,
+                    )
+                ] = lambda x, y: func(y, x)
+                return func(term, self)
+
+        raise ValueError(type(self), "cannot be added with ", type(term))
+
+    def __mul__(self, factor):
+        # Use multiple dispatch to determine how to multiply
+        key = (
+            type(self),
+            type(factor),
+        )
+        func = self.__mul__dispatch__.get(key, None)
+
+        if func is not None:
+            return func(self, factor)
+
+        for try_key, func in Operator.__mul__dispatch__.items():
+            lhf, rhf = try_key
+            if isinstance(self, lhf) and isinstance(factor, rhf):
+                Operator.__mul__dispatch__[key] = func
+                return func(self, factor)
+
+        raise ValueError(type(self), "cannot be multiplied with ", type(factor))
+        if hasattr(factor, "to_qutip_operator"):
+            factor = factor.to_qutip_operator()
+        return self.to_qutip_operator() * factor
+
+    def __neg__(self):
+        return -(self.to_qutip_operator())
+
+    def __sub__(self, operand):
+        if operand is None:
+            raise ValueError("None can not be an operand")
+        neg_op = -operand
+        return self + neg_op
+
+    def __radd__(self, term):
+        # Use multiple dispatch to determine how to add
+        return self + term
+
+    def __rmul__(self, factor):
+        # Use __mul__dispatch__ to determine how to evaluate the product
+
+        key = (
+            type(factor),
+            type(self),
+        )
+        func = self.__mul__dispatch__.get(key, None)
+
+        if func is not None:
+            return func(factor, self)
+        for try_key, func in Operator.__mul__dispatch__.items():
+            lhf, rhf = try_key
+            if isinstance(factor, lhf) and isinstance(self, rhf):
+                Operator.__mul__dispatch__[key] = func
+                return func(factor, self)
+
+        raise ValueError(type(self), "cannot be multiplied  with ", type(factor))
+        return factor.to_qutip_operator() * self.to_qutip_operator()
+
+    def __rsub__(self, operand):
+        if operand is None:
+            raise ValueError("None can not be an operand")
+
+        neg_self = -self
+        return operand + neg_self
+
+    def __pow__(self, exponent):
+        if exponent is None:
+            raise ValueError("None can not be an operand")
+
+        return self.to_qutip_operator() ** exponent
+
+    def __truediv__(self, operand):
+        if isinstance(operand, (int, float, complex)):
+            return self * (1.0 / operand)
+        if isinstance(operand, Operator):
+            return self * operand.inv()
+        raise ValueError("Division of an operator by ", type(operand), " not defined.")
+
+    def _repr_latex_(self):
+        """LaTeX Representation"""
+        qutip_repr = self.to_qutip()
+        if isinstance(qutip_repr, qutip.Qobj):
+            # pylint: disable=protected-access
+            parts = qutip_repr._repr_latex_().split("$")
+            tex = parts[1] if len(parts) > 2 else "-?-"
+        else:
+            tex = str(qutip_repr)
+        return f"${tex}$"
+
+    def act_over(self) -> Optional[set]:
+        """
+        Return the list of sites over which the operator acts nontrivially.
+        If this cannot be determined, return None.
+        """
+        return None
+
+    def dag(self):
+        """Adjoint operator of quantum object"""
+        return self.to_qutip_operator().dag()
+
+    @property
+    def isherm(self) -> bool:
+        """Check if the operator is hermitician"""
+        return self.to_qutip().isherm
+
+    def expm(self):
+        """Produce a Qutip representation of the operator"""
+
+        # Import here to avoid circular dependency
+        # pylint: disable=import-outside-toplevel
+        from scipy.sparse.linalg import ArpackError
+
+        from alpsqutip.operators.qutip import QutipOperator
+
+        op_qutip = self.to_qutip()
+        try:
+            max_eval = op_qutip.eigenenergies(sort="high", sparse=True, eigvals=3)[0]
+        except ArpackError:
+            max_eval = max(op_qutip.diag())
+
+        op_qutip = (op_qutip - max_eval).expm()
+        return QutipOperator(op_qutip, self.system, prefactor=np.exp(max_eval))
+
+    def inv(self):
+        """the inverse of the operator"""
+        return self.to_qutip_operator().inv()
+
+    def logm(self):
+        """Logarithm of the operator"""
+        return self.to_qutip_operator().logm()
+
+    def partial_trace(self, sites: list):
+        """Partial trace over sites not listed in `sites`"""
+        raise NotImplementedError
+
+    def simplify(self):
+        """Returns a more efficient representation"""
+        return self
+
+    def to_qutip(self):
+        """Convert to a Qutip object"""
+        raise NotImplementedError
+
+    def to_qutip_operator(self):
+        """Produce a Qutip representation of the operator"""
+        from alpsqutip.operators.qutip import QutipOperator
+
+        return QutipOperator(self.to_qutip(), self.system)
+
+    # pylint: disable=invalid-name
+    def tr(self):
+        """The trace of the operator"""
+        return self.partial_trace([]).prefactor
 
 
 class LocalOperator(Operator):
@@ -49,10 +264,7 @@ class LocalOperator(Operator):
         return LocalOperator(self.site, operator**exp, self.system)
 
     def __repr__(self):
-        return (
-            f"Local Operator on site {self.site}:"
-            f"\n {repr(self.operator.full())}"
-        )
+        return f"Local Operator on site {self.site}:" f"\n {repr(self.operator.full())}"
 
     def act_over(self):
         return set((self.site,))
@@ -111,9 +323,7 @@ class LocalOperator(Operator):
         local_sites = subsystem.sites
         site = self.site
         prefactors = [
-            d
-            for s, d in dimensions.items()
-            if s != site and s not in local_sites
+            d for s, d in dimensions.items() if s != site and s not in local_sites
         ]
 
         if len(prefactors) > 0:
@@ -138,10 +348,7 @@ class LocalOperator(Operator):
             operator = operator.to_qutip()
 
         return qutip.tensor(
-            [
-                operator if s == site else qutip.qeye(d)
-                for s, d in dimensions.items()
-            ]
+            [operator if s == site else qutip.qeye(d) for s, d in dimensions.items()]
         )
 
     def tr(self):
@@ -173,9 +380,7 @@ class ProductOperator(Operator):
             }
 
         self.sites_op = sites_operators
-        if any(
-            op.data.count_nonzero() == 0 for op in sites_operators.values()
-        ):
+        if any(op.data.count_nonzero() == 0 for op in sites_operators.values()):
             prefactor = 0
             self.sites_op = {}
         self.prefactor = prefactor
@@ -187,9 +392,7 @@ class ProductOperator(Operator):
             }
 
     def __bool__(self):
-        return bool(self.prefactor) and all(
-            bool(factor) for factor in self.sites_op
-        )
+        return bool(self.prefactor) and all(bool(factor) for factor in self.sites_op)
 
     def __neg__(self):
         return ProductOperator(self.sites_op, -self.prefactor, self.system)
@@ -204,8 +407,7 @@ class ProductOperator(Operator):
     def __repr__(self):
         result = "  " + str(self.prefactor) + " * (\n  "
         result += "\n  ".join(
-            f"({item[1].full()} <-  {item[0]})"
-            for item in self.sites_op.items()
+            f"({item[1].full()} <-  {item[0]})" for item in self.sites_op.items()
         )
         result += " )"
         return result
@@ -243,9 +445,7 @@ class ProductOperator(Operator):
         prefactor = self.prefactor
 
         n_ops = len(sites_op)
-        sites_op = {
-            site: op_local.inv() for site, op_local in sites_op.items()
-        }
+        sites_op = {site: op_local.inv() for site, op_local in sites_op.items()}
         if n_ops == 1:
             site, op_local = next(iter(sites_op.items()))
             return LocalOperator(site, op_local / prefactor, system)
@@ -284,8 +484,7 @@ class ProductOperator(Operator):
         subsystem = self.system.subsystem(sites_in)
         sites_op = self.sites_op
         prefactors = [
-            sites_op[s].tr() if s in sites_op else dimensions[s]
-            for s in sites_out
+            sites_op[s].tr() if s in sites_op else dimensions[s] for s in sites_out
         ]
         sites_op = {s: o for s, o in sites_op.items() if s in sites_in}
         prefactor = self.prefactor
@@ -369,9 +568,7 @@ class ScalarOperator(ProductOperator):
     )
 )
 def _(x_op: ScalarOperator, y_op: ScalarOperator):
-    return ScalarOperator(
-        x_op.prefactor + y_op.prefactor, x_op.system or y_op.system
-    )
+    return ScalarOperator(x_op.prefactor + y_op.prefactor, x_op.system or y_op.system)
 
 
 @Operator.register_mul_handler(
@@ -381,9 +578,7 @@ def _(x_op: ScalarOperator, y_op: ScalarOperator):
     )
 )
 def _(x_op: ScalarOperator, y_op: ScalarOperator):
-    return ScalarOperator(
-        x_op.prefactor * y_op.prefactor, x_op.system or y_op.system
-    )
+    return ScalarOperator(x_op.prefactor * y_op.prefactor, x_op.system or y_op.system)
 
 
 @Operator.register_add_handler(
@@ -529,9 +724,7 @@ def _(x_op: ProductOperator, y_op: ProductOperator):
     site_op = x_op.sites_op.copy()
     site_op_y = y_op.sites_op
     for site, op_local in site_op_y.items():
-        site_op[site] = (
-            site_op[site] * op_local if site in site_op else op_local
-        )
+        site_op[site] = site_op[site] * op_local if site in site_op else op_local
     prefactor = x_op.prefactor * y_op.prefactor
     if len(site_op) == 0 or prefactor == 0:
         return ScalarOperator(prefactor, system)

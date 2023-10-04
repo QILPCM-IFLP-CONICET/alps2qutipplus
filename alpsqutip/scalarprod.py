@@ -6,7 +6,7 @@ from typing import Callable
 
 import numpy as np
 
-from alpsqutip.model import Operator
+from alpsqutip.operators import Operator
 
 #  ### Functions that build the scalar products ###
 
@@ -133,8 +133,7 @@ def orthogonalize_basis(basis: list, sp: Callable, idop: Operator = None):
     for i in range(1):
         gs = gram_matrix(basis, sp)
         lvecs, evals, rvecs = np.linalg.svd(gs)
-        coeffs = [(vec) / (val**0.5)
-                  for vec, val in zip(rvecs, evals) if val > 1e-20]
+        coeffs = [(vec) / (val**0.5) for vec, val in zip(rvecs, evals) if val > 1e-20]
         basis = [sum(c * op for c, op in zip(w, basis)) for w in coeffs]
     return basis
 

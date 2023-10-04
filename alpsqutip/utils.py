@@ -36,9 +36,7 @@ def eval_expr(expr: str, parms: dict):
             pass
 
     parms = {
-        key.replace("'", "_prima"): val
-        for key, val in parms.items()
-        if val is not None
+        key.replace("'", "_prima"): val for key, val in parms.items() if val is not None
     }
     expr = expr.replace("'", "_prima")
 
@@ -104,8 +102,7 @@ def matrix_to_wolfram(matr: np.ndarray):
         )
 
     rows = [
-        "{" + (", ".join(process_number(elem) for elem in row)) + "}"
-        for row in matr
+        "{" + (", ".join(process_number(elem) for elem in row)) + "}" for row in matr
     ]
     return "{\n" + ",\n".join(rows) + "\n}"
 
