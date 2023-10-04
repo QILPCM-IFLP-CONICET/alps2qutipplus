@@ -106,10 +106,10 @@ def test_relative_entropy():
             and abs(qutip_states[key1].tr() - 1) < 0.001
         )
         print("\n\n", 30 * " ", "rho:", key1)
-        assert relative_entropy(rho, rho) == 0
-        assert (
-            qutip.entropy_relative(qutip_states[key1], qutip_states[key1]) == 0
-        ), key1
+        check_equality(relative_entropy(rho, rho), 0)
+        check_equality(
+            qutip.entropy_relative(qutip_states[key1], qutip_states[key1]), 0
+        )
 
         for key2, sigma in test_cases_states.items():
             print("\n   ", key2, type(sigma))
