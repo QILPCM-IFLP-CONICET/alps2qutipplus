@@ -9,19 +9,14 @@ import numpy as np
 import qutip
 
 from alpsqutip.model import SystemDescriptor, build_spin_chain
-from alpsqutip.operators import (
-    Operator,
-    OneBodyOperator,
-    ScalarOperator,
-    SumOperator,
-)
+from alpsqutip.operators import OneBodyOperator, Operator, ScalarOperator, SumOperator
+from alpsqutip.operators.quadratic import build_quadratic_form_from_operator
 from alpsqutip.settings import VERBOSITY_LEVEL
 from alpsqutip.states import (
     GibbsDensityOperator,
     GibbsProductDensityOperator,
     ProductDensityOperator,
 )
-from alpsqutip.operators.quadratic import build_quadratic_form_from_operator
 
 CHAIN_SIZE = 4
 
