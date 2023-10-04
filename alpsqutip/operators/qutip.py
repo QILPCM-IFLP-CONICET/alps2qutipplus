@@ -4,13 +4,11 @@ Qutip representation of an operator.
 """
 
 
-from typing import Optional, Union
 from numbers import Number
+from typing import Optional, Union
 
-
-from numpy import log as np_log
 import scipy.sparse.linalg as spla
-
+from numpy import log as np_log
 from qutip import Qobj
 
 from alpsqutip.alpsmodels import qutip_model_from_dims

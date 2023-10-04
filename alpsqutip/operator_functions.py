@@ -6,16 +6,17 @@ Functions for operators.
 # from typing import Callable, List, Optional, Tuple
 from numbers import Number
 from typing import Tuple
+
 from numpy import array as np_array, real
 
 from alpsqutip.operators import (
-    ScalarOperator,
     LocalOperator,
     OneBodyOperator,
     Operator,
     ProductOperator,
-    SumOperator,
     QutipOperator,
+    ScalarOperator,
+    SumOperator,
 )
 from alpsqutip.scalarprod import orthogonalize_basis
 

@@ -2,18 +2,21 @@
 Define SystemDescriptors and different kind of operators
 """
 
-from typing import Union
+from numbers import Number
 
 # from numbers import Number
 from time import time
-
-from numbers import Number
+from typing import Union
 
 import numpy as np
 from numpy.linalg import eigh, svd
 from numpy.random import random
 
 from alpsqutip.model import SystemDescriptor
+from alpsqutip.operator_functions import (
+    hermitian_and_antihermitian_parts,
+    simplify_sum_operator,
+)
 from alpsqutip.operators import (
     LocalOperator,
     OneBodyOperator,
@@ -25,10 +28,6 @@ from alpsqutip.operators import (
 )
 from alpsqutip.scalarprod import gram_matrix
 from alpsqutip.states import GibbsProductDensityOperator
-from alpsqutip.operator_functions import (
-    hermitian_and_antihermitian_parts,
-    simplify_sum_operator,
-)
 
 
 class QuadraticFormOperator(Operator):

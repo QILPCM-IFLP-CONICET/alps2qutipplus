@@ -81,10 +81,7 @@ class SystemDescriptor:
     def _load_global_ops(self):
         # Import here to avoid circular dependency
         # pylint: disable=import-outside-toplevel
-        from alpsqutip.operators import (
-            LocalOperator,
-            OneBodyOperator,
-        )
+        from alpsqutip.operators import LocalOperator, OneBodyOperator
 
         # First, load conserved quantum numbers:
         for constraint_qn in self.spec["model"].constraints:

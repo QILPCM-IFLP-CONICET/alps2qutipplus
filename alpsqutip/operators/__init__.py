@@ -3,17 +3,14 @@
 Operators
 """
 
-from alpsqutip.operators.qutip import QutipOperator
+from alpsqutip.operators.arithmetic import OneBodyOperator, SumOperator
 from alpsqutip.operators.basic import (
-    Operator,
     LocalOperator,
+    Operator,
     ProductOperator,
     ScalarOperator,
 )
-from alpsqutip.operators.arithmetic import (
-    SumOperator,
-    OneBodyOperator,
-)
+from alpsqutip.operators.qutip import QutipOperator
 
 __all__ = [
     "LocalOperator",

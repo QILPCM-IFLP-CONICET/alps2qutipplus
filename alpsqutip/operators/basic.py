@@ -3,9 +3,8 @@ Different representations for operators
 """
 
 from functools import reduce
-from typing import Callable, Dict, Optional, Tuple
-
 from numbers import Number
+from typing import Callable, Dict, Optional, Tuple
 
 import numpy as np
 import qutip
@@ -191,8 +190,9 @@ class Operator:
 
         # Import here to avoid circular dependency
         # pylint: disable=import-outside-toplevel
-        from alpsqutip.operators.qutip import QutipOperator
         from scipy.sparse.linalg import ArpackError
+
+        from alpsqutip.operators.qutip import QutipOperator
 
         op_qutip = self.to_qutip()
         try:

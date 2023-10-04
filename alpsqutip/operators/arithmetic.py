@@ -4,23 +4,22 @@
 Classes and functions for operator arithmetic.
 """
 
+from numbers import Number
+
 # import logging
 from typing import List, Optional, Union
-
-from numbers import Number
 
 import numpy as np
 from qutip import Qobj
 
-
 from alpsqutip.model import SystemDescriptor
-from alpsqutip.operators.qutip import QutipOperator
 from alpsqutip.operators.basic import (
     LocalOperator,
     Operator,
     ProductOperator,
     ScalarOperator,
 )
+from alpsqutip.operators.qutip import QutipOperator
 
 
 class SumOperator(Operator):
@@ -113,8 +112,8 @@ class SumOperator(Operator):
         def aggresive_hermitician_test():
             # pylint: disable=import-outside-toplevel
             from alpsqutip.operator_functions import (
-                simplify_sum_operator,
                 hermitian_and_antihermitian_parts,
+                simplify_sum_operator,
             )
 
             self._isherm = False
