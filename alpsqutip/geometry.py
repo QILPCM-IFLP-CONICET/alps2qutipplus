@@ -187,6 +187,8 @@ def graph_from_alps_xml(
                     tgt_name = bnd_desc["tgt"]
                     tgt = list(u + d for u, d in zip(cell, bnd_desc["offset_tgt"]))
                     skip = False
+                    if isinstance(bcs, str):
+                        bcs = [bcs] * dim
                     for d_int in range(dim):
                         if bcs[d_int] == "periodic":
                             if src[d_int] >= extents[d_int] or src[d_int] < 0:
