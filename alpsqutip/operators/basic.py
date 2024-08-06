@@ -180,17 +180,17 @@ class Operator:
         return self.to_qutip().isherm
 
     def expm(self):
-        """Produce a Qutip representation of the operator"""
+        """Compute the exponential of the Qutip representation of the operator"""
 
         # Import here to avoid circular dependency
         # pylint: disable=import-outside-toplevel
         from scipy.sparse.linalg import ArpackError
-
         from alpsqutip.operators.qutip import QutipOperator
+        from alpsqutip.operator_functions import eigenvalues
 
         op_qutip = self.to_qutip()
         try:
-            max_eval = op_qutip.eigenenergies(sort="high", sparse=True, eigvals=3)[0]
+            max_eval = eigenvalues(op_qutip, sort="high", sparse=True, eigvals=3)[0]
         except ArpackError:
             max_eval = max(op_qutip.diag())
 

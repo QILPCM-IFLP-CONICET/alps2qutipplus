@@ -25,7 +25,7 @@ def safe_exp_and_normalize(operator):
     """Compute `expm(operator)/Z` and `log(Z)`.
     `Z=expm(operator).tr()` in a safe way.
     """
-    k_0 = max(abs(eigenvalues(operator, sparse=True, sort="high", eigvals=3)))
+    k_0 = max(np.real(eigenvalues(operator, sparse=True, sort="high", eigvals=3)))
     op_exp = (operator - k_0).expm()
     op_exp_tr = op_exp.tr()
     op_exp = op_exp * (1.0 / op_exp_tr)
