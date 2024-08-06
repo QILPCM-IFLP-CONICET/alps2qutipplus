@@ -338,10 +338,11 @@ def selfconsistent_meanfield_from_quadratic_form(
             tuple(phi_i * operator for phi_i, operator in zip(phi, basis)),
             system,
         )
+        k_exp = ((k_exp + k_exp.dag()).simplify()) * 0.5
         assert k_exp.isherm
         rho = GibbsProductDensityOperator(k_exp, 1.0, system)
-        new_phi = rho.expect(operators).conj()
-
+        new_phi = -rho.expect(operators).conj()
+        print("   new phi:", new_phi)
         if isinstance(logdict, dict):
             evolution.append(new_phi)
             timestamps.append(time())
@@ -729,7 +730,10 @@ def _(qf_op: QuadraticFormOperator, y_op: Union[LocalOperator, ProductOperator])
         ProductOperator,
     )
 )
-def _(qf_op: QuadraticFormOperator, y_op: Union[LocalOperator, ProductOperator]):
+
+def _(
+    qf_op: QuadraticFormOperator, y_op: Union[LocalOperator, ProductOperator]
+):
     return qf_op.to_sum_operator() * y_op
 
 
@@ -745,7 +749,10 @@ def _(qf_op: QuadraticFormOperator, y_op: Union[LocalOperator, ProductOperator])
         QuadraticFormOperator,
     )
 )
-def _(y_op: Union[LocalOperator, ProductOperator], qf_op: QuadraticFormOperator):
+
+def _(
+    y_op: Union[LocalOperator, ProductOperator], qf_op: QuadraticFormOperator
+):
     return y_op * qf_op.to_sum_operator()
 
 

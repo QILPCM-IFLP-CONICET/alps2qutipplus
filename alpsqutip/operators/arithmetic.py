@@ -226,16 +226,33 @@ class OneBodyOperator(SumOperator):
         )
 
     def expm(self):
+        # Import here to avoid circular dependency
+        # pylint: disable=import-outside-toplevel
+        from alpsqutip.operator_functions import eigenvalues
+
         sites_op = {}
+        ln_prefactor = 0
         for term in self.terms:
             if not bool(term):
                 continue
             operator = term.operator
+            try:
+                k_0 = max(
+                    np.real(eigenvalues(operator, sparse=True, sort="high", eigvals=3))
+                )
+            except ValueError:
+                k_0 = max(np.real(eigenvalues(operator, sort="high")))
+
+            operator = operator - k_0
+            ln_prefactor += k_0
             if hasattr(operator, "expm"):
                 sites_op[term.site] = operator.expm()
             else:
+                print("Warning: ", type(operator), "evaluated as a number")
                 sites_op[term.site] = np.exp(operator)
-        return ProductOperator(sites_op, system=self.system)
+
+        prefactor = np.exp(ln_prefactor)
+        return ProductOperator(sites_op, prefactor=prefactor, system=self.system)
 
     @staticmethod
     def _simplify_terms(terms, system):
