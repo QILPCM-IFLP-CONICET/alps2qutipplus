@@ -250,7 +250,7 @@ class LocalOperator(Operator):
     def __bool__(self):
         operator = self.operator
         if isinstance(operator, Qobj):
-            return operator.data.count_nonzero() > 0
+            return operator.data.as_scipy().count_nonzero() > 0
         return bool(self.operator)
 
     def __neg__(self):
@@ -381,7 +381,7 @@ class ProductOperator(Operator):
             }
 
         self.sites_op = sites_operators
-        if any(op.data.count_nonzero() == 0 for op in sites_operators.values()):
+        if any(op.data.as_scipy().count_nonzero() == 0 for op in sites_operators.values()):
             prefactor = 0
             self.sites_op = {}
         self.prefactor = prefactor
