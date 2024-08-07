@@ -18,6 +18,6 @@ setup(
     long_description=open("README.rst").read(),
     install_requires=[
         "matplotlib",
-        "qutip>=5.0.0",
+        "qutip>=4.0.0",
     ],
 )
