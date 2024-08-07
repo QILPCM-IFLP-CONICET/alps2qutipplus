@@ -185,8 +185,9 @@ class Operator:
         # Import here to avoid circular dependency
         # pylint: disable=import-outside-toplevel
         from scipy.sparse.linalg import ArpackError
-        from alpsqutip.operators.qutip import QutipOperator
+
         from alpsqutip.operator_functions import eigenvalues
+        from alpsqutip.operators.qutip import QutipOperator
 
         op_qutip = self.to_qutip()
         try:
