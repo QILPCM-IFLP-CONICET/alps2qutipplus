@@ -13,6 +13,10 @@ def safe_expm_and_normalize():
     # TODO: implement me
     pass
 
+def safe_expm_and_normalize():
+    # TODO: implement me
+    pass
+
 def project_K_to_sep(K, maxit=200):
     length = len(K.dims[0])
     phis = 2 * np.random.rand(length, 3) - 1.0
