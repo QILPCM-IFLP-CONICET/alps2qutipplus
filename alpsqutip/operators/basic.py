@@ -13,6 +13,19 @@ from qutip import Qobj
 from alpsqutip.model import SystemDescriptor
 
 
+def empty_op(op:Qobj)->bool:
+    """
+    Check if op is an sparse operator without
+    non-zero elements.
+    """
+    data = op.data
+    if hasattr(data, "count_nonzero"):
+        return data.count_nonzero() == 0
+    elif hasattr(data, "as_scipy"):
+        return data.as_scipy().count_nonzero() == 0
+    return False
+
+
 class Operator:
     """Base class for operators"""
 
@@ -250,7 +263,7 @@ class LocalOperator(Operator):
     def __bool__(self):
         operator = self.operator
         if isinstance(operator, Qobj):
-            return operator.data.as_scipy().count_nonzero() > 0
+            return not empty_op(operator)
         return bool(self.operator)
 
     def __neg__(self):
@@ -381,7 +394,7 @@ class ProductOperator(Operator):
             }
 
         self.sites_op = sites_operators
-        if any(op.data.as_scipy().count_nonzero() == 0 for op in sites_operators.values()):
+        if any(empty_op(op) for op in sites_operators.values()):
             prefactor = 0
             self.sites_op = {}
         self.prefactor = prefactor
