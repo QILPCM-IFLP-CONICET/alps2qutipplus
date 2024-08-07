@@ -143,9 +143,7 @@ class SystemDescriptor:
         self.operators["site_operators"][site][op_name] = result_op
         return result_op
 
-    def bond_operator(
-        self, name: str, src: str, dst: str, skip=None
-    ):  # -> "Operator":
+    def bond_operator(self, name: str, src: str, dst: str, skip=None):  # -> "Operator":
         """Bond operator by name and sites"""
 
         result_op = self.operators["global_operators"].get(
