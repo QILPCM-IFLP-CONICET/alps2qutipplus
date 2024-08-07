@@ -25,7 +25,7 @@ For more information, visit the QuTiP documentation: http://qutip.org and the Gi
 
 
 
-Alps2Qutip++ allows to load models defined using the ALPS library XML syntax and produce objects that can be used in Qutip functions, and viceversa. The '++' is because it goes beyound, allowing to represent states and operators on lattice quantum systems in a very efficient way, in terms of the algebra of tensor products. For example, in Qutip, a Hamiltonian operator is stored as an sparse matrix, without taking into account the fact that in lattice models, Hamiltonians are linear combinations of local operators and few body terms. For example, in a transverse Ising model in a chain,
+Alps2Qutip++ allows to load models defined using the ALPS library XML syntax and produce objects that can be used in Qutip functions, and vice-versa. The '++' is because it goes beyond, allowing to represent states and operators on lattice quantum systems in a very efficient way, in terms of the algebra of tensor products. For example, in Qutip, a Hamiltonian operator is stored as an sparse matrix, without taking into account the fact that in lattice models, Hamiltonians are linear combinations of local operators and few body terms. For example, in a transverse Ising model in a chain,
 
 .. math::
 
