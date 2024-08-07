@@ -730,10 +730,7 @@ def _(qf_op: QuadraticFormOperator, y_op: Union[LocalOperator, ProductOperator])
         ProductOperator,
     )
 )
-
-def _(
-    qf_op: QuadraticFormOperator, y_op: Union[LocalOperator, ProductOperator]
-):
+def _(qf_op: QuadraticFormOperator, y_op: Union[LocalOperator, ProductOperator]):
     return qf_op.to_sum_operator() * y_op
 
 
@@ -749,10 +746,11 @@ def _(
         QuadraticFormOperator,
     )
 )
+def _(y_op: Union[LocalOperator, ProductOperator], qf_op: QuadraticFormOperator):
+    return y_op * qf_op.to_sum_operator()
 
-def _(
-    y_op: Union[LocalOperator, ProductOperator], qf_op: QuadraticFormOperator
-):
+
+def _(y_op: Union[LocalOperator, ProductOperator], qf_op: QuadraticFormOperator):
     return y_op * qf_op.to_sum_operator()
 
 
