@@ -13,7 +13,7 @@ from qutip import Qobj
 from alpsqutip.model import SystemDescriptor
 
 
-def empty_op(op:Qobj)->bool:
+def empty_op(op: Qobj) -> bool:
     """
     Check if op is an sparse operator without
     non-zero elements.

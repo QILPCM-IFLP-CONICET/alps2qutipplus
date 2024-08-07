@@ -7,16 +7,7 @@ from qutip import entropy_vn, fidelity, jmat, qeye, tensor
 from qutip.core.qobj import Qobj
 
 from alpsqutip.scalarprod import gram_matrix, orthogonalize_basis, project_op
-
-
-def safe_expm_and_normalize():
-    # TODO: implement me
-    pass
-
-
-def safe_expm_and_normalize():
-    # TODO: implement me
-    pass
+from alpsqutip.states import safe_exp_and_normalize
 
 
 def project_K_to_sep(K, maxit=200):
@@ -24,14 +15,14 @@ def project_K_to_sep(K, maxit=200):
     phis = 2 * np.random.rand(length, 3) - 1.0
     loc_ops = jmat(0.5)
     local_Ks = [sum((c * op for c, op in zip(phi, loc_ops))) for phi in phis]
-    local_sigmas = [safe_expm_and_normalize(-localK) for localK in local_Ks]
+    local_sigmas = [safe_exp_and_normalize(-localK) for localK in local_Ks]
     # Initializes with a random state
     for it in range(maxit):
         for i, sigma in enumerate(local_sigmas):
             new_local_K = estimate_log_of_partial_trace(K, local_sigmas, [i])
             local_Ks[i] = 0.3 * local_Ks[i] + 0.7 * new_local_K
 
-        new_local_sigmas = [safe_expm_and_normalize(-localK) for localK in local_Ks]
+        new_local_sigmas = [safe_exp_and_normalize(-localK) for localK in local_Ks]
         min_fid = min(
             fidelity(old, new) for old, new in zip(local_sigmas, new_local_sigmas)
         )
@@ -124,7 +115,7 @@ class ProjectedEvolver:
         """
         # Expensive step...
         K = sum((-c) * op for c, op in zip(phi, self.orth_basis))
-        return safe_expm_and_normalize(K)
+        return safe_exp_and_normalize(K)
 
     def evol_K_averages(self, K0, ts) -> dict:
         """
