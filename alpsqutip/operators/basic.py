@@ -18,10 +18,12 @@ def empty_op(op: Qobj) -> bool:
     Check if op is an sparse operator without
     non-zero elements.
     """
+    if not hasattr(op, "data"):
+        op = op.to_qutip()
     data = op.data
     if hasattr(data, "count_nonzero"):
         return data.count_nonzero() == 0
-    elif hasattr(data, "as_scipy"):
+    if hasattr(data, "as_scipy"):
         return data.as_scipy().count_nonzero() == 0
     return False
 
@@ -187,6 +189,10 @@ class Operator:
         """Adjoint operator of quantum object"""
         return self.to_qutip_operator().dag()
 
+    def flat(self):
+        """simplifies sums and products"""
+        return self
+
     @property
     def isherm(self) -> bool:
         """Check if the operator is hermitician"""
@@ -241,6 +247,10 @@ class Operator:
     def tr(self):
         """The trace of the operator"""
         return self.partial_trace([]).prefactor
+
+    def tidyup(self, atol=None):
+        """remove tiny elements of the operator"""
+        return self
 
 
 class LocalOperator(Operator):
@@ -317,7 +327,7 @@ class LocalOperator(Operator):
     def logm(self):
         def log_qutip(loc_op):
             evals, evecs = loc_op.eigenstates()
-            evals[abs(evals) < 1.0e-30] = 1.0e-30
+            evals[abs(evals) < 1.0e-50] = 1.0e-50
             return sum(
                 np.log(e_val) * e_vec * e_vec.dag()
                 for e_val, e_vec in zip(evals, evecs)
@@ -368,6 +378,10 @@ class LocalOperator(Operator):
     def tr(self):
         result = self.partial_trace([])
         return result.prefactor
+
+    def tidyup(self, atol=None):
+        """remove tiny elements of the operator"""
+        return LocalOperator(self.site, self.operator.tidyup(atol), self.system)
 
 
 class ProductOperator(Operator):
@@ -453,6 +467,15 @@ class ProductOperator(Operator):
         result = super().expm()
         return result
 
+    def flat(self):
+        nfactors = len(self.sites_op)
+        if nfactors == 0:
+            return ScalarOperator(self.prefactor, self.system)
+        if nfactors == 1:
+            name, op_factor = list(self.sites_op.items())[0]
+            return LocalOperator(name, self.prefactor * op_factor, self.system)
+        return self
+
     def inv(self):
         sites_op = self.sites_op
         system = self.system
@@ -535,6 +558,13 @@ class ProductOperator(Operator):
     def tr(self):
         result = self.partial_trace([])
         return result.prefactor
+
+    def tidyup(self, atol=None):
+        """remove tiny elements of the operator"""
+        tidy_site_operators = {
+            name: op_s.tidyup(atol) for name, op_s in self.sites_op.items()
+        }
+        return ProductOperator(tidy_site_operators, self.prefactor, self.system)
 
 
 class ScalarOperator(ProductOperator):

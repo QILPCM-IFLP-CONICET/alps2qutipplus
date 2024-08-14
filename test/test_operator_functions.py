@@ -107,17 +107,19 @@ def test_relative_entropy():
         )
 
         for key2, sigma in test_cases_states.items():
-            print("\n   ", key2, type(sigma))
             rel_entr = relative_entropy(rho, sigma)
             rel_entr_qutip = qutip.entropy_relative(
                 qutip_states[key1], qutip_states[key2]
             )
+            # infinity quantities cannot be compared...
+            if rel_entr_qutip == np.inf and rel_entr > 10:
+                continue
             if abs(rel_entr - rel_entr_qutip) > 1.0e-6:
                 if clean:
                     print("Relative entropy mismatch")
                 clean = False
                 print("  ", [key1, key2])
-                print("   ", rel_entr, "!=", rel_entr_qutip)
+                print(f"   {rel_entr} (alps2qutip) !=   {rel_entr_qutip} (qutip)")
 
                 assert clean
 

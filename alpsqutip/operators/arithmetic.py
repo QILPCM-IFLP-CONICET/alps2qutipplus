@@ -99,6 +99,20 @@ class SumOperator(Operator):
             return self
         return SumOperator(tuple(term.dag() for term in self.terms), self.system)
 
+    def flat(self):
+        terms = []
+        changed = False
+        for term in self.terms:
+            if isinstance(term, SumOperator):
+                terms.extend(term.flat().terms)
+                changed = True
+            else:
+                new_term = term.flat()
+                terms.append(new_term)
+                if term is not new_term:
+                    changed = True
+        return sum(terms) if changed else self
+
     @property
     def isherm(self) -> bool:
         isherm = self._isherm
@@ -178,6 +192,13 @@ class SumOperator(Operator):
 
     def tr(self):
         return sum(t.tr() for t in self.terms)
+
+    def tidyup(self, atol=None):
+        """Removes small elements from the quantum object."""
+        tidy_terms = [term.tidyup(atol) for term in self.terms]
+        tidy_terms = tuple((term for term in tidy_terms if term))
+        isherm = all(term.isherm for term in tidy_terms) or None
+        return SumOperator(tidy_terms, self.system, isherm=isherm)
 
 
 NBodyOperator = SumOperator
@@ -326,6 +347,13 @@ class OneBodyOperator(SumOperator):
         if len(terms) == 1:
             return terms[0]
         return self
+
+    def tidyup(self, atol=None):
+        """Removes small elements from the quantum object."""
+        tidy_terms = [term.tidyup(atol) for term in self.terms]
+        tidy_terms = tuple((term for term in tidy_terms if term))
+        isherm = all(term.isherm for term in tidy_terms) or None
+        return OneBodyOperator(tidy_terms, self.system)
 
 
 # #####################################
