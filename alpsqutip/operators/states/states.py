@@ -1,6 +1,7 @@
 """
 Density operator classes.
 """
+
 from functools import reduce
 from numbers import Number
 from typing import Dict, Iterable, Optional, Union

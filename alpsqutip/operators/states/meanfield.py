@@ -36,8 +36,7 @@ def one_body_from_qutip_operator(operator, sigma0=None):
     operator = operator - tr_value
     average_term = ScalarOperator(tr_value, system)
     local_states = {
-        name: sigma0.partial_trace([name]).to_qutip()
-        for name in system.dimensions
+        name: sigma0.partial_trace([name]).to_qutip() for name in system.dimensions
     }
     local_terms = [average_term]
     for name in local_states:
@@ -50,13 +49,21 @@ def one_body_from_qutip_operator(operator, sigma0=None):
             system=system,
         )
         loc_op = (sigma_compl * operator).partial_trace([name])
-        local_terms.append(LocalOperator(name,  loc_op.to_qutip(), system))
+        local_terms.append(LocalOperator(name, loc_op.to_qutip(), system))
 
-    one_body_term = OneBodyOperator(
-        tuple(local_terms), system=system)
+    one_body_term = OneBodyOperator(tuple(local_terms), system=system)
 
     remaining = (operator - one_body_term).to_qutip_operator()
-    return SumOperator(tuple((average_term, one_body_term, remaining,)), system)
+    return SumOperator(
+        tuple(
+            (
+                average_term,
+                one_body_term,
+                remaining,
+            )
+        ),
+        system,
+    )
 
 
 def project_meanfield(operator, sigma0=None, **kwargs):
@@ -80,8 +87,7 @@ def project_meanfield(operator, sigma0=None, **kwargs):
     meanvalues = kwargs["meanvalues"]
 
     if isinstance(operator, SumOperator):
-        return sum(project_meanfield(term, sigma0, **kwargs)
-                   for term in operator.terms)
+        return sum(project_meanfield(term, sigma0, **kwargs) for term in operator.terms)
 
     def get_meanvalue(name, op_l):
         """compute the local mean values regarding sigma0"""
@@ -111,21 +117,17 @@ def project_meanfield(operator, sigma0=None, **kwargs):
         terms = [np.prod(list(factors.values()))]
 
         for name, local_op in operator.sites_op.items():
-            prefactor = np.prod(
-                [f for name_f, f in factors.items() if name_f != name])
+            prefactor = np.prod([f for name_f, f in factors.items() if name_f != name])
             loc_mv = factors[name]
             terms.append(
-                LocalOperator(name, prefactor *
-                              (local_op-loc_mv), system=system)
+                LocalOperator(name, prefactor * (local_op - loc_mv), system=system)
             )
         return sum(terms)
 
     raise TypeError(f"Unsupported operator type '{type(operator)}'")
 
 
-def self_consistent_meanfield(
-    operator, sigma0=None, max_it=100
-) -> ProductOperator:
+def self_consistent_meanfield(operator, sigma0=None, max_it=100) -> ProductOperator:
     """
     Build a self-consistent approximation of
     rho \\propto \\exp(-operator)
