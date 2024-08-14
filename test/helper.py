@@ -203,7 +203,7 @@ def check_operator_equality(op1, op2):
         op2 = op2.to_qutip()
 
     op_diff = op1 - op2
-    return (op_diff.dag() * op_diff).tr() < 1.0e-9
+    return abs((op_diff.dag() * op_diff).tr()) < 1.0e-9
 
 
 def expect_from_qutip(rho, obs):
