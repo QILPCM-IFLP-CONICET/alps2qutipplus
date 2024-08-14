@@ -2,13 +2,14 @@
 Basic unit test for states.
 """
 
-from alpsqutip.operators import (ScalarOperator,
-                                 LocalOperator,
-                                 OneBodyOperator,
-                                 ProductOperator,
-                                 SumOperator,
-                                 QutipOperator,
-                                 )
+from alpsqutip.operators import (
+    ScalarOperator,
+    LocalOperator,
+    OneBodyOperator,
+    ProductOperator,
+    SumOperator,
+    QutipOperator,
+)
 from alpsqutip.operators.states.meanfield import (
     one_body_from_qutip_operator,
     project_meanfield,
@@ -49,11 +50,11 @@ TEST_STATES.update(
     }
 )
 
-TEST_OPERATORS = {"sx_total": sx_total,
-                  "sx_total + sx_total^2": (sx_total +
-                                            sx_total*sx_total),
-                  "sx_A*sx_B": sx_A*sx_B,
-                  }
+TEST_OPERATORS = {
+    "sx_total": sx_total,
+    "sx_total + sx_total^2": (sx_total + sx_total * sx_total),
+    "sx_A*sx_B": sx_A * sx_B,
+}
 
 
 EXPECTED_PROJECTIONS = {}
@@ -63,18 +64,20 @@ EXPECTED_PROJECTIONS["sx_total"] = {name: sx_total for name in TEST_STATES}
 # sx_total^2-> sx_total * <sx>*2*(CHAIN_SIZE-1) +
 #               CHAIN_SIZE/4- <sx>^2(CHAIN_SIZE-1)*CHAIN_SIZE
 
-EXPECTED_PROJECTIONS["sx_total + sx_total^2"] = {name: (sx_total +
-                                                        CHAIN_SIZE * .25)
-                                                 for name in TEST_STATES
-                                                 if name != "x semipolarized"}
+EXPECTED_PROJECTIONS["sx_total + sx_total^2"] = {
+    name: (sx_total + CHAIN_SIZE * 0.25)
+    for name in TEST_STATES
+    if name != "x semipolarized"
+}
 EXPECTED_PROJECTIONS["sx_total + sx_total^2"]["x semipolarized"] = (
-    sx_total * (1+2*(CHAIN_SIZE-1)*.25) + CHAIN_SIZE*.25 -
-    CHAIN_SIZE*(CHAIN_SIZE-1)*.25**2
+    sx_total * (1 + 2 * (CHAIN_SIZE - 1) * 0.25)
+    + CHAIN_SIZE * 0.25
+    - CHAIN_SIZE * (CHAIN_SIZE - 1) * 0.25**2
 )
-EXPECTED_PROJECTIONS["sx_A*sx_B"] = {name: ScalarOperator(0, system)
-                                     for name in TEST_STATES
-                                     if name != "x semipolarized"}
-EXPECTED_PROJECTIONS["sx_A*sx_B"]["x semipolarized"] = -.0625 + .25*(sx_A+sx_B)
+EXPECTED_PROJECTIONS["sx_A*sx_B"] = {
+    name: ScalarOperator(0, system) for name in TEST_STATES if name != "x semipolarized"
+}
+EXPECTED_PROJECTIONS["sx_A*sx_B"]["x semipolarized"] = -0.0625 + 0.25 * (sx_A + sx_B)
 
 
 def test_meanfield_projection():
@@ -107,9 +110,23 @@ def test_one_body_from_qutip_operator():
 
             # Check the structure of the result:
             average, one_body, remainder = result.terms
-            assert isinstance(average, (float, complex, ScalarOperator,))
             assert isinstance(
-                one_body, (LocalOperator, ScalarOperator, ProductOperator, OneBodyOperator,))
+                average,
+                (
+                    float,
+                    complex,
+                    ScalarOperator,
+                ),
+            )
+            assert isinstance(
+                one_body,
+                (
+                    LocalOperator,
+                    ScalarOperator,
+                    ProductOperator,
+                    OneBodyOperator,
+                ),
+            )
             assert isinstance(remainder, QutipOperator)
 
             # Check the consistency
