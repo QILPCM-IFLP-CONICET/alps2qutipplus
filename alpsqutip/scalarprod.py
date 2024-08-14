@@ -48,7 +48,7 @@ def fetch_kubo_int_scalar_product(sigma: Operator):
     """
     Build a KMB scalar product function
     associated to the state `sigma`, from
-    its intergral form.
+    its integral form.
     """
 
     evals, evecs = sigma.eigenstates()

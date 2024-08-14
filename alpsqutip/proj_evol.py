@@ -144,7 +144,7 @@ class ProjectedEvolver:
     def evol_K_orth_components(self, K0, ts):
         """
         Compute `phi_t`, a list with the components of K(t),
-        regarging self.orth_basis, for each `t` in `ts`,
+        regarding self.orth_basis, for each `t` in `ts`,
         provided K(0)=K0.
         """
         Htensor = self.Htensor

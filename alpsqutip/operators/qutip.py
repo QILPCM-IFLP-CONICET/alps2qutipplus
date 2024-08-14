@@ -128,6 +128,10 @@ class QutipOperator(Operator):
             prefactor=self.prefactor,
         )
 
+    def tidyup(self, atol=None):
+        """Removes small elements from the quantum object."""
+        return QutipOperator(self.operator.tidyup(atol), self.system, self.prefactor)
+
     def to_qutip(self):
         return self.operator * self.prefactor
 

@@ -293,7 +293,7 @@ class SystemDescriptor:
         return OneBodyOperator(tuple(term_ops), self)
 
     def bond_term_from_descriptor(self, term_spec, graph, model, parms):
-        """Build a bond term from a bond term speficication"""
+        """Build a bond term from a bond term specification"""
         # Import here to avoid circular dependency
         # pylint: disable=import-outside-toplevel
         from alpsqutip.operators import SumOperator

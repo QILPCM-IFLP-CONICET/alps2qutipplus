@@ -27,7 +27,7 @@ from alpsqutip.operators import (
     SumOperator,
 )
 from alpsqutip.scalarprod import gram_matrix
-from alpsqutip.states import GibbsProductDensityOperator
+from alpsqutip.operators.states import GibbsProductDensityOperator
 
 
 class QuadraticFormOperator(Operator):
@@ -220,7 +220,7 @@ def hs_scalar_product(o_1, o_2):
 
 
 def matrix_change_to_orthogonal_basis(
-    basis: list, scalar_product=hs_scalar_product, threeshold=1.0e-10
+    basis: list, scalar_product=hs_scalar_product, threshold=1.0e-10
 ):
     """
     Build the coefficient matrix of the base change to an orthogonal base.
@@ -229,7 +229,7 @@ def matrix_change_to_orthogonal_basis(
     # pylint: disable=unused-variable
     # TODO: Check if there is a way to obtain just the left singular vectors.
     left_sv, s_diag, v_h = svd(gram, hermitian=True, full_matrices=False)
-    kappa = len([sv for sv in s_diag if sv > threeshold])
+    kappa = len([sv for sv in s_diag if sv > threshold])
     v_h = v_h[:kappa]
     return v_h.conj()
 

@@ -11,12 +11,12 @@ import qutip
 from alpsqutip.model import SystemDescriptor, build_spin_chain
 from alpsqutip.operators import OneBodyOperator, Operator, ScalarOperator, SumOperator
 from alpsqutip.operators.quadratic import build_quadratic_form_from_operator
-from alpsqutip.settings import VERBOSITY_LEVEL
-from alpsqutip.states import (
+from alpsqutip.operators.states import (
     GibbsDensityOperator,
     GibbsProductDensityOperator,
     ProductDensityOperator,
 )
+from alpsqutip.settings import VERBOSITY_LEVEL
 
 CHAIN_SIZE = 4
 
@@ -113,15 +113,36 @@ operator_type_cases = {
 
 test_cases_states = {}
 
-test_cases_states["fully mixed"] = ProductDensityOperator({}, 1.0, system=system)
+test_cases_states["fully mixed"] = ProductDensityOperator(
+    {}, 1.0, system=system)
 
-test_cases_states["gibbs_sz"] = GibbsProductDensityOperator(sz_total, system=system)
+test_cases_states["z semipolarized"] = ProductDensityOperator(
+    {name: 0.5 * qutip.qeye(2) + 0.25 * qutip.sigmaz()
+     for name in system.dimensions},
+    1.0,
+    system=system,
+)
+
+test_cases_states["x semipolarized"] = ProductDensityOperator(
+    {name: 0.5 * qutip.qeye(2) + 0.25 * qutip.sigmax()
+     for name in system.dimensions},
+    1.0,
+    system=system,
+)
+
+
+test_cases_states["first full polarized"] = ProductDensityOperator(
+    {sx_A.site: 0.5 * qutip.qeye(2) + 0.5 * qutip.sigmaz()}, 1.0, system=system
+)
+
+test_cases_states["gibbs_sz"] = GibbsProductDensityOperator(
+    sz_total, system=system)
 
 test_cases_states["gibbs_sz_as_product"] = GibbsProductDensityOperator(
     sz_total, system=system
 ).to_product_state()
 test_cases_states["gibbs_sz_bar"] = GibbsProductDensityOperator(
-    -sz_total, system=system
+    sz_total * (-1), system=system
 )
 test_cases_states["gibbs_H"] = GibbsDensityOperator(hamiltonian, system=system)
 test_cases_states["gibbs_H"] = (

@@ -18,10 +18,12 @@ def empty_op(op: Qobj) -> bool:
     Check if op is an sparse operator without
     non-zero elements.
     """
+    if not hasattr(op, "data"):
+        op = op.to_qutip()
     data = op.data
     if hasattr(data, "count_nonzero"):
         return data.count_nonzero() == 0
-    elif hasattr(data, "as_scipy"):
+    if hasattr(data, "as_scipy"):
         return data.as_scipy().count_nonzero() == 0
     return False
 
@@ -107,7 +109,9 @@ class Operator:
                 Operator.__mul__dispatch__[key] = func
                 return func(self, factor)
 
-        raise ValueError(type(self), "cannot be multiplied with ", type(factor))
+        raise ValueError(
+            type(self), "cannot be multiplied with ", type(factor)
+        )
         if hasattr(factor, "to_qutip_operator"):
             factor = factor.to_qutip_operator()
         return self.to_qutip_operator() * factor
@@ -142,7 +146,9 @@ class Operator:
                 Operator.__mul__dispatch__[key] = func
                 return func(factor, self)
 
-        raise ValueError(type(self), "cannot be multiplied  with ", type(factor))
+        raise ValueError(
+            type(self), "cannot be multiplied  with ", type(factor)
+        )
         return factor.to_qutip_operator() * self.to_qutip_operator()
 
     def __rsub__(self, operand):
@@ -163,7 +169,9 @@ class Operator:
             return self * (1.0 / operand)
         if isinstance(operand, Operator):
             return self * operand.inv()
-        raise ValueError("Division of an operator by ", type(operand), " not defined.")
+        raise ValueError(
+            "Division of an operator by ", type(operand), " not defined."
+        )
 
     def _repr_latex_(self):
         """LaTeX Representation"""
@@ -187,6 +195,10 @@ class Operator:
         """Adjoint operator of quantum object"""
         return self.to_qutip_operator().dag()
 
+    def flat(self):
+        """simplifies sums and products"""
+        return self
+
     @property
     def isherm(self) -> bool:
         """Check if the operator is hermitician"""
@@ -204,7 +216,9 @@ class Operator:
 
         op_qutip = self.to_qutip()
         try:
-            max_eval = eigenvalues(op_qutip, sort="high", sparse=True, eigvals=3)[0]
+            max_eval = eigenvalues(
+                op_qutip, sort="high", sparse=True, eigvals=3
+            )[0]
         except ArpackError:
             max_eval = max(op_qutip.diag())
 
@@ -242,6 +256,10 @@ class Operator:
         """The trace of the operator"""
         return self.partial_trace([]).prefactor
 
+    def tidyup(self, atol=None):
+        """remove tiny elements of the operator"""
+        return self
+
 
 class LocalOperator(Operator):
     """
@@ -278,7 +296,10 @@ class LocalOperator(Operator):
         return LocalOperator(self.site, operator**exp, self.system)
 
     def __repr__(self):
-        return f"Local Operator on site {self.site}:" f"\n {repr(self.operator.full())}"
+        return (
+            f"Local Operator on site {self.site}:"
+            f"\n {repr(self.operator.full())}"
+        )
 
     def act_over(self):
         return set((self.site,))
@@ -317,7 +338,7 @@ class LocalOperator(Operator):
     def logm(self):
         def log_qutip(loc_op):
             evals, evecs = loc_op.eigenstates()
-            evals[abs(evals) < 1.0e-30] = 1.0e-30
+            evals[abs(evals) < 1.0e-50] = 1.0e-50
             return sum(
                 np.log(e_val) * e_vec * e_vec.dag()
                 for e_val, e_vec in zip(evals, evecs)
@@ -337,7 +358,9 @@ class LocalOperator(Operator):
         local_sites = subsystem.sites
         site = self.site
         prefactors = [
-            d for s, d in dimensions.items() if s != site and s not in local_sites
+            d
+            for s, d in dimensions.items()
+            if s != site and s not in local_sites
         ]
 
         if len(prefactors) > 0:
@@ -362,12 +385,19 @@ class LocalOperator(Operator):
             operator = operator.to_qutip()
 
         return qutip.tensor(
-            [operator if s == site else qutip.qeye(d) for s, d in dimensions.items()]
+            [
+                operator if s == site else qutip.qeye(d)
+                for s, d in dimensions.items()
+            ]
         )
 
     def tr(self):
         result = self.partial_trace([])
         return result.prefactor
+
+    def tidyup(self, atol=None):
+        """remove tiny elements of the operator"""
+        return LocalOperator(self.site, self.operator.tidyup(atol), self.system)
 
 
 class ProductOperator(Operator):
@@ -406,7 +436,9 @@ class ProductOperator(Operator):
             }
 
     def __bool__(self):
-        return bool(self.prefactor) and all(bool(factor) for factor in self.sites_op)
+        return bool(self.prefactor) and all(
+            bool(factor) for factor in self.sites_op
+        )
 
     def __neg__(self):
         return ProductOperator(self.sites_op, -self.prefactor, self.system)
@@ -421,7 +453,8 @@ class ProductOperator(Operator):
     def __repr__(self):
         result = "  " + str(self.prefactor) + " * (\n  "
         result += "\n  ".join(
-            f"({item[1].full()} <-  {item[0]})" for item in self.sites_op.items()
+            f"({item[1].full()} <-  {item[0]})"
+            for item in self.sites_op.items()
         )
         result += " )"
         return result
@@ -453,13 +486,24 @@ class ProductOperator(Operator):
         result = super().expm()
         return result
 
+    def flat(self):
+        nfactors = len(self.sites_op)
+        if nfactors == 0:
+            return ScalarOperator(self.prefactor, self.system)
+        if nfactors == 1:
+            name, op_factor = list(self.sites_op.items())[0]
+            return LocalOperator(name, self.prefactor * op_factor, self.system)
+        return self
+
     def inv(self):
         sites_op = self.sites_op
         system = self.system
         prefactor = self.prefactor
 
         n_ops = len(sites_op)
-        sites_op = {site: op_local.inv() for site, op_local in sites_op.items()}
+        sites_op = {
+            site: op_local.inv() for site, op_local in sites_op.items()
+        }
         if n_ops == 1:
             site, op_local = next(iter(sites_op.items()))
             return LocalOperator(site, op_local / prefactor, system)
@@ -498,7 +542,8 @@ class ProductOperator(Operator):
         subsystem = self.system.subsystem(sites_in)
         sites_op = self.sites_op
         prefactors = [
-            sites_op[s].tr() if s in sites_op else dimensions[s] for s in sites_out
+            sites_op[s].tr() if s in sites_op else dimensions[s]
+            for s in sites_out
         ]
         sites_op = {s: o for s, o in sites_op.items() if s in sites_in}
         prefactor = self.prefactor
@@ -535,6 +580,12 @@ class ProductOperator(Operator):
     def tr(self):
         result = self.partial_trace([])
         return result.prefactor
+
+    def tidyup(self, atol=None):
+        """remove tiny elements of the operator"""
+        tidy_site_operators = {name: op_s.tidyup(
+            atol) for name, op_s in self.sites_op.items()}
+        return ProductOperator(tidy_site_operators, self.prefactor, self.system)
 
 
 class ScalarOperator(ProductOperator):
@@ -582,7 +633,9 @@ class ScalarOperator(ProductOperator):
     )
 )
 def _(x_op: ScalarOperator, y_op: ScalarOperator):
-    return ScalarOperator(x_op.prefactor + y_op.prefactor, x_op.system or y_op.system)
+    return ScalarOperator(
+        x_op.prefactor + y_op.prefactor, x_op.system or y_op.system
+    )
 
 
 @Operator.register_mul_handler(
@@ -592,7 +645,9 @@ def _(x_op: ScalarOperator, y_op: ScalarOperator):
     )
 )
 def _(x_op: ScalarOperator, y_op: ScalarOperator):
-    return ScalarOperator(x_op.prefactor * y_op.prefactor, x_op.system or y_op.system)
+    return ScalarOperator(
+        x_op.prefactor * y_op.prefactor, x_op.system or y_op.system
+    )
 
 
 @Operator.register_add_handler(
@@ -738,7 +793,9 @@ def _(x_op: ProductOperator, y_op: ProductOperator):
     site_op = x_op.sites_op.copy()
     site_op_y = y_op.sites_op
     for site, op_local in site_op_y.items():
-        site_op[site] = site_op[site] * op_local if site in site_op else op_local
+        site_op[site] = (
+            site_op[site] * op_local if site in site_op else op_local
+        )
     prefactor = x_op.prefactor * y_op.prefactor
     if len(site_op) == 0 or prefactor == 0:
         return ScalarOperator(prefactor, system)
