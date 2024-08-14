@@ -26,8 +26,8 @@ from alpsqutip.operators import (
     ScalarOperator,
     SumOperator,
 )
-from alpsqutip.scalarprod import gram_matrix
 from alpsqutip.operators.states import GibbsProductDensityOperator
+from alpsqutip.scalarprod import gram_matrix
 
 
 class QuadraticFormOperator(Operator):

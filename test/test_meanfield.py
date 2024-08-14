@@ -3,36 +3,27 @@ Basic unit test for states.
 """
 
 from alpsqutip.operators import (
-    ScalarOperator,
     LocalOperator,
     OneBodyOperator,
     ProductOperator,
-    SumOperator,
     QutipOperator,
+    ScalarOperator,
+    SumOperator,
 )
-from alpsqutip.operators.states.meanfield import (
+from alpsqutip.operators.states.meanfield import (  # self_consistent_meanfield,
     one_body_from_qutip_operator,
     project_meanfield,
-    # self_consistent_meanfield,
 )
 
-from .helper import (
+from .helper import (  # alert,; check_equality,; expect_from_qutip,; hamiltonian,; observable_cases,; subsystems,; sz_total,
     CHAIN_SIZE,
-    #    alert,
-    #   check_equality,
     check_operator_equality,
-    #    expect_from_qutip,
-    #    hamiltonian,
-    #    observable_cases,
-    #    subsystems,
     sx_A,
     sx_B,
     sx_total,
     system,
-    #    sz_total,
     test_cases_states,
 )
-
 
 TEST_STATES = {"None": None}
 TEST_STATES.update(
