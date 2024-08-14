@@ -652,7 +652,6 @@ for dm_type_1 in (
             x_op.system or y_op.system,
         )
 
-
 __mul__dispatch__ = Operator.__mul__dispatch__
 
 
