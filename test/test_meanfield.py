@@ -8,14 +8,13 @@ from alpsqutip.operators import (
     ProductOperator,
     QutipOperator,
     ScalarOperator,
-    SumOperator,
 )
 from alpsqutip.operators.states.meanfield import (  # self_consistent_meanfield,
     one_body_from_qutip_operator,
     project_meanfield,
 )
 
-from .helper import (  # alert,; check_equality,; expect_from_qutip,; hamiltonian,; observable_cases,; subsystems,; sz_total,
+from .helper import (  # alert,; check_equality,; expect_from_qutip,;; hamiltonian,; observable_cases,; subsystems,; sz_total,
     CHAIN_SIZE,
     check_operator_equality,
     sx_A,
@@ -94,33 +93,46 @@ def test_one_body_from_qutip_operator():
     Tr[DeltaK sigma]=0
     """
 
+    def check_result(qutip_op, result):
+        # Check the structure of the result:
+        average, one_body, remainder = result.terms
+        assert isinstance(
+            average,
+            (
+                float,
+                complex,
+                ScalarOperator,
+            ),
+        )
+        assert isinstance(
+            one_body,
+            (
+                LocalOperator,
+                ScalarOperator,
+                ProductOperator,
+                OneBodyOperator,
+            ),
+        )
+        assert isinstance(remainder, QutipOperator)
+        # Check that the remainder and the one body terms have
+        # zero mean:
+        if state is None:
+            assert abs(one_body.to_qutip().tr()) < 1.0e-9
+            assert abs((remainder.to_qutip()).tr()) < 1.0e-9
+        else:
+            assert abs((one_body.to_qutip() * state.to_qutip()).tr()) < 1.0e-9
+            assert abs((remainder.to_qutip() * state.to_qutip()).tr()) < 1.0e-9
+        # Check the consistency
+        assert check_operator_equality(
+            qutip_op, result
+        ), f"decomposition failed {state_name} for {operator_name}"
+
     for operator_name, test_operator in TEST_OPERATORS.items():
         qutip_op = test_operator.to_qutip_operator()
         for state_name, state in TEST_STATES.items():
+            print(f"testing {operator_name} on state {state_name}")
             result = one_body_from_qutip_operator(qutip_op, state)
-
-            # Check the structure of the result:
-            average, one_body, remainder = result.terms
-            assert isinstance(
-                average,
-                (
-                    float,
-                    complex,
-                    ScalarOperator,
-                ),
-            )
-            assert isinstance(
-                one_body,
-                (
-                    LocalOperator,
-                    ScalarOperator,
-                    ProductOperator,
-                    OneBodyOperator,
-                ),
-            )
-            assert isinstance(remainder, QutipOperator)
-
-            # Check the consistency
-            assert check_operator_equality(
-                qutip_op, result
-            ), f"decomposition failed {state_name} for {operator_name}"
+            check_result(qutip_op, result)
+            print(f"   now testing {operator_name} as a Qobj, on state {state_name}")
+            result = one_body_from_qutip_operator(qutip_op.to_qutip(), state)
+            check_result(qutip_op, result)

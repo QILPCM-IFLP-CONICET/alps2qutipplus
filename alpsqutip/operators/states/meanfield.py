@@ -2,58 +2,96 @@
 Module that implements a meanfield approximation of a Gibbsian state
 """
 
+from typing import Optional, Union
+
 import numpy as np
+from qutip import Qobj
 
 from alpsqutip.operators import (
     LocalOperator,
     OneBodyOperator,
+    Operator,
     ProductOperator,
     ScalarOperator,
     SumOperator,
 )
-from alpsqutip.operators.states.states import ProductDensityOperator
+from alpsqutip.operators.qutip import QutipOperator
+from alpsqutip.operators.states.states import (
+    DensityOperatorMixin,
+    ProductDensityOperator,
+)
 
 
-def one_body_from_qutip_operator(operator, sigma0=None):
+def one_body_from_qutip_operator(
+    operator: Union[Operator, Qobj], sigma0: Optional[DensityOperatorMixin] = None
+) -> SumOperator:
+    """
+    Decompose a qutip operator as a sum of an scalar term,
+    a one-body term and a remainder, with
+    the one-body term and the reamainder having zero mean
+    regarding sigma0.
+
+    Parameters
+    ----------
+    operator : Union[Operator, qutip.Qobj]
+        the operator to be decomposed.
+    sigma0 : DensityOperatorMixin, optional
+        A Density matrix. If None (default) it is assumed to be
+        the maximally mixed state.
+
+    Returns
+    -------
+    SumOperator
+        A sum of a Scalar Operator (the expectation value of `operator`
+       w.r.t `sigma0`), a LocalOperator and a QutipOperator.
+
     """
 
-    decompose an operator K (operator)
-    given in the sparse Qutip form,
-    into a sum of two operators
-    K = K_0 + Delta K
-    with K_0 a OneBodyOperator and
-    DeltaK s.t.
-    Tr[DeltaK sigma] = 0
+    system = sigma0.system if sigma0 is not None else None
 
-    By default, sigma0 is the maximally mixed state.
-    """
+    if isinstance(operator, Qobj):
+        operator = QutipOperator(operator, system)
+
     if sigma0 is None:
         sigma0 = ProductDensityOperator({}, system=operator.system)
         sigma0 = sigma0 / sigma0.tr()
+        system = sigma0.system
 
-    system = sigma0.system
-    tr_value = (operator * sigma0.to_qutip_operator()).tr()
-    operator = operator - tr_value
-    average_term = ScalarOperator(tr_value, system)
     local_states = {
         name: sigma0.partial_trace([name]).to_qutip() for name in system.dimensions
     }
-    local_terms = [average_term]
+
+    local_terms = []
+    averages = 0
     for name in local_states:
+        # Build a product operator Sigma_compl
+        # s.t. Tr_{i}Sigma_i =Tr_i sigma0
+        #      Tr{/i} Sigma_i = Id
+        # Then, for any local operators q_i, q_j s.t.
+        # Tr[q_i sigma0]= Tr[q_j sigma0]=0,
+        # Tr_{/i}[q_i  Sigma_compl] = q_i
+        # Tr_{/i}[q_j  Sigma_compl] = 0
+        # Tr_{/i}[q_i q_j Sigma_compl] = 0
+
+        sigma_compl_factors = {
+            name_loc: s_loc
+            for name_loc, s_loc in local_states.items()
+            if name != name_loc
+        }
         sigma_compl = ProductOperator(
-            {
-                name: s_loc
-                for name_loc, s_loc in local_states.items()
-                if name != name_loc
-            },
+            sigma_compl_factors,
             system=system,
         )
-        loc_op = (sigma_compl * operator).partial_trace([name])
-        local_terms.append(LocalOperator(name, loc_op.to_qutip(), system))
+        local_term = (sigma_compl * operator).partial_trace([name])
+        # Split the zero-average part from the average
+        local_average = (local_term * local_states[name]).tr()
+        averages += local_average
+        local_term = local_term - local_average
+        local_terms.append(LocalOperator(name, local_term.to_qutip(), system))
 
+    average_term = ScalarOperator(averages / len(local_terms), system)
     one_body_term = OneBodyOperator(tuple(local_terms), system=system)
-
-    remaining = (operator - one_body_term).to_qutip_operator()
+    remaining = (operator - one_body_term - average_term).to_qutip_operator()
     return SumOperator(
         tuple(
             (

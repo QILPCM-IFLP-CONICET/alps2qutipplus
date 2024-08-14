@@ -241,7 +241,7 @@ class ProductDensityOperator(ProductOperator, DensityOperatorMixin):
         sites_op = self.sites_op
         sites_in = [site for site in sites if site in sites_op]
         local_states = {site: sites_op[site] for site in sites_in}
-        subsystem = self.system.subsystem(sites_in)
+        subsystem = self.system.subsystem(sites)
         return ProductDensityOperator(
             local_states, self.prefactor, subsystem, normalize=False
         )
@@ -651,3 +651,11 @@ for dm_type_1 in (
             ),
             x_op.system or y_op.system,
         )
+
+
+__mul__dispatch__ = Operator.__mul__dispatch__
+
+
+__mul__dispatch__[(LocalOperator, GibbsProductDensityOperator)] = (
+    lambda x, y: x * y.to_product_state()
+)

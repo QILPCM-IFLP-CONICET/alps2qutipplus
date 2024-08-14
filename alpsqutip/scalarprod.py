@@ -1,6 +1,7 @@
 """
 Routines to compute generalized scalar products over the algebra of operators.
 """
+
 # from datetime import datetime
 from typing import Callable
 

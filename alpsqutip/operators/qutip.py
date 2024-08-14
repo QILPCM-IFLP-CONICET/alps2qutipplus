@@ -3,7 +3,6 @@
 Qutip representation of an operator.
 """
 
-
 from numbers import Number
 from typing import Optional, Union
 
@@ -69,6 +68,9 @@ class QutipOperator(Operator):
             names=self.site_names,
             prefactor=1 / self.prefactor**exponent,
         )
+
+    def __repr__(self) -> str:
+        return "qutip interface operator for\n" + repr(self.operator)
 
     def dag(self):
         prefactor = self.prefactor
