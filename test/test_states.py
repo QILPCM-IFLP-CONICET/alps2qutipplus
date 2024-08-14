@@ -2,7 +2,6 @@
 Basic unit test for states.
 """
 
-
 from alpsqutip.operators import OneBodyOperator
 
 from .helper import (

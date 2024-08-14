@@ -153,7 +153,6 @@ test_cases_states["mixture"] = (
 
 def alert(verbosity, *args):
     """Print a message depending on the verbosity level"""
-    return
     if verbosity < VERBOSITY_LEVEL:
         print(*args)
 

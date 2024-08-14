@@ -2,7 +2,6 @@
 Basic unit test.
 """
 
-
 import matplotlib.pyplot as plt
 
 from alpsqutip.alpsmodels import list_operators_in_alps_xml, model_from_alps_xml

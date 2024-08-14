@@ -2,7 +2,6 @@
 Basic unit test.
 """
 
-
 from alpsqutip.model import build_spin_chain
 from alpsqutip.operator_functions import (
     hermitian_and_antihermitian_parts,
