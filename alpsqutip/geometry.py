@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 from typing import Optional, Tuple
 
 import numpy as np
-from numpy.random import rand
+from numpy.ranm import rand
 
 from alpsqutip.utils import eval_expr, find_ref, next_name
 
