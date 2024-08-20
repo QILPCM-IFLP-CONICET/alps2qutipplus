@@ -165,11 +165,13 @@ class SumOperator(Operator):
         general_terms = []
         site_terms = {}
         qutip_terms = []
+        scalar_term = 0
         for term in terms:
-            if isinstance(term, LocalOperator):
-                site_terms.setdefault(term.site, []).append(term.operator)
-                continue
-            if isinstance(term, QutipOperator):
+            if isinstance(term, ScalarOperator):
+                scalar_term += term.prefactor
+            elif isinstance(term, LocalOperator):
+                site_terms.setdefault(term.site, []).append(term.operator)            
+            elif isinstance(term, QutipOperator):
                 qutip_terms.append(term)
             else:
                 general_terms.append(term)
@@ -181,7 +183,7 @@ class SumOperator(Operator):
 
         qutip_term = sum(qutip_terms)
         qutip_terms = qutip_term if qutip_terms else []
-        terms = general_terms + loc_ops_lst + qutip_terms
+        terms = general_terms + loc_ops_lst + qutip_terms + scalar_term
         return SumOperator(tuple(terms), system, isherm)
 
     def to_qutip(self):

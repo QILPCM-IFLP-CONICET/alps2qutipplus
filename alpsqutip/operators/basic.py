@@ -361,6 +361,10 @@ class LocalOperator(Operator):
 
         return LocalOperator(site, local_op * prefactor, subsystem)
 
+    def simplify(self):
+        # TODO: reduce multiples of the identity to ScalarOperators
+        return self
+    
     def to_qutip(self):
         """Convert to a Qutip object"""
         site = self.site
@@ -535,6 +539,7 @@ class ProductOperator(Operator):
         return ProductOperator(sites_op, prefactor, subsystem)
 
     def simplify(self):
+        # TODO: remove factors multiple of the identity
         nops = len(self.sites_op)
         if nops == 0:
             return ScalarOperator(self.prefactor, self.system)
