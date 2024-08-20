@@ -540,6 +540,7 @@ class ProductOperator(Operator):
 
     def simplify(self):
         # TODO: remove factors multiple of the identity
+        # tom estuvo aquí
         nops = len(self.sites_op)
         if nops == 0:
             return ScalarOperator(self.prefactor, self.system)
