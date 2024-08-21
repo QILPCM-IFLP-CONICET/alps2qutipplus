@@ -146,10 +146,15 @@ class SumOperator(Operator):
             return aggresive_hermitician_test()
         return self._isherm
 
+    @property
+    def isdiagonal(self) -> bool:
+        return all(term.isdiagonal for term in self.terms)
+
     def partial_trace(self, sites: list):
         return sum(term.partial_trace(sites) * term.prefactor for term in self.terms)
 
     def simplify(self):
+        """Simplify the operator"""
         system = self.system
         general_terms = []
         isherm = self._isherm
@@ -166,24 +171,52 @@ class SumOperator(Operator):
         site_terms = {}
         qutip_terms = []
         scalar_term = 0
+        last_scalar_term = None
         for term in terms:
             if isinstance(term, ScalarOperator):
+                last_scalar_term = term
                 scalar_term += term.prefactor
             elif isinstance(term, LocalOperator):
-                site_terms.setdefault(term.site, []).append(term.operator)            
+                if term:
+                    site_terms.setdefault(term.site, []).append(term)
             elif isinstance(term, QutipOperator):
-                qutip_terms.append(term)
+                if term:
+                    qutip_terms.append(term)
             else:
-                general_terms.append(term)
+                if term:
+                    general_terms.append(term)
 
         loc_ops_lst = [
-            LocalOperator(site, sum(l_ops), system)
+            (
+                LocalOperator(site, sum(lop.operator for lop in l_ops), system)
+                if len(l_ops) > 1
+                else l_ops[0]
+            )
             for site, l_ops in site_terms.items()
         ]
 
-        qutip_term = sum(qutip_terms)
-        qutip_terms = qutip_term if qutip_terms else []
-        terms = general_terms + loc_ops_lst + qutip_terms + scalar_term
+        qutip_terms = [sum(qutip_term)] if qutip_terms else []
+        is_one_body = len(general_terms) == 0 and len(qutip_terms) == 0
+        terms = general_terms + loc_ops_lst + qutip_terms
+
+        if scalar_term:
+            # If we found just one non-trivial scalar term, do not create a new one
+            if last_scalar_term is None or last_scalar_term.prefactor != scalar_term:
+                last_scalar_term = ScalarOperator(scalar_term, system)
+            terms += [last_scalar_term]
+
+        num_terms = len(terms)
+        if num_terms == 0:
+            return ScalarOperator(0, system)
+        if num_terms == 1:
+            return terms[0]
+        if num_terms == len(self.terms) and all(
+            old_t is new_t for old_t, new_t in zip(self.terms, terms)
+        ):
+            return self
+        # If all the terms are LocalOperators or ScalarOperators, return a OneBodyOperator
+        if is_one_body:
+            return OneBodyOperator(tuple(terms), system, isherm)
         return SumOperator(tuple(terms), system, isherm)
 
     def to_qutip(self):
@@ -257,6 +290,9 @@ class OneBodyOperator(SumOperator):
         ln_prefactor = 0
         for term in self.terms:
             if not bool(term):
+                continue
+            if isinstance(term, ScalarOperator):
+                ln_prefactor += term.prefactor
                 continue
             operator = term.operator
             try:
@@ -340,7 +376,7 @@ class OneBodyOperator(SumOperator):
 
         return terms, system
 
-    def simplify(self):
+    def no_simplify(self):
         terms, system = self._simplify_terms(self.terms, self.system)
         self.terms = terms
         self.system = system
@@ -782,6 +818,22 @@ def _(x_op: LocalOperator, y_op: LocalOperator):
         system,
         False,
     )
+
+
+
+@Operator.register_add_handler(
+    (
+        ScalarOperator,
+        LocalOperator,
+    )
+)
+def _(x_op: ScalarOperator, y_op: LocalOperator):
+    if x_op.prefactor==0:
+        return y_op
+    
+    system = y_op.system or x_op.system
+    site = y_op.site
+    return LocalOperator(site, y_op.operator + x_op.prefactor, system)
 
 
 # ######################

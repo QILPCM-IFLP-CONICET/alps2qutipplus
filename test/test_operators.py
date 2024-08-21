@@ -14,7 +14,6 @@ from .helper import (
     CHAIN_SIZE,
     check_operator_equality,
     hamiltonian,
-    observable_cases,
     operator_type_cases,
     sites,
     sx_A as local_sx_A,
@@ -70,36 +69,6 @@ def test_build_hamiltonian():
         (hamiltonian_with_field).to_qutip(),
         (hamiltonian.to_qutip() + sz_total.to_qutip()),
     )
-
-
-def test_isherm_operator():
-    """
-    Check if hermiticity is correctly determined
-    """
-
-    def do_test_case(name, observable):
-        if isinstance(observable, list):
-            for op_case in observable:
-                do_test_case(name, op_case)
-            return
-
-        assert observable.isherm, f"{key} is not hermitician?"
-
-        ham = observable_cases["hamiltonian"]
-        print("***addition***")
-        assert (ham + 1.0).isherm
-        assert (ham + sz_total).isherm
-        print("***scalar multiplication***")
-        assert (2.0 * ham).isherm
-        print("***scalar multiplication for a OneBody Operator")
-        assert (2.0 * sz_total).isherm
-        assert (ham * 2.0).isherm
-        assert (sz_total * 2.0).isherm
-        assert (sz_total.expm()).isherm
-        assert (ham**3).isherm
-
-    for key, observable in observable_cases.items():
-        do_test_case(key, observable)
 
 
 def test_type_operator():

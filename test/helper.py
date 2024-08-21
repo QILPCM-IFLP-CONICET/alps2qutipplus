@@ -151,6 +151,11 @@ test_cases_states["mixture"] = (
 )
 
 
+full_test_cases = {}
+full_test_cases.update(operator_type_cases)
+full_test_cases.update(test_cases_states)
+
+
 def alert(verbosity, *args):
     """Print a message depending on the verbosity level"""
     if verbosity < VERBOSITY_LEVEL:

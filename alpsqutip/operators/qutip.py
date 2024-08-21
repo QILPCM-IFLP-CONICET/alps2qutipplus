@@ -96,12 +96,18 @@ class QutipOperator(Operator):
     def isherm(self) -> bool:
         return self.operator.isherm
 
+    @property
+    def isdiagonal(self) -> bool:
+        """Check if the operator is diagonal"""
+        data = self.operator.data
+        ies, jeys = data.nonzero()
+        return all(i == j for i, j in zip(ies, jeys))
+
     def logm(self):
         operator = self.operator
         evals, evecs = operator.eigenstates()
         evals = evals * self.prefactor
         evals[abs(evals) < 1.0e-30] = 1.0e-30
-        print("evals:", evals)
         if any(value < 0 for value in evals):
             evals = (1.0 + 0j) * evals
         log_op = sum(

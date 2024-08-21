@@ -520,6 +520,14 @@ class GibbsProductDensityOperator(Operator, DensityOperatorMixin):
             return (self.to_product_state()).expect(obs)
         return super().expect(obs)
 
+    @property
+    def isdiagonal(self) -> bool:
+        for operator in self.k_by_site.values():
+            ies, jeys = operator.data.nonzero()
+            if any(i != j for i, j in zip(ies, jeys)):
+                return False
+        return True
+
     def logm(self):
         terms = tuple(
             LocalOperator(site, -loc_op, self.system)
