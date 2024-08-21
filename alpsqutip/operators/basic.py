@@ -46,7 +46,7 @@ def is_escalar_op(op: Qobj) -> bool:
     data = op.data
     ies, jeys = data.nonzero()
     support = len(ies)
-    if any(i!=j for i,j in zip(ies, jeys)):
+    if any(i != j for i, j in zip(ies, jeys)):
         return False
     if support == 0:
         return True

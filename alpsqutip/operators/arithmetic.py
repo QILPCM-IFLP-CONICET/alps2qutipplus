@@ -820,7 +820,6 @@ def _(x_op: LocalOperator, y_op: LocalOperator):
     )
 
 
-
 @Operator.register_add_handler(
     (
         ScalarOperator,
@@ -828,9 +827,9 @@ def _(x_op: LocalOperator, y_op: LocalOperator):
     )
 )
 def _(x_op: ScalarOperator, y_op: LocalOperator):
-    if x_op.prefactor==0:
+    if x_op.prefactor == 0:
         return y_op
-    
+
     system = y_op.system or x_op.system
     site = y_op.site
     return LocalOperator(site, y_op.operator + x_op.prefactor, system)

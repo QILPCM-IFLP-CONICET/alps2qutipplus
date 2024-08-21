@@ -13,12 +13,13 @@ from alpsqutip.operators import (
     SumOperator,
 )
 from alpsqutip.operators.quadratic import QuadraticFormOperator
+
 from .helper import check_operator_equality, full_test_cases
 
 
-def compute_size(operator:Operator):
+def compute_size(operator: Operator):
     """
-    compute the initial number of 
+    compute the initial number of
     qutip operators needed to store
     operator
     """
@@ -26,7 +27,7 @@ def compute_size(operator:Operator):
         return 0
     if isinstance(operator, LocalOperator):
         return 1
-    if isinstance(operator,ProductOperator):
+    if isinstance(operator, ProductOperator):
         return len(operator.sites_op)
     if isinstance(operator, SumOperator):
         return sum(compute_size(term) for term in operator.terms)
@@ -36,7 +37,6 @@ def compute_size(operator:Operator):
         return sum(compute_size(term) for term in operator.terms)
     raise ValueError(f"Unknown kind of operator {type(operator)}")
 
-    
 
 def test_simplify():
     """test simplify operators"""
@@ -82,7 +82,9 @@ def test_simplify():
                 if isinstance(simplify1, SumOperator):
                     final_size = compute_size(simplify1)
                     print("                - final size of the operator:", final_size)
-                    assert initial_size >= final_size, f"we should get less terms, not more ({initial_size} < {final_size})."
+                    assert (
+                        initial_size >= final_size
+                    ), f"we should get less terms, not more ({initial_size} < {final_size})."
                 else:
                     assert isinstance(
                         simplify1,
