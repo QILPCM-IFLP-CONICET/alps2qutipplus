@@ -194,7 +194,8 @@ class QuadraticFormOperator(Operator):
             tuple(
                 w * (op_term * op_term).partial_trace(sites)
                 for w, op_term in zip(self.weights, self.terms)
-            )
+            ),
+            self.system,
         )
 
     def to_qutip(self):
@@ -342,7 +343,6 @@ def selfconsistent_meanfield_from_quadratic_form(
         assert k_exp.isherm
         rho = GibbsProductDensityOperator(k_exp, 1.0, system)
         new_phi = -rho.expect(operators).conj()
-        print("   new phi:", new_phi)
         if isinstance(logdict, dict):
             evolution.append(new_phi)
             timestamps.append(time())

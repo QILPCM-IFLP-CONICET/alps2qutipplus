@@ -2,6 +2,8 @@
 Basic unit test.
 """
 
+import numpy as np
+
 from alpsqutip.operators import (
     LocalOperator,
     OneBodyOperator,
@@ -23,6 +25,11 @@ from .helper import (
     sz_C,
     sz_total,
 )
+
+np.set_printoptions(
+    edgeitems=30, linewidth=100000, formatter=dict(float=lambda x: "%.3g" % x)
+)
+
 
 sx_A = ProductOperator({local_sx_A.site: local_sx_A.operator}, 1.0, local_sx_A.system)
 sx_A2 = sx_A * sx_A
@@ -145,8 +152,16 @@ def test_exp_operator():
     assert check_operator_equality(sx_A_exp.to_qutip(), sx_A.to_qutip().expm())
 
     sx_obl = sx_A + sy_B + sz_C
+    print("type sx_obl", type(sx_obl))
+    print("sx_obl:\n", sx_obl)
+    print("sx_obl->qutip:", sx_obl.to_qutip())
+
     sx_obl_exp = sx_obl.expm()
     assert isinstance(sx_obl_exp, ProductOperator)
+    print("exponential and conversion:")
+    print(sx_obl_exp.to_qutip())
+    print("conversion and then exponential:")
+    print(sx_obl.to_qutip().expm())
     assert check_operator_equality(sx_obl_exp.to_qutip(), sx_obl.to_qutip().expm())
 
     opglobal_exp = opglobal.expm()

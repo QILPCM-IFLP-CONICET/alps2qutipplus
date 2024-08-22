@@ -13,6 +13,7 @@ from alpsqutip.operators import (
     SumOperator,
 )
 from alpsqutip.operators.quadratic import QuadraticFormOperator
+from alpsqutip.operators.states import GibbsDensityOperator, GibbsProductDensityOperator
 
 from .helper import check_operator_equality, full_test_cases
 
@@ -35,6 +36,10 @@ def compute_size(operator: Operator):
         return 1
     if isinstance(operator, QuadraticFormOperator):
         return sum(compute_size(term) for term in operator.terms)
+    if isinstance(operator, GibbsProductDensityOperator):
+        return len(operator.k_by_site)
+    if isinstance(operator, GibbsDensityOperator):
+        return compute_size(operator.k)
     raise ValueError(f"Unknown kind of operator {type(operator)}")
 
 
@@ -43,6 +48,14 @@ def test_simplify():
 
     for key, operator in full_test_cases.items():
         print("testing", key, "of type", type(operator))
+        simplify1 = operator.simplify()
+        print(operator)
+        print("\n =>\n")
+        print(simplify1)
+        print("\n     ", 20 * "@")
+        assert check_operator_equality(
+            operator, simplify1
+        ), "    1. simplify changed the value of the operator"
         try:
             cases_dict = {"square": operator * operator, "sum": operator + operator}
         except ValueError:
@@ -57,7 +70,7 @@ def test_simplify():
             simplify1 = op_test.simplify()
             print("        simplifying again")
             simplify2 = simplify1.simplify()
-            assert type(simplify1) is type(simplify2), "types do not match"
+            assert type(simplify1) is type(simplify2), " types do not match"
             if isinstance(simplify1, SumOperator):
                 print("        checking the consistency of sum operators")
                 assert len(simplify1.terms) == len(simplify2.terms)
@@ -93,5 +106,6 @@ def test_simplify():
                             ScalarOperator,
                             LocalOperator,
                             ProductOperator,
+                            QutipOperator,
                         ),
                     )

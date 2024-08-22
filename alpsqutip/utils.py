@@ -1,3 +1,10 @@
+"""
+Utility functions to import and process
+ALPS specification files.
+"""
+
+import logging
+
 import numpy as np
 from numpy.random import rand
 
@@ -71,7 +78,7 @@ def eval_expr(expr: str, parms: dict):
     except NameError:
         pass
     except TypeError as exc:
-        print("Type Error. Undefined variables in ", expr, exc)
+        logging.warning("Type Error. Undefined variables in ", expr, exc)
         return None
     return expr
 

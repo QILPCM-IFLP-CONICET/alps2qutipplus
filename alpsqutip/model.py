@@ -2,6 +2,7 @@
 Define SystemDescriptors and different kind of operators
 """
 
+import logging
 from typing import Optional
 
 from alpsqutip.geometry import GraphDescriptor
@@ -384,7 +385,7 @@ class SystemDescriptor:
             site_terms = tuple(term for term in site_terms if term)
         except ValueError as exc:
             if VERBOSITY_LEVEL > 2:
-                print(*exc.args, f"Aborting evaluation of {name}.")
+                logging.warning(f"{exc.args} Aborting evaluation of {name}.")
             model.global_ops.pop(name)
             return None
 
@@ -398,7 +399,7 @@ class SystemDescriptor:
 
         except ValueError as exc:
             if VERBOSITY_LEVEL > 2:
-                print(*exc.args, f"Aborting evaluation of {name}.")
+                logging.warning(f"{exc.args} Aborting evaluation of {name}.")
             model.global_ops.pop(name)
             return None
 

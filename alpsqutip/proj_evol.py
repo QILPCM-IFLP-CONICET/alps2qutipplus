@@ -1,3 +1,4 @@
+import logging
 from typing import Callable
 
 import numpy as np
@@ -27,7 +28,7 @@ def project_K_to_sep(K, maxit=200):
             fidelity(old, new) for old, new in zip(local_sigmas, new_local_sigmas)
         )
         if min_fid > 0.995:
-            print("converged after ", it, "iterations")
+            logging.info(f"converged after {it} iterations.")
             break
         local_sigmas = new_local_sigmas
     return local_sigmas

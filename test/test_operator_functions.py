@@ -4,6 +4,7 @@ Basic unit test for operator functions.
 
 import numpy as np
 import qutip
+from qutip import Qobj
 
 from alpsqutip.operator_functions import (
     eigenvalues,
@@ -62,6 +63,43 @@ def compare_spectrum(spectrum1, spectrum2):
     assert max(abs(np.array(sorted(spectrum1)) - np.array(sorted(spectrum2)))) < 1.0e-12
 
 
+def qutip_relative_entropy(qutip_1, qutip_2):
+    """Compute the relative entropy"""
+    # if both operators are the same operator,
+    # the relative entropy is 0.
+    if qutip_1 is qutip_2 or qutip_1 == qutip_2:
+        return 0.0
+
+    # Now, at least one operator is not None
+    dim = 1
+    if isinstance(qutip_1, qutip.Qobj):
+        dim = qutip_1.data.shape[0]
+        if qutip_2 is None:
+            qutip_2 = 1 / dim
+        # if the second argument is a number, compute in terms of the vn entropy:
+        if not isinstance(qutip_2, qutip.Qobj):
+            return qutip_1.tr() * np.log(qutip_2) - qutip.entropy_vn(qutip_1)
+
+    elif isinstance(qutip_2, qutip.Qobj):
+        dim = qutip_2.data.shape[0]
+        if qutip_1 is None:
+            qutip_1 = 1 / dim
+        # if the first argument is a number, compute in terms of the logarithm
+        # of the second:
+        if not isinstance(qutip_1, qutip.Qobj):
+            return qutip_1 * (np.log(qutip_1) - qutip_2.logm().tr())
+    else:  # both are a numbers or None
+        if qutip_1 is None:
+            qutip_1 = 1
+        if qutip_2 is None:
+            qutip_2 = 1
+        return qutip_1 * np.log(qutip_1 / qutip_2)
+
+    # Now, both operators are qutip operators. It is safe to use
+    # the standard routine.
+    return qutip.entropy_relative(qutip_1, qutip_2)
+
+
 def test_decompose_hermitician():
     """Test the decomposition as Q=A+iB with
     A=A.dag() and B=B.dag()
@@ -84,7 +122,15 @@ def test_simplify_sum_operator():
                 do_test(name, op_case)
             return
 
+        print("operator:", type(operator), "\n", operator)
+        print("operator->qutip:\n", operator.to_qutip())
+
         operator_simpl = simplify_sum_operator(operator)
+
+        print("===>\n")
+        print("    simplify operator:", type(operator_simpl), "\n", operator_simpl)
+        print("    simplify operator->qutip:\n", operator_simpl.to_qutip())
+
         assert check_equality(operator.to_qutip(), operator_simpl.to_qutip())
         assert operator.to_qutip().isherm == operator_simpl.isherm
 
@@ -108,7 +154,7 @@ def test_relative_entropy():
 
         for key2, sigma in test_cases_states.items():
             rel_entr = relative_entropy(rho, sigma)
-            rel_entr_qutip = qutip.entropy_relative(
+            rel_entr_qutip = qutip_relative_entropy(
                 qutip_states[key1], qutip_states[key2]
             )
             # infinity quantities cannot be compared...
@@ -187,9 +233,11 @@ def test_log_op():
         test_op = operator
         if not test_op.isherm:
             continue
-        print("name:", name)
+        print("name:", name, " of type", type(operator))
         op_exp = (test_op).expm()
+        print("     exp of type:", type(op_exp))
         op_exp_log = log_op(op_exp)
+        print("     log of exp of type:", type(op_exp_log))
         delta = test_op - op_exp_log
         spectral_norm_error = max(abs(x) for x in delta.to_qutip().eigenenergies())
         if spectral_norm_error > 0.000001:

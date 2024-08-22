@@ -45,7 +45,12 @@ def test_first():
         real_part, imag_part = hermitian_and_antihermitian_parts(operator)
         imag_part = simplify_sum_operator(imag_part)
         if qutip_op.isherm:
-            assert not bool(imag_part)
+            if bool(imag_part):
+                print("imaginary part:", type(imag_part), imag_part.simplify())
+                print([type(t) for t in imag_part.terms])
+            assert not bool(
+                imag_part
+            ), f"<<{name}>> has marked as hermitician, but has an imaginary part."
 
         simplified = simplify_sum_operator(operator)
 

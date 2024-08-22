@@ -18,6 +18,10 @@ from alpsqutip.operators.states import (
 )
 from alpsqutip.settings import VERBOSITY_LEVEL
 
+np.set_printoptions(
+    edgeitems=30, linewidth=100000, formatter=dict(float=lambda x: "%.3g" % x)
+)
+
 CHAIN_SIZE = 4
 
 system: SystemDescriptor = build_spin_chain(CHAIN_SIZE)

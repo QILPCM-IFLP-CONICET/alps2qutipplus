@@ -4,9 +4,8 @@
 Classes and functions for operator arithmetic.
 """
 
+import logging
 from numbers import Number
-
-# import logging
 from typing import List, Optional, Union
 
 import numpy as np
@@ -30,7 +29,13 @@ class SumOperator(Operator):
     terms: List[Operator]
     system: Optional[SystemDescriptor]
 
-    def __init__(self, term_list: tuple, system=None, isherm: Optional[bool] = None):
+    def __init__(
+        self,
+        term_list: tuple,
+        system=None,
+        isherm: Optional[bool] = None,
+        isdiag: Optional[bool] = None,
+    ):
         assert isinstance(term_list, tuple)
         assert system is not None
         self.terms = tuple(term_list)
@@ -44,6 +49,7 @@ class SumOperator(Operator):
 
         self.system = system
         self._isherm = isherm
+        self._isdiagonal = isdiag
 
     def __bool__(self):
         if len(self.terms) == 0:
@@ -148,7 +154,10 @@ class SumOperator(Operator):
 
     @property
     def isdiagonal(self) -> bool:
-        return all(term.isdiagonal for term in self.terms)
+        if self._isdiagonal is None:
+            simplified = self.simplify()
+            self._isdiagonal = all(term.isdiagonal for term in simplified.terms)
+        return self._isdiagonal
 
     def partial_trace(self, sites: list):
         return sum(term.partial_trace(sites) * term.prefactor for term in self.terms)
@@ -195,7 +204,9 @@ class SumOperator(Operator):
             for site, l_ops in site_terms.items()
         ]
 
-        qutip_terms = [sum(qutip_term)] if qutip_terms else []
+        if len(qutip_terms) > 1:
+            qutip_terms = [sum(qutip_terms)]
+
         is_one_body = len(general_terms) == 0 and len(qutip_terms) == 0
         terms = general_terms + loc_ops_lst + qutip_terms
 
@@ -242,13 +253,19 @@ NBodyOperator = SumOperator
 class OneBodyOperator(SumOperator):
     """A linear combination of local operators"""
 
-    def __init__(self, terms, system=None, check_and_convert=True):
+    def __init__(
+        self,
+        terms,
+        system=None,
+        check_and_convert=True,
+        isherm: Optional[bool] = None,
+        isdiag: Optional[bool] = None,
+    ):
         """
         if check_and_convert is True,
         """
         assert isinstance(terms, tuple)
         assert system is not None
-        check_and_convert = True
 
         def collect_systems(terms, system):
             for term in terms:
@@ -265,8 +282,7 @@ class OneBodyOperator(SumOperator):
             system = collect_systems(terms, system)
             terms, system = self._simplify_terms(terms, system)
 
-        isherm = None  # all(term.isherm for term in terms)
-        super().__init__(terms, system, isherm)
+        super().__init__(terms, system, isherm, isdiag)
 
     def __repr__(self):
         return "  " + "\n  +".join("(" + repr(term) + ")" for term in self.terms)
@@ -288,27 +304,30 @@ class OneBodyOperator(SumOperator):
 
         sites_op = {}
         ln_prefactor = 0
-        for term in self.terms:
+        for term in self.simplify().terms:
             if not bool(term):
+                assert False, "No empty terms should reach here"
                 continue
             if isinstance(term, ScalarOperator):
                 ln_prefactor += term.prefactor
                 continue
-            operator = term.operator
+            operator_qt = term.operator
             try:
                 k_0 = max(
-                    np.real(eigenvalues(operator, sparse=True, sort="high", eigvals=3))
+                    np.real(
+                        eigenvalues(operator_qt, sparse=True, sort="high", eigvals=3)
+                    )
                 )
             except ValueError:
-                k_0 = max(np.real(eigenvalues(operator, sort="high")))
+                k_0 = max(np.real(eigenvalues(operator_qt, sort="high")))
 
-            operator = operator - k_0
+            operator_qt = operator_qt - k_0
             ln_prefactor += k_0
-            if hasattr(operator, "expm"):
-                sites_op[term.site] = operator.expm()
+            if hasattr(operator_qt, "expm"):
+                sites_op[term.site] = operator_qt.expm()
             else:
-                print("Warning: ", type(operator), "evaluated as a number")
-                sites_op[term.site] = np.exp(operator)
+                logging.warning(f"{type(operator_qt)} evaluated as a number")
+                sites_op[term.site] = np.exp(operator_qt)
 
         prefactor = np.exp(ln_prefactor)
         return ProductOperator(sites_op, prefactor=prefactor, system=self.system)
@@ -316,82 +335,54 @@ class OneBodyOperator(SumOperator):
     @staticmethod
     def _simplify_terms(terms, system):
         """Group terms by subsystem and process scalar terms"""
+        simply_terms = [term.simplify() for term in terms]
+        terms = []
         terms_by_subsystem = {}
-        scalar_term = 0
+        scalar_term_value = 0
+        scalar_term = None
 
-        def process_term(term):
-            """Process each term recursively"""
-            nonlocal scalar_term
-            nonlocal terms_by_subsystem
-
-            if isinstance(term, Number):
-                scalar_term = scalar_term + term
-                return
-            term = term.simplify()
+        for term in simply_terms:
             if isinstance(term, SumOperator):
-                for subterm in term.terms:
-                    process_term(subterm)
-                return
-
-            subsystem = term.act_over()
-            if subsystem is None:
+                terms.extend(term.terms)
+            elif isinstance(term, (ScalarOperator, LocalOperator)):
+                terms.append(term)
+            else:
                 raise ValueError(
-                    f"   {term} acting over the whole system " "is not a one body term."
+                    f"A OneBodyOperator can not have {type(term)} as a term."
                 )
-            if len(subsystem) == 0:
-                scalar_term = term + scalar_term
-                return
-            if len(subsystem) != 1:
-                raise ValueError(
-                    f"   {term} acting over {subsystem} " "is not a one body term."
-                )
-            terms_by_subsystem.setdefault(tuple(subsystem), []).append(term)
+        # Now terms are just scalars and local operators.
 
         for term in terms:
-            process_term(term)
+            if isinstance(term, ScalarOperator):
+                scalar_term = term
+                scalar_term_value += term.prefactor
+            elif isinstance(term, LocalOperator):
+                terms_by_subsystem.setdefault(term.site, []).append(term)
 
-        if scalar_term:
-            # If the scalar term is not trivial,
-            # add it to the first term of the first subsystem.
-            # If the list is empty, just store it as the only term in
-            # the sum.
+        if scalar_term_value == 0:
+            scalar_term = None
+            terms = []
+        elif scalar_term_value == scalar_term.prefactor:
+            terms = [scalar_term]
+        else:
+            terms = [ScalarOperator(scalar_term_value, system)]
 
-            if not terms_by_subsystem:
-                if isinstance(scalar_term, Number):
-                    scalar_term = ScalarOperator(scalar_term, system)
-                return (scalar_term,), system
+        # Reduce the local terms
+        for site, local_terms in terms_by_subsystem.items():
+            if len(local_terms) > 1:
+                terms.append(sum(local_terms))
+            else:
+                terms.extend(local_terms)
 
-            terms_list = next(iter(terms_by_subsystem.values()))
-            first_term_plus_scalar = terms_list[0] + scalar_term
-            terms_list[0] = first_term_plus_scalar
-
-        terms = tuple(
-            LocalOperator(
-                key[0],
-                sum(term.operator for term in terms_subsystem),
-                system,
-            )
-            for key, terms_subsystem in terms_by_subsystem.items()
-        )
-
-        return terms, system
-
-    def no_simplify(self):
-        terms, system = self._simplify_terms(self.terms, self.system)
-        self.terms = terms
-        self.system = system
-        if len(terms) == 0:
-            return ScalarOperator(0, system)
-        if len(terms) == 1:
-            return terms[0]
-        return self
+        return tuple(terms), system
 
     def tidyup(self, atol=None):
         """Removes small elements from the quantum object."""
         tidy_terms = [term.tidyup(atol) for term in self.terms]
         tidy_terms = tuple((term for term in tidy_terms if term))
         isherm = all(term.isherm for term in tidy_terms) or None
-        return OneBodyOperator(tidy_terms, self.system)
+        isdiag = all(term.isdiag for term in tidy_terms) or None
+        return OneBodyOperator(tidy_terms, self.system, isherm=isherm, isdiag=isdiag)
 
 
 # #####################################
@@ -680,7 +671,8 @@ def _(x_op: OneBodyOperator, y_op: ScalarOperator):
     terms = x_op.terms + (y_op,)
     if len(terms) == 1:
         return terms[0]
-    return OneBodyOperator(terms, system)
+    result = OneBodyOperator(terms, system)
+    return result
 
 
 @Operator.register_add_handler(
