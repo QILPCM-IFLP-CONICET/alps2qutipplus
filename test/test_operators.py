@@ -15,6 +15,7 @@ from alpsqutip.operators import (
 from .helper import (
     CHAIN_SIZE,
     check_operator_equality,
+    full_test_cases,
     hamiltonian,
     operator_type_cases,
     sites,
@@ -58,9 +59,18 @@ def test_act_over():
         "qutip operator": None,
         "hermitician quadratic operator": {f"1[{s}]" for s in range(CHAIN_SIZE)},
         "non hermitician quadratic operator": {f"1[{s}]" for s in range(CHAIN_SIZE)},
+        "fully mixed": set(),
+        "z semipolarized": {f'1[{s}]' for s in range(CHAIN_SIZE)},
+        "x semipolarized": {f'1[{s}]' for s in range(CHAIN_SIZE)},
+        "first full polarized":  {"1[0]"},
+        "gibbs_sz_as_product":{f'1[{s}]' for s in range(CHAIN_SIZE)},
+        "gibbs_sz":None,
+        "gibbs_sz_bar": None,
+        "gibbs_H": None,
+        "mixture": None,
     }
 
-    for name, operator in operator_type_cases.items():
+    for name, operator in full_test_cases.items():
         print(name)
         act_over = operator.act_over()
         print("    acts over ", act_over)
