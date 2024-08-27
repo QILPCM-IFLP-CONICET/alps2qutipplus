@@ -247,6 +247,7 @@ def log_op(operator: Operator) -> Operator:
     """The logarithm of an operator"""
 
     if hasattr(operator, "logm"):
+        print(operator.logm)
         return operator.logm()
     return operator.to_qutip_operator().logm()
 

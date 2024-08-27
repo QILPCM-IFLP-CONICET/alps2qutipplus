@@ -145,7 +145,7 @@ def test_relative_entropy():
     }
     clean = True
     for key1, rho in test_cases_states.items():
-        assert abs(rho.tr() - 1) < 0.001 and abs(qutip_states[key1].tr() - 1) < 0.001
+        assert abs(rho.tr() - 1) < 1e-6 and abs(qutip_states[key1].tr() - 1) < 1e-6
         print("\n\n", 30 * " ", "rho:", key1)
         check_equality(relative_entropy(rho, rho), 0)
         check_equality(
@@ -165,6 +165,12 @@ def test_relative_entropy():
                     print("Relative entropy mismatch")
                 clean = False
                 print("  ", [key1, key2])
+                print(key1 , rho)
+                print(key1 , rho.to_qutip())
+                
+                print(key2 , sigma)
+                print(key2 , sigma.to_qutip())
+                
                 print(f"   {rel_entr} (alps2qutip) !=   {rel_entr_qutip} (qutip)")
 
                 assert clean

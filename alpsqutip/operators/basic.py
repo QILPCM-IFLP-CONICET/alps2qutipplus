@@ -190,9 +190,9 @@ class Operator:
                 Operator.__mul__dispatch__[key] = func
                 return func(self, factor)
 
-        raise ValueError(type(self), "cannot be multiplied with ", type(factor))
-        if hasattr(factor, "to_qutip_operator"):
-            factor = factor.to_qutip_operator()
+        if not hasattr(factor, "to_qutip_operator"):
+            raise ValueError(type(self), "cannot be multiplied with ", type(factor))
+        factor = factor.to_qutip_operator()
         return self.to_qutip_operator() * factor
 
     def __neg__(self):
@@ -216,7 +216,6 @@ class Operator:
             type(self),
         )
         func = self.__mul__dispatch__.get(key, None)
-
         if func is not None:
             return func(factor, self)
         for try_key, func in Operator.__mul__dispatch__.items():
