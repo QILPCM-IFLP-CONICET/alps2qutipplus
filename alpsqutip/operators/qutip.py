@@ -6,14 +6,13 @@ Qutip representation of an operator.
 from numbers import Number
 from typing import Optional, Union
 
-import scipy.sparse.linalg as spla
 from numpy import log as np_log
 from qutip import Qobj
 
 from alpsqutip.alpsmodels import qutip_model_from_dims
 from alpsqutip.geometry import GraphDescriptor
 from alpsqutip.model import SystemDescriptor
-from alpsqutip.operators.basic import Operator
+from alpsqutip.operators.basic import Operator, ScalarOperator, is_diagonal_op
 
 
 class QutipOperator(Operator):
@@ -26,6 +25,7 @@ class QutipOperator(Operator):
         names=None,
         prefactor=1,
     ):
+        assert isinstance(qoperator, Qobj), "qoperator should be a Qutip Operator"
         if system is None:
             dims = qoperator.dims[0]
             model = qutip_model_from_dims(dims)
@@ -96,12 +96,16 @@ class QutipOperator(Operator):
     def isherm(self) -> bool:
         return self.operator.isherm
 
+    @property
+    def isdiagonal(self) -> bool:
+        """Check if the operator is diagonal"""
+        return is_diagonal_op(self.operator)
+
     def logm(self):
         operator = self.operator
         evals, evecs = operator.eigenstates()
         evals = evals * self.prefactor
         evals[abs(evals) < 1.0e-30] = 1.0e-30
-        print("evals:", evals)
         if any(value < 0 for value in evals):
             evals = (1.0 + 0j) * evals
         log_op = sum(
@@ -123,12 +127,15 @@ class QutipOperator(Operator):
         else:
             op_ptrace = self.operator.tr()
 
-        return QutipOperator(
-            op_ptrace,
-            subsystem,
-            names=new_site_names,
-            prefactor=self.prefactor,
-        )
+        if isinstance(op_ptrace, Qobj):
+            return QutipOperator(
+                op_ptrace,
+                subsystem,
+                names=new_site_names,
+                prefactor=self.prefactor,
+            )
+        else:
+            return ScalarOperator(self.prefactor * op_ptrace, subsystem)
 
     def tidyup(self, atol=None):
         """Removes small elements from the quantum object."""
@@ -161,6 +168,21 @@ def sum_qutip_operator_plus_operator(x_op: QutipOperator, y_op: QutipOperator):
         x_op.operator * x_op.prefactor + y_op.operator * y_op.prefactor,
         x_op.system or y_op.system,
         names=names,
+        prefactor=1,
+    )
+
+
+@Operator.register_add_handler(
+    (
+        ScalarOperator,
+        QutipOperator,
+    )
+)
+def sum_scalarop_with_qutipop(x_op: ScalarOperator, y_op: QutipOperator):
+    """Sum a Scalar operator to a Qutip Operator"""
+    return QutipOperator(
+        y_op.operator * y_op.prefactor + x_op.prefactor,
+        names=y_op.site_names,
         prefactor=1,
     )
 
@@ -202,6 +224,32 @@ def mul_qutip_operator_qutip_operator(x_op: QutipOperator, y_op: QutipOperator):
         x_op.system or y_op.system,
         names=names,
         prefactor=x_op.prefactor * y_op.prefactor,
+    )
+
+
+@Operator.register_mul_handler(
+    (
+        ScalarOperator,
+        QutipOperator,
+    )
+)
+def mul_scalarop_with_qutipop(x_op: ScalarOperator, y_op: QutipOperator):
+    """Sum a Scalar operator to a Qutip Operator"""
+    return QutipOperator(
+        y_op.operator, names=y_op.site_names, prefactor=x_op.prefactor * y_op.prefactor
+    )
+
+
+@Operator.register_mul_handler(
+    (
+        QutipOperator,
+        ScalarOperator,
+    )
+)
+def mul_qutipop_with_scalarop(y_op: QutipOperator, x_op: ScalarOperator):
+    """Sum a Scalar operator to a Qutip Operator"""
+    return QutipOperator(
+        y_op.operator, names=y_op.site_names, prefactor=x_op.prefactor * y_op.prefactor
     )
 
 

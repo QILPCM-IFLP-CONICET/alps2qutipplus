@@ -27,9 +27,13 @@ def commutator(op_1: Operator, op_2: Operator) -> Operator:
     """
     system = op_1.system or op_2.system
     if isinstance(op_1, SumOperator):
-        return SumOperator([commutator(term, op_2) for term in op_1.terms], system)
+        return SumOperator(
+            [commutator(term, op_2) for term in op_1.terms], system
+        ).simplify()
     if isinstance(op_2, SumOperator):
-        return SumOperator([commutator(op_1, term) for term in op_2.terms], system)
+        return SumOperator(
+            [commutator(op_1, term) for term in op_2.terms], system
+        ).simplify()
 
     act_over_1, act_over_2 = op_1.act_over(), op_2.act_over()
     if act_over_1 is not None:
@@ -109,7 +113,7 @@ def hermitian_and_antihermitian_parts(operator) -> Tuple[Operator]:
             ),
             system,
             isherm=True,
-        ),
+        ).simplify(),
         SumOperator(
             (
                 operator_dag * 1j,
@@ -117,7 +121,7 @@ def hermitian_and_antihermitian_parts(operator) -> Tuple[Operator]:
             ),
             system,
             isherm=True,
-        ),
+        ).simplify(),
     )
 
 
@@ -142,84 +146,81 @@ def reduce_by_orthogonalization(operator_list):
 
 def simplify_sum_operator(operator):
     """
-    Try to simplify a sum of operators by flatten it,
-    classifying the terms according to which subsystem acts,
-    reducing the partial sums.
+    Try a more agressive simplification that self.simplify()
+    by classifing the terms according to which subsystem acts,
+    reducing the partial sums by orthogonalization.
     """
+    simplified_op = operator.simplify()
 
-    if not isinstance(operator, SumOperator):
-        return operator.simplify()
+    if isinstance(simplified_op, OneBodyOperator) or not isinstance(
+        simplified_op, SumOperator
+    ):
+        return simplified_op
 
+    operator = simplified_op
+    # Now, operator has at least two non-trivial terms.
     operator_terms = operator.terms
-    if len(operator_terms) < 2:
-        return operator.simplify()
 
     system = operator.system
     isherm = operator._isherm
 
-    null_subsystem = tuple()
-    terms_by_subsystem = {
-        null_subsystem: [0.0],
-        None: [],
-    }
-
-    def process_term(term):
-        """
-        Flatten the list of terms and classify them
-        according to over which subsystem act.
-        """
-        if isinstance(term, Number):
-            terms_by_subsystem.setdefault(null_subsystem, []).append(term)
-        if isinstance(term, SumOperator):
-            for sub_term in term.terms:
-                process_term(sub_term)
-            return
-        sites = tuple(term.act_over())
-        terms_by_subsystem.setdefault(sites, []).append(term)
-
-    # Flatten and classify the terms
-    for term in operator_terms:
-        term = term.simplify()
-        process_term(term)
-
-    # Reduce the partial sums
-    new_terms = []
+    terms_by_subsystem = {}
     one_body_terms = []
-    scalar_term = 0
-    for subsystem, terms in terms_by_subsystem.items():
-        if subsystem is None:
-            new_terms.extend(terms)
-            continue
-        if len(subsystem) > 1:
-            terms = reduce_by_orthogonalization(terms)
-            new_terms.extend(terms)
-            continue
-        if len(subsystem) == 0:
-            scalar_term = sum(terms)
-            continue
-        assert len(subsystem) == 1
-        one_body_terms.extend(terms)
+    scalar_terms = []
 
-    # One-body terms are put together and added as a OneBodyOperator term
-    if one_body_terms:
-        one_body_term = (
-            one_body_terms[0]
-            if len(one_body_terms) == 1
-            else OneBodyOperator(tuple(one_body_terms), system)
-        )
-        if scalar_term:
-            one_body_term = one_body_term + scalar_term
-        new_terms.append(one_body_term)
-    elif scalar_term:
-        if isinstance(scalar_term, Number):
-            scalar_term = ScalarOperator(scalar_term, system)
-        new_terms.append(scalar_term)
+    for term in operator_terms:
+        assert not isinstance(
+            term, SumOperator
+        ), f"{type(term)} should not be here. Check simplify."
+        assert not isinstance(
+            term, Number
+        ), f"In a sum, numbers should be represented by ScalarOperator's, but {type(term)} was found."
+
+    for term in operator_terms:
+        if isinstance(term, LocalOperator):
+            one_body_terms.append(term)
+        elif isinstance(term, ScalarOperator):
+            scalar_terms.append(term)
+        else:
+            sites = tuple(term.act_over())
+            terms_by_subsystem.setdefault(sites, []).append(term)
+
+    # Simplify the scalars:
+    if len(scalar_terms) > 1:
+        assert all(isinstance(t, ScalarOperator) for t in scalar_terms)
+        value = sum(value for value in scalar_terms.prefactor)
+        scalar_terms = [ScalarOperator(value, system)] if value else []
+    elif len(scalar_terms) == 1:
+        if scalar_terms[0].prefactor == 0:
+            scalar_terms = []
+
+    one_body_terms = (
+        [OneBodyOperator(tuple(one_body_terms), system)]
+        if len(one_body_terms) != 0
+        else []
+    )
+    new_terms = scalar_terms + one_body_terms
+
+    # Try to reduce the other terms
+    for subsystem, block_terms in terms_by_subsystem.items():
+        if subsystem is None:
+            # Maybe here we should convert block_terms into
+            # qutip, add the terms and if the result is not zero,
+            # store as a single term
+            new_terms.extend(block_terms)
+        elif len(subsystem) > 1:
+            if len(block_terms) > 1:
+                block_terms = reduce_by_orthogonalization(block_terms)
+            new_terms.extend(block_terms)
+        else:
+            # Never reached?
+            assert False
+            new_terms.extend(block_terms)
 
     # Build the return value
     if new_terms:
         if len(new_terms) == 1:
             return new_terms[0]
-
         if not isherm:
             isherm = None
         return SumOperator(tuple(new_terms), system, isherm)

@@ -2,6 +2,7 @@
 Different representations for operators
 """
 
+import logging
 from functools import reduce
 from numbers import Number
 from typing import Callable, Dict, Optional, Tuple
@@ -19,13 +20,93 @@ def empty_op(op: Qobj) -> bool:
     non-zero elements.
     """
     if not hasattr(op, "data"):
-        op = op.to_qutip()
+        if isinstance(op, ScalarOperator):
+            return op.prefactor == 0
+        if hasattr(op, "operator"):
+            return empty_op(op.operator)
+        raise ValueError(f"Operator of type {type(op)} is not allowed.")
     data = op.data
     if hasattr(data, "count_nonzero"):
         return data.count_nonzero() == 0
     if hasattr(data, "as_scipy"):
         return data.as_scipy().count_nonzero() == 0
+    if hasattr(data, "as_ndarray"):
+        return not data.as_ndarray().any()
     return False
+
+
+def is_diagonal_op(op: Qobj) -> bool:
+    """Check if op is a diagonal operator"""
+    if not hasattr(op, "data"):
+        if isinstance(op, ScalarOperator):
+            return True
+        if hasattr(op, "operator"):
+            return is_diagonal_op(op.operator)
+        raise ValueError(f"Operator of type {type(op)} is not allowed.")
+    data = op.data
+    # Qutip 5
+    if not hasattr(data, "nonzero"):
+        # If sparse, convert it to the scipy form
+        if hasattr(data, "as_scipy"):
+            data = data.as_scipy()
+        # If the matrix is dense, look element by element.
+        elif hasattr(data, "as_ndarray"):
+            dim = data.shape[0]
+            data = data.as_ndarray()
+            return all(
+                data[i, j] == 0 for i in range(dim) for j in range(dim) if i != j
+            )
+        else:
+            logging.warning(
+                "offdiagonal elements cannot be determined. Assuming False."
+            )
+            return False
+
+    # Now, we can work with a scipy sparse array
+    ies, jeys = data.nonzero()
+    return all(i == j for i, j in zip(ies, jeys))
+
+
+def is_scalar_op(op: Qobj) -> bool:
+    """
+    Check if the operator is a
+    multiple of the identity
+    """
+    if not hasattr(op, "data"):
+        if isinstance(op, ScalarOperator):
+            return True
+        if hasattr(op, "operator"):
+            return is_scalar_op(op.operator)
+        raise ValueError(f"Operator of type {type(op)} is not allowed.")
+    data = op.data
+    # Qutip 5
+    if not hasattr(data, "nonzero"):
+        # If sparse, convert it to the scipy form
+        if hasattr(data, "as_scipy"):
+            data = data.as_scipy()
+        # If the matrix is dense, look element by element.
+        elif hasattr(data, "as_ndarray"):
+            dim = data.shape[0]
+            data = data.as_ndarray()
+            if any(data[i, j] != 0 for i in range(dim) for j in range(dim) if i != j):
+                return False
+            prefactor = data[0, 0]
+            return all(data[i, i] == prefactor for i in range(dim))
+        else:
+            logging.warning("elements cannot be determined. Assuming False.")
+            return False
+    # Now, we can work with a scipy sparse array
+
+    ies, jeys = data.nonzero()
+    if len(ies) == 0:
+        return True
+    elif len(ies) != data.shape[0]:
+        return False
+    if any(i != j for i, j in zip(ies, jeys)):
+        return False
+    values = data.data.flatten()
+    value = values[0]
+    return all(v == value for v in values)
 
 
 class Operator:
@@ -198,6 +279,11 @@ class Operator:
         """Check if the operator is hermitician"""
         return self.to_qutip().isherm
 
+    @property
+    def isdiagonal(self) -> bool:
+        """Check if the operator is diagonal"""
+        return False
+
     def expm(self):
         """Compute the exponential of the Qutip representation of the operator"""
 
@@ -241,7 +327,10 @@ class Operator:
         """Produce a Qutip representation of the operator"""
         from alpsqutip.operators.qutip import QutipOperator
 
-        return QutipOperator(self.to_qutip(), self.system)
+        qobj = self.to_qutip()
+        if isinstance(qobj, qutip.Qobj):
+            return QutipOperator(qobj, self.system)
+        return ScalarOperator(qobj, self.system)
 
     # pylint: disable=invalid-name
     def tr(self):
@@ -324,6 +413,10 @@ class LocalOperator(Operator):
             return operator.imag == 0.0
         return operator.isherm
 
+    @property
+    def isdiagonal(self) -> bool:
+        return is_diagonal_op(self.operator)
+
     def logm(self):
         def log_qutip(loc_op):
             evals, evecs = loc_op.eigenstates()
@@ -360,6 +453,14 @@ class LocalOperator(Operator):
             return ScalarOperator(local_op.tr() * prefactor, subsystem)
 
         return LocalOperator(site, local_op * prefactor, subsystem)
+
+    def simplify(self):
+        # TODO: reduce multiples of the identity to ScalarOperators
+        operator = self.operator
+        if not is_scalar_op(operator):
+            return self
+        value = operator[0, 0] * self.prefactor
+        return ScalarOperator(value, self.system)
 
     def to_qutip(self):
         """Convert to a Qutip object"""
@@ -435,9 +536,9 @@ class ProductOperator(Operator):
     def __repr__(self):
         result = "  " + str(self.prefactor) + " * (\n  "
         result += "\n  ".join(
-            f"({item[1].full()} <-  {item[0]})" for item in self.sites_op.items()
+            f"({item[1].full()} <-  {item[0]})  (x)" for item in self.sites_op.items()
         )
-        result += " )"
+        result += "\n   )"
         return result
 
     def act_over(self):
@@ -494,6 +595,13 @@ class ProductOperator(Operator):
             return False
         return isinstance(self.prefactor, (int, float))
 
+    @property
+    def isdiagonal(self) -> bool:
+        for factor_op in self.sites_op.values():
+            if not is_diagonal_op(factor_op):
+                return False
+        return True
+
     def logm(self):
         # pylint: disable=import-outside-toplevel
         from alpsqutip.operators.arithmetic import OneBodyOperator
@@ -511,7 +619,9 @@ class ProductOperator(Operator):
             LocalOperator(site, log_qutip(loc_op), system)
             for site, loc_op in self.sites_op.items()
         )
-        return OneBodyOperator(terms, system, False) + np.log(self.prefactor)
+        result = OneBodyOperator(terms, system, False)
+        result = result + ScalarOperator(np.log(self.prefactor), system)
+        return result
 
     def partial_trace(self, sites: list):
         full_system_sites = self.system.sites
@@ -534,13 +644,44 @@ class ProductOperator(Operator):
             return ScalarOperator(prefactor, subsystem)
         return ProductOperator(sites_op, prefactor, subsystem)
 
-    def simplify(self):
-        nops = len(self.sites_op)
+    def simplify(self) -> Operator:
+        """
+        Simplifies a product operator
+        * first, collect all the scalar factors and
+          absorbe them in the prefactor.
+        * If the prefactor vanishes, or all the factors are scalars,
+          return a ScalarOperator.
+        * If there is just one nontrivial factor, return a LocalOperator.
+        * If no reduction is possible, return self.
+        """
+        # Remove multiples of the identity
+        nontrivial_factors = {}
+        prefactor = self.prefactor
+        for site, op_factor in self.sites_op.items():
+            if is_scalar_op(op_factor):
+                data = op_factor.data
+                if hasattr(data, "data"):
+                    prefactor *= data.data[0]
+                elif hasattr(data, "as_scipy"):
+                    prefactor *= data.as_scipy().data[0]
+                elif hasattr(data, "as_ndarray"):
+                    prefactor *= data.as_ndarray()[0, 0]
+                else:
+                    raise ValueError(
+                        f"type {type(data)} has not a way to access its value."
+                    )
+                if not prefactor:
+                    return ScalarOperator(0, self.system)
+            else:
+                nontrivial_factors[site] = op_factor
+        nops = len(nontrivial_factors)
         if nops == 0:
-            return ScalarOperator(self.prefactor, self.system)
+            return ScalarOperator(prefactor, self.system)
         if nops == 1:
-            site, op_local = next(iter(self.sites_op.items()))
+            site, op_local = next(iter(nontrivial_factors.items()))
             return LocalOperator(site, self.prefactor * op_local, self.system)
+        if nops != len(self.sites_op):
+            return ProductOperator(nontrivial_factors, prefactor, self.system)
         return self
 
     def to_qutip(self):
@@ -574,6 +715,9 @@ class ScalarOperator(ProductOperator):
         assert system is not None
         super().__init__({}, prefactor, system)
 
+    def __bool__(self):
+        return bool(self.prefactor)
+
     def __neg__(self):
         return ScalarOperator(-self.prefactor, self.system)
 
@@ -594,8 +738,16 @@ class ScalarOperator(ProductOperator):
         prefactor = self.prefactor
         return not (isinstance(prefactor, complex) and prefactor.imag != 0)
 
+    @property
+    def isdiagonal(self) -> bool:
+        return True
+
     def logm(self):
         return ScalarOperator(np.log(self.prefactor), self.system)
+
+    def simplify(self):
+        """simplify a scalar operator"""
+        return self
 
 
 # ##########################################

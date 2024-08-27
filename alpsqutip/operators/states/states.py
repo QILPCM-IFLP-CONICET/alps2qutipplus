@@ -20,6 +20,7 @@ from alpsqutip.operators import (
     ScalarOperator,
     SumOperator,
 )
+from alpsqutip.operators.basic import is_diagonal_op
 
 
 def safe_exp_and_normalize(operator):
@@ -83,7 +84,10 @@ class QutipDensityOperator(QutipOperator, DensityOperatorMixin):
     ):
         prefactor = prefactor * qoperator.tr()
         assert prefactor >= 0 and qoperator.isherm
-        qoperator = qoperator / prefactor
+        if prefactor == 0:
+            qoperator = qutip_qeye(qoperator.dims[0]) / qoperator.data.shape[0]
+        else:
+            qoperator = qoperator / prefactor
 
         super().__init__(qoperator, system, names, prefactor)
 
@@ -294,15 +298,12 @@ class MixtureDensityOperator(SumOperator, DensityOperatorMixin):
         return super().__rmul__(a)
 
     def expect(self, obs: Union[Operator, Iterable]) -> Union[np.ndarray, dict, Number]:
-        print("expect for", type(obs))
         strip = False
         if isinstance(obs, Operator):
             strip = True
             obs = [obs]
 
-        print([term.tr() for term in self.terms])
         av_terms = tuple((term.expect(obs), term.prefactor) for term in self.terms)
-        print(av_terms)
         if isinstance(obs, dict):
             return {
                 op_name: sum(term[0][op_name] * term[1] for term in av_terms)
@@ -520,6 +521,13 @@ class GibbsProductDensityOperator(Operator, DensityOperatorMixin):
             return (self.to_product_state()).expect(obs)
         return super().expect(obs)
 
+    @property
+    def isdiagonal(self) -> bool:
+        for operator in self.k_by_site.values():
+            if not is_diagonal_op(operator):
+                return False
+        return True
+
     def logm(self):
         terms = tuple(
             LocalOperator(site, -loc_op, self.system)
@@ -652,9 +660,55 @@ for dm_type_1 in (
             x_op.system or y_op.system,
         )
 
+__add__dispatch__[
+    (GibbsProductDensityOperator, ProductOperator)
+] = lambda x_op, y_op: SumOperator(
+    (
+        x_op,
+        y_op,
+    ),
+    x_op.system or y_op.system,
+)
+
 __mul__dispatch__ = Operator.__mul__dispatch__
 
 
 __mul__dispatch__[(LocalOperator, GibbsProductDensityOperator)] = (
     lambda x, y: x * y.to_product_state()
 )
+
+
+__mul__dispatch__[(ScalarOperator, GibbsProductDensityOperator)] = (
+    lambda x, y: x * y.to_product_state()
+)
+
+
+__mul__dispatch__[(ProductOperator, GibbsProductDensityOperator)] = (
+    lambda x, y: x * y.to_product_state()
+)
+
+__mul__dispatch__[(GibbsProductDensityOperator, ProductOperator)] = (
+    lambda x, y: x.to_product_state() * y
+)
+
+
+__mul__dispatch__[(ProductOperator, GibbsDensityOperator)] = (
+    lambda x, y: x.to_qutip_operator() * y.to_qutip_operator()
+)
+
+__mul__dispatch__[(GibbsDensityOperator, ProductOperator)] = (
+    lambda x, y: x.to_qutip_operator() * y.to_qutip_operator()
+)
+
+
+__mul__dispatch__[(GibbsProductDensityOperator, QutipOperator)] = (
+    lambda x, y: x.to_qutip() * y
+)
+
+__mul__dispatch__[(QutipOperator, GibbsProductDensityOperator)] = (
+    lambda x, y: x * y.to_qutip()
+)
+
+__mul__dispatch__[(GibbsDensityOperator, QutipOperator)] = lambda x, y: x.to_qutip() * y
+
+__mul__dispatch__[(QutipOperator, GibbsDensityOperator)] = lambda x, y: x * y.to_qutip()

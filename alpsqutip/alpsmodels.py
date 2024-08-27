@@ -2,12 +2,12 @@
 Function to read xml alps libraries to produce model descriptors.
 """
 
+import logging
 import xml.etree.ElementTree as ET
 from typing import Optional
 
 import qutip
 
-from alpsqutip.settings import VERBOSITY_LEVEL
 from alpsqutip.utils import eval_expr, find_ref
 
 
@@ -76,8 +76,7 @@ def build_local_basis_from_qn_descriptors(
         local_basis = new_basis
 
     if len(local_basis) == 1 and len(local_basis[0]) == 0:
-        if VERBOSITY_LEVEL > 0:
-            print("empty basis!")
+        logging.warning("empty basis!")
         return None
     qn_indx = {qn: i for i, qn in enumerate(local_basis[0].keys())}
     basis_vectors = [tuple(state[qn] for qn in qn_indx) for state in local_basis]
@@ -282,8 +281,7 @@ def model_from_alps_xml(filename="lattices.xml", name="spin", parms=None):
                     terms.append((dst, src, coeff, fermionic))
 
             if any(t[-1] for t in terms) and not all(t[-1] for t in terms):
-                if VERBOSITY_LEVEL > 0:
-                    print("wrong fermionic parity", name, ":", terms)
+                logging.warning("wrong fermionic parity", name, ":", terms)
                 continue
             operators[name] = sum(
                 coeff * qutip.projection(dim, src, dst)

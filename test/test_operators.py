@@ -2,6 +2,8 @@
 Basic unit test.
 """
 
+import numpy as np
+
 from alpsqutip.operators import (
     LocalOperator,
     OneBodyOperator,
@@ -13,8 +15,8 @@ from alpsqutip.operators import (
 from .helper import (
     CHAIN_SIZE,
     check_operator_equality,
+    full_test_cases,
     hamiltonian,
-    observable_cases,
     operator_type_cases,
     sites,
     sx_A as local_sx_A,
@@ -24,6 +26,11 @@ from .helper import (
     sz_C,
     sz_total,
 )
+
+np.set_printoptions(
+    edgeitems=30, linewidth=100000, formatter=dict(float=lambda x: "%.3g" % x)
+)
+
 
 sx_A = ProductOperator({local_sx_A.site: local_sx_A.operator}, 1.0, local_sx_A.system)
 sx_A2 = sx_A * sx_A
@@ -52,9 +59,18 @@ def test_act_over():
         "qutip operator": None,
         "hermitician quadratic operator": {f"1[{s}]" for s in range(CHAIN_SIZE)},
         "non hermitician quadratic operator": {f"1[{s}]" for s in range(CHAIN_SIZE)},
+        "fully mixed": set(),
+        "z semipolarized": {f"1[{s}]" for s in range(CHAIN_SIZE)},
+        "x semipolarized": {f"1[{s}]" for s in range(CHAIN_SIZE)},
+        "first full polarized": {"1[0]"},
+        "gibbs_sz_as_product": {f"1[{s}]" for s in range(CHAIN_SIZE)},
+        "gibbs_sz": None,
+        "gibbs_sz_bar": None,
+        "gibbs_H": None,
+        "mixture": None,
     }
 
-    for name, operator in operator_type_cases.items():
+    for name, operator in full_test_cases.items():
         print(name)
         act_over = operator.act_over()
         print("    acts over ", act_over)
@@ -70,36 +86,6 @@ def test_build_hamiltonian():
         (hamiltonian_with_field).to_qutip(),
         (hamiltonian.to_qutip() + sz_total.to_qutip()),
     )
-
-
-def test_isherm_operator():
-    """
-    Check if hermiticity is correctly determined
-    """
-
-    def do_test_case(name, observable):
-        if isinstance(observable, list):
-            for op_case in observable:
-                do_test_case(name, op_case)
-            return
-
-        assert observable.isherm, f"{key} is not hermitician?"
-
-        ham = observable_cases["hamiltonian"]
-        print("***addition***")
-        assert (ham + 1.0).isherm
-        assert (ham + sz_total).isherm
-        print("***scalar multiplication***")
-        assert (2.0 * ham).isherm
-        print("***scalar multiplication for a OneBody Operator")
-        assert (2.0 * sz_total).isherm
-        assert (ham * 2.0).isherm
-        assert (sz_total * 2.0).isherm
-        assert (sz_total.expm()).isherm
-        assert (ham**3).isherm
-
-    for key, observable in observable_cases.items():
-        do_test_case(key, observable)
 
 
 def test_type_operator():
@@ -176,8 +162,16 @@ def test_exp_operator():
     assert check_operator_equality(sx_A_exp.to_qutip(), sx_A.to_qutip().expm())
 
     sx_obl = sx_A + sy_B + sz_C
+    print("type sx_obl", type(sx_obl))
+    print("sx_obl:\n", sx_obl)
+    print("sx_obl->qutip:", sx_obl.to_qutip())
+
     sx_obl_exp = sx_obl.expm()
     assert isinstance(sx_obl_exp, ProductOperator)
+    print("exponential and conversion:")
+    print(sx_obl_exp.to_qutip())
+    print("conversion and then exponential:")
+    print(sx_obl.to_qutip().expm())
     assert check_operator_equality(sx_obl_exp.to_qutip(), sx_obl.to_qutip().expm())
 
     opglobal_exp = opglobal.expm()
