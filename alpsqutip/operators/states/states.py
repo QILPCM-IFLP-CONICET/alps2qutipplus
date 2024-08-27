@@ -662,14 +662,12 @@ for dm_type_1 in (
 
 __add__dispatch__[
     (GibbsProductDensityOperator, ProductOperator)
-] = (
-    lambda x_op, y_op: SumOperator(
-        (
-            x_op,
-            y_op,
-        ),
-        x_op.system or y_op.system,
-    )
+] = lambda x_op, y_op: SumOperator(
+    (
+        x_op,
+        y_op,
+    ),
+    x_op.system or y_op.system,
 )
 
 __mul__dispatch__ = Operator.__mul__dispatch__
