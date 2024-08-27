@@ -19,8 +19,8 @@ jobs:
       - name: Run isort --check .
         run: isort --check .
       - name: Run check Black
-        run: black --diff 
-      - name: Run black --check .
+        run: black --diff .
+      - name: Run black --check 
         run: black --check .
       # - name: If needed, commit black changes to the pull request
       #   if: failure()
