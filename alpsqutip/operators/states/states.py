@@ -660,7 +660,9 @@ for dm_type_1 in (
             x_op.system or y_op.system,
         )
 
-__add__dispatch__[(GibbsProductDensityOperator, ProductOperator)] = (
+__add__dispatch__[
+    (GibbsProductDensityOperator, ProductOperator)
+] = (
     lambda x_op, y_op: SumOperator(
         (
             x_op,
