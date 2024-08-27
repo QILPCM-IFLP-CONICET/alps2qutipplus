@@ -105,7 +105,7 @@ class QutipOperator(Operator):
         operator = self.operator
         evals, evecs = operator.eigenstates()
         evals = evals * self.prefactor
-        evals[abs(evals) < 1.0e-30] = 1.0e-30
+        evals[abs(evals) < 1.0e-50] = 1.0e-50
         if any(value < 0 for value in evals):
             evals = (1.0 + 0j) * evals
         log_op = sum(
@@ -259,6 +259,18 @@ def mul_qutipop_with_scalarop(y_op: QutipOperator, x_op: ScalarOperator):
         Number,
     )
 )
+@Operator.register_mul_handler(
+    (
+        QutipOperator,
+        float,
+    )
+)
+@Operator.register_mul_handler(
+    (
+        QutipOperator,
+        complex,
+    )
+)
 def mul_qutip_operator_times_number(x_op: QutipOperator, y_val: Number):
     """product of a QutipOperator and a number."""
     return QutipOperator(
@@ -272,6 +284,18 @@ def mul_qutip_operator_times_number(x_op: QutipOperator, y_val: Number):
 @Operator.register_mul_handler(
     (
         Number,
+        QutipOperator,
+    )
+)
+@Operator.register_mul_handler(
+    (
+        float,
+        QutipOperator,
+    )
+)
+@Operator.register_mul_handler(
+    (
+        complex,
         QutipOperator,
     )
 )
