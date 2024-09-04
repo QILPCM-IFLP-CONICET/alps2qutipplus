@@ -20,7 +20,8 @@ from alpsqutip.operators import (
     ScalarOperator,
     SumOperator,
 )
-from alpsqutip.operators.basic import is_diagonal_op
+from alpsqutip.operators.basic import is_diagonal_op, check_multiplication
+from alpsqutip.utils import operator_to_wolfram
 
 
 def safe_exp_and_normalize(operator):
@@ -39,21 +40,53 @@ class DensityOperatorMixin:
     DensityOperatorMixin is a Mixing class that
     contributes operator subclasses with the method
     `expect`.
+
+    Notice that the `prefactor` attribute of these classes
+    is only taken into account when density operators are combined
+    into  a mixture by adding them, and when we do operations with
+    positive numbers.
+
+    In other operations, like mutiplication with other operators,
+    density operators are handled as positive operators of trace 1.
+
+    So, for example,
+    ```
+    rho = .3 * ProductDensityOperator({"site1": qutip.qeye(2) + qutip.sigmax(), "site2": qutip.qeye(2)})
+    ```
+    acts under operations with other operators like
+    ```
+    rho = ProductOperator({"site1": .5*(qutip.qeye(2) + qutip.sigmax()), "site2": .5*qutip.qeye(2)})
+    ```
+
+    If now we introduce a `sigma` operator
+    ```
+    sigma = .7 ProductDensityOperator({"site1": qutip.qeye(2), "site2": qutip.qeye(2) + qutip.sigmax()})
+    ```
+    the mixture
+    ```
+    mix = rho + sigma
+    ```
+
+    and another operator `A`
+    ```
+    A=ProductOperator({"site1": qutip.sigmax(), "site2": qutip.sigmax()})
+    ```
+
+    we obtain the equality
+    ```
+    (mix * A).tr() == .3 * (A * rho).tr() + .7 * (A* sigma)
+    ```
+
+    Notice that algebraic operations does not check if the prefactors of all the terms adds to 1.
+    To be sure about the normalization, use the method `expect`:
+
+    ```
+    mix.expect(A)== (mix * A).tr()/sum([t.prefactor for t in A.terms])
+    ```
+
+
+
     """
-
-    def __noadd__(self, operand):
-        if isinstance(operand, MixtureDensityOperator):
-            return operand + self
-
-        if isinstance(operand, DensityOperatorMixin):
-            return MixtureDensityOperator(
-                (
-                    self,
-                    operand,
-                ),
-                self.system,
-            )
-        return super().__add__(operand)
 
     def expect(self, obs: Union[Operator, Iterable]) -> Union[np.ndarray, dict, Number]:
         """Compute the expectation value of an observable"""
@@ -69,8 +102,11 @@ class DensityOperatorMixin:
     def isherm(self):
         return True
 
+    def tr(self):
+        return 1
 
-class QutipDensityOperator(QutipOperator, DensityOperatorMixin):
+
+class QutipDensityOperator(DensityOperatorMixin, QutipOperator):
     """
     Qutip representation of a density operator
     """
@@ -118,7 +154,7 @@ class QutipDensityOperator(QutipOperator, DensityOperatorMixin):
         return QutipOperator(log_op, self.system, self.site_names)
 
 
-class ProductDensityOperator(ProductOperator, DensityOperatorMixin):
+class ProductDensityOperator(DensityOperatorMixin, ProductOperator):
     """An uncorrelated density operator."""
 
     def __init__(
@@ -129,19 +165,36 @@ class ProductDensityOperator(ProductOperator, DensityOperatorMixin):
         normalize: bool = True,
     ):
         assert weight >= 0
-        sites = tuple(system.sites.keys() if system else local_states.keys())
-        dimensions = system.dimensions
-        local_zs = {
-            site: (
-                local_states[site].tr() if site in local_states else dimensions[site]
-            )
-            for site in sites
-        }
+
+        # Build the local partition functions and normalize
+        # if required
+        local_zs = {site: state.tr() for site, state in local_states.items()}
         if normalize:
             assert (z > 0 for z in local_zs.values())
             local_states = {
                 site: sigma / local_zs[site] for site, sigma in local_states.items()
             }
+
+        # Complete the scalar factors using the system
+        if system is None:
+            sites = tuple(local_states.keys())
+            dimensions = {
+                site: operator.data.shape[0] for site, operator in local_states.items()
+            }
+            # TODO: build a system
+        else:
+            sites = tuple(system.sites.keys())
+            dimensions = system.dimensions
+            local_identities = {}
+            for site, dimension in dimensions.items():
+                if site not in local_states:
+                    local_id = local_identities.get(dimension, None)
+                    local_zs[site] = dimension
+                    if local_id is None:
+                        local_id = qutip_qeye(dimension) / dimension
+                        local_identities[dimension] = local_id
+                    local_states[site] = local_id
+
         # TODO: remove me
         self.tagged_scalar = True
         super().__init__(local_states, prefactor=weight, system=system)
@@ -245,9 +298,9 @@ class ProductDensityOperator(ProductOperator, DensityOperatorMixin):
     def to_qutip(self):
         prefactor = self.prefactor
         if prefactor == 0 or len(self.system.dimensions) == 0:
-            return prefactor
+            return ScalarOperator(prefactor, self.system)
         ops = self.sites_op
-        return prefactor * qutip_tensor(
+        return qutip_tensor(
             [
                 ops[site] if site in ops else qutip_qeye(dim) / dim
                 for site, dim in self.system.dimensions.items()
@@ -255,7 +308,7 @@ class ProductDensityOperator(ProductOperator, DensityOperatorMixin):
         )
 
 
-class MixtureDensityOperator(SumOperator, DensityOperatorMixin):
+class MixtureDensityOperator(DensityOperatorMixin, SumOperator):
     """
     A mixture of density operators
     """
@@ -306,6 +359,7 @@ class MixtureDensityOperator(SumOperator, DensityOperatorMixin):
             obs = [obs]
 
         av_terms = tuple((term.expect(obs), term.prefactor) for term in self.terms)
+
         if isinstance(obs, dict):
             return {
                 op_name: sum(term[0][op_name] * term[1] for term in av_terms)
@@ -324,16 +378,16 @@ class MixtureDensityOperator(SumOperator, DensityOperatorMixin):
         """Produce a qutip compatible object"""
         if len(self.terms) == 0:
             return ScalarOperator(0, self.system).to_qutip()
-        return sum(term.to_qutip() for term in self.terms)
+
+        # TODO: find a more efficient way to avoid element-wise
+        # multiplications
+        return sum(term.to_qutip() * term.prefactor for term in self.terms)
 
     def to_qutip_operator(self):
         return QutipDensityOperator(self.to_qutip(), self.system, prefactor=1)
 
-    def tr(self) -> float:
-        return sum(term.tr() for term in self.terms)
 
-
-class GibbsDensityOperator(Operator, DensityOperatorMixin):
+class GibbsDensityOperator(DensityOperatorMixin, Operator):
     """
     Stores an operator of the form rho= prefactor * exp(-K) / Tr(exp(-K)).
 
@@ -427,16 +481,16 @@ class GibbsDensityOperator(Operator, DensityOperatorMixin):
             self.k = self.k + log_prefactor
             self.free_energy = log_prefactor
             self.normalized = True
-            return self.prefactor * rho.to_qutip()
-        result = (-self.k).to_qutip().expm() * self.prefactor
+            return rho.to_qutip()
+        result = (-self.k).to_qutip().expm()
         return result
 
     def to_qutip_operator(self):
         rho_qutip = self.to_qutip()
-        return QutipDensityOperator(rho_qutip, self.system, prefactor=1)
+        return QutipOperator(rho_qutip, self.system, prefactor=1)
 
 
-class GibbsProductDensityOperator(Operator, DensityOperatorMixin):
+class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
     """
     Stores an operator of the form
     rho = prefactor * \\otimes_i exp(-K_i)/Tr(exp(-K_i)).
@@ -718,17 +772,13 @@ def _(x_op, y_op):
 @Operator.register_mul_handler((ProductDensityOperator, ProductDensityOperator))
 def _(x_op: ProductDensityOperator, y_op: ProductDensityOperator):
     system = y_op.system or x_op.system
-    prefactor = x_op.prefactor * y_op.prefactor
-    prefactor = prefactor * np.exp(sum(x_op.local_fs.values()))
-    prefactor = prefactor * np.exp(sum(y_op.local_fs.values()))
     sites_op = x_op.sites_op.copy()
     for site, factor in y_op.sites_op.items():
         if site in sites_op:
             sites_op[site] *= factor
         else:
             sites_op[site] = factor
-
-    return ProductOperator(sites_op, prefactor, system)
+    return ProductOperator(sites_op, 1, system)
 
 
 # ProductDensityOperator times Operators
@@ -739,18 +789,16 @@ def _(x_op: ProductDensityOperator, y_op: ProductDensityOperator):
 @Operator.register_mul_handler((ScalarOperator, ProductDensityOperator))
 def _(x_op: ScalarOperator, y_op: ProductDensityOperator):
     system = y_op.system or x_op.system
-    prefactor = x_op.prefactor * y_op.prefactor
-    prefactor = prefactor * np.exp(sum(y_op.local_fs.values()))
-    result = ProductOperator(y_op.sites_op, prefactor, system)
+    result = ProductOperator(y_op.sites_op, x_op.prefactor, system)
     return result
 
 
 @Operator.register_mul_handler((ProductDensityOperator, ScalarOperator))
 def _(x_op: ProductDensityOperator, y_op: ScalarOperator):
     system = x_op.system or y_op.system
-    prefactor = x_op.prefactor * y_op.prefactor
-    prefactor = prefactor * np.exp(sum(x_op.local_fs.values()))
-    return ProductOperator(x_op.sites_op, prefactor, system)
+    prefactor = y_op.prefactor
+    # prefactor = prefactor * np.exp(sum(x_op.local_fs.values()))
+    return ProductOperator(x_op.sites_op, y_op.prefactor, system)
 
 
 ####   LocalOperator
@@ -759,17 +807,27 @@ def _(x_op: ProductDensityOperator, y_op: ScalarOperator):
 @Operator.register_mul_handler((LocalOperator, ProductDensityOperator))
 def _(x_op: LocalOperator, y_op: ProductDensityOperator):
     system = y_op.system or x_op.system
-    prefactor = y_op.prefactor
-    prefactor = prefactor * np.exp(sum(y_op.local_fs.values()))
-    return x_op * ProductOperator(y_op.sites_op, prefactor, system)
+    prefactor = x_op.prefactor
+    sites_op = y_op.sites_op.copy()
+    site = x_op.site
+    if site in sites_op:
+        sites_op[site] = x_op.operator * sites_op[site]
+    else:
+        sites_op[site] = x_op.operator
+
+    return ProductOperator(sites_op, prefactor, system)
 
 
 @Operator.register_mul_handler((ProductDensityOperator, LocalOperator))
 def _(x_op: ProductDensityOperator, y_op: LocalOperator):
-    system = x_op.system or y_op.system
-    prefactor = x_op.prefactor
-    prefactor = prefactor * np.exp(sum(x_op.local_fs.values()))
-    return ProductOperator(x_op.sites_op, prefactor, system) * y_op
+    system = y_op.system or x_op.system
+    sites_op = x_op.sites_op.copy()
+    site = y_op.site
+    if site in sites_op:
+        sites_op[site] *= y_op.operator
+    else:
+        sites_op[site] = y_op.operator
+    return ProductOperator(sites_op, prefactor=1, system=system)
 
 
 # ProductOperator
@@ -793,8 +851,6 @@ def _(x_op: ProductDensityOperator, y_op: ProductDensityOperator):
 @Operator.register_mul_handler((ProductDensityOperator, ProductOperator))
 def _(x_op: ProductDensityOperator, y_op: ProductDensityOperator):
     system = y_op.system or x_op.system
-    prefactor = x_op.prefactor * y_op.prefactor
-    prefactor = prefactor * np.exp(sum(x_op.local_fs.values()))
     sites_op = x_op.sites_op.copy()
     for site, factor in y_op.sites_op.items():
         if site in sites_op:
@@ -802,7 +858,7 @@ def _(x_op: ProductDensityOperator, y_op: ProductDensityOperator):
         else:
             sites_op[site] = factor
 
-    return ProductOperator(sites_op, prefactor, system)
+    return ProductOperator(sites_op, y_op.prefactor, system)
 
 
 # SumOperators
@@ -821,15 +877,9 @@ def _(x_op: ProductDensityOperator, y_op: ProductDensityOperator):
     )
 )
 def _(x_op: ProductDensityOperator, y_op: SumOperator):
-    system = y_op.system or x_op.system
-    prefactor = x_op.prefactor
-    prefactor = prefactor * np.exp(sum(x_op.local_fs.values()))
     return SumOperator(
-        tuple(
-            ProductOperator(x_op.sites_op, prefactor, system) * term
-            for term in y_op.terms
-        ),
-        system,
+        tuple(x_op * term for term in y_op.terms),
+        x_op.system,
     )
 
 
@@ -846,15 +896,10 @@ def _(x_op: ProductDensityOperator, y_op: SumOperator):
     )
 )
 def _(x_op: SumOperator, y_op: ProductDensityOperator):
-    system = x_op.system or y_op.system
-    prefactor = y_op.prefactor
-    prefactor = prefactor * np.exp(sum(y_op.local_fs.values()))
+    terms = tuple(term * y_op for term in x_op.terms)
     return SumOperator(
-        tuple(
-            term * ProductOperator(y_op.sites_op, prefactor, system)
-            for term in x_op.terms
-        ),
-        system,
+        terms,
+        y_op.system,
     )
 
 
@@ -890,11 +935,10 @@ def _(x_op: SumOperator, y_op: ProductDensityOperator):
 )
 @Operator.register_mul_handler((ProductDensityOperator, MixtureDensityOperator))
 @Operator.register_mul_handler((GibbsProductDensityOperator, MixtureDensityOperator))
+@Operator.register_mul_handler((QutipOperator, MixtureDensityOperator))
 def _(x_op: Operator, y_op: MixtureDensityOperator):
-
-    terms = tuple(x_op * term for term in y_op.terms)
+    terms = tuple((x_op * term) * term.prefactor for term in y_op.terms)
     result = SumOperator(terms, y_op.system or x_op.system)
-
     return result
 
 
@@ -904,14 +948,20 @@ def _(x_op: Operator, y_op: MixtureDensityOperator):
 @Operator.register_mul_handler((MixtureDensityOperator, ProductOperator))
 @Operator.register_mul_handler((MixtureDensityOperator, ProductDensityOperator))
 @Operator.register_mul_handler((MixtureDensityOperator, GibbsProductDensityOperator))
+@Operator.register_mul_handler((MixtureDensityOperator, QutipOperator))
 def _(
     x_op: MixtureDensityOperator,
     y_op: Operator,
 ):
-    terms = tuple(term * y_op for term in x_op.terms)
-    return SumOperator(
-        terms, x_op.system or y_op.system
-    )
+    terms = []
+    for term in x_op.terms:
+        prefactor = term.prefactor
+        if prefactor == 0:
+            continue
+        new_term = (term * y_op) * prefactor
+        terms.append(new_term)
+
+    return SumOperator(tuple(terms), x_op.system or y_op.system)
 
 
 # MixtureDensityOperator times SumOperators
@@ -919,16 +969,43 @@ def _(
 
 
 @Operator.register_mul_handler((MixtureDensityOperator, MixtureDensityOperator))
-@Operator.register_mul_handler((OneBodyOperator, MixtureDensityOperator))
 @Operator.register_mul_handler((MixtureDensityOperator, OneBodyOperator))
 @Operator.register_mul_handler((MixtureDensityOperator, SumOperator))
-@Operator.register_mul_handler((SumOperator, OneBodyOperator))
 def _(
     x_op: MixtureDensityOperator,
     y_op: Operator,
 ):
-    terms = tuple(term1 * term2 for term1 in x_op.terms for term2 in y_op.terms)
-    return SumOperator(terms, x_op.system or y_op.system).simplify()
+    terms = []
+    for term in x_op.terms:
+        prefactor = term.prefactor
+        if prefactor == 0:
+            continue
+        new_term = term * y_op
+        new_term = new_term * prefactor
+        terms.append(new_term)
+
+    result = SumOperator(tuple(terms), x_op.system or y_op.system)
+    return result
+
+
+@Operator.register_mul_handler((OneBodyOperator, MixtureDensityOperator))
+@Operator.register_mul_handler((SumOperator, MixtureDensityOperator))
+def _(
+    x_op: SumOperator,
+    y_op: MixtureDensityOperator,
+):
+
+    terms = []
+    for term in y_op.terms:
+        prefactor = term.prefactor
+        if prefactor == 0:
+            continue
+        new_term = x_op * term
+        new_term = new_term * prefactor
+        terms.append(new_term)
+
+    result = SumOperator(tuple(terms), x_op.system or y_op.system)
+    return result
 
 
 #########  GibbsDensityOperators
@@ -943,7 +1020,9 @@ def _(x_op: ScalarOperator, y_op: GibbsDensityOperator):
 
 @Operator.register_mul_handler((GibbsDensityOperator, ScalarOperator))
 def _(x_op: GibbsDensityOperator, y_op: ScalarOperator):
-    return y_op.prefactor * x_op.to_qutip_operator()
+    x_qutip = x_op.to_qutip_operator()
+    result = y_op.prefactor * x_qutip
+    return result
 
 
 # GibbsDensityOperators times any other operator

@@ -11,6 +11,7 @@ from alpsqutip.operators import (
     QutipOperator,
     SumOperator,
 )
+from alpsqutip.operators.states import DensityOperatorMixin
 
 from .helper import (
     CHAIN_SIZE,
@@ -59,17 +60,22 @@ def test_act_over():
         "sum operator, anti-hermitician": {"1[0]", "1[1]"},
         "hermitician quadratic operator": full_chain,
         "non hermitician quadratic operator": full_chain,
-        "fully mixed": set(),
+        "fully mixed": full_chain,
         "z semipolarized": full_chain,
         "x semipolarized": full_chain,
-        "first full polarized": {"1[0]"},
+        "first full polarized": full_chain,
         "gibbs_sz_as_product": full_chain,
         "qutip operator": None,
         "gibbs_sz": full_chain,
         "gibbs_sz_bar": full_chain,
         "gibbs_H": full_chain,
         "mixture": full_chain,
-        "mixture of first and second full polarized":{'1[0]', '1[1]'},
+        "mixture of first and second partially polarized": {
+            "1[3]",
+            "1[0]",
+            "1[1]",
+            "1[2]",
+        },
     }
 
     for name, operator in full_test_cases.items():
@@ -82,21 +88,28 @@ def test_act_over():
 def test_product_and_trace():
     """Check act_over method"""
     qutip_ops = {}
-    skip_cases = {"hermitician quadratic operator",
-                  "non hermitician quadratic operator",
-                  }
+    skip_cases = {
+        "hermitician quadratic operator",
+        "non hermitician quadratic operator",
+    }
+
+    passed = True
+
     for name1, operator1 in full_test_cases.items():
         if name1 in skip_cases:
             continue
-        
+
         print("checking the trace of ", name1)
         op_qutip_1 = qutip_ops.get(name1, None)
         if op_qutip_1 is None:
             op_qutip_1 = operator1.to_qutip()
             qutip_ops[name1] = op_qutip_1
-        
-        assert abs(operator1.tr()- op_qutip_1.tr())<1.e-10, "traces should match."
-        
+
+        if not abs(operator1.tr() - op_qutip_1.tr()) < 1.0e-10:
+            print("   failed:", "\033[91mtraces should match.\033[0m")
+            passed = False
+            continue
+
         for name2, operator2 in full_test_cases.items():
             if name2 in skip_cases:
                 continue
@@ -107,12 +120,27 @@ def test_product_and_trace():
                 op_qutip_2 = operator2.to_qutip()
                 qutip_ops[name2] = op_qutip_2
             # The trace of the products should match
-            alps_trace = (operator1*operator2).tr()
-            qutip_trace = (op_qutip_1*op_qutip_2).tr()
-            assert abs(alps_trace -qutip_trace)<1.e-10, "the traces of the products should match."
-            
+            prod = operator1 * operator2
+            if isinstance(prod, DensityOperatorMixin):
+                passed = False
+                print(
+                    "\033[91m  failed: \033[0m",
+                    f"Product of {type(operator1)}*{type(operator2)} is a density matrix.",
+                )
+                continue
+            alps_trace = (prod).tr()
+            qutip_trace = (op_qutip_1 * op_qutip_2).tr()
+            if not abs(alps_trace - qutip_trace) < 1.0e-10:
+                passed = False
+                print(
+                    "\033[91m  failed:\033[0m",
+                    f"the traces of the products should match. {type(operator1)}*{type(operator2)}->{type(prod)}, {alps_trace}!={qutip_trace}",
+                )
+                continue
+            print("\033[92m  passed.\033[0m")
+        assert passed, "there are inconsistencies"
 
-        
+
 def test_build_hamiltonian():
     """build ham"""
     assert sz_total is not None

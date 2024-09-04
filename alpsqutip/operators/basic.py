@@ -14,6 +14,30 @@ from qutip import Qobj
 from alpsqutip.model import SystemDescriptor
 
 
+def check_multiplication(a, b, result, func=None):
+    if isinstance(a, Qobj) and isinstance(b, Qobj):
+        return True
+    if isinstance(a, Operator):
+        a_qutip = a.to_qutip()
+    else:
+        a_qutip = a
+    if isinstance(b, Operator):
+        b_qutip = b.to_qutip()
+    else:
+        b_qutip = b
+    q_trace = (a_qutip * b_qutip).tr()
+    tr = result.tr()
+    if func is None:
+        where = ""
+    elif isinstance(func, str):
+        where = func
+    else:
+        where = f"{func}@{func.__module__}:{func.__code__.co_firstlineno}"
+    assert (
+        abs(q_trace - tr) < 1e-8
+    ), f"{type(a)}*{type(b)}->{type(result)} ({where}) failed: traces are different  {tr}!={q_trace}"
+
+
 def empty_op(op: Qobj) -> bool:
     """
     Check if op is an sparse operator without
@@ -182,13 +206,15 @@ class Operator:
         func = self.__mul__dispatch__.get(key, None)
 
         if func is not None:
-            return func(self, factor)
+            result = func(self, factor)
+            return result  # func(self, factor)
 
         for try_key, func in Operator.__mul__dispatch__.items():
             lhf, rhf = try_key
             if isinstance(self, lhf) and isinstance(factor, rhf):
                 Operator.__mul__dispatch__[key] = func
-                return func(self, factor)
+                result = func(self, factor)
+                return result  # func(self, factor)
 
         if not hasattr(factor, "to_qutip_operator"):
             raise ValueError(type(self), "cannot be multiplied with ", type(factor))
@@ -217,12 +243,14 @@ class Operator:
         )
         func = self.__mul__dispatch__.get(key, None)
         if func is not None:
-            return func(factor, self)
+            result = func(factor, self)
+            return result  # func(factor, self)
         for try_key, func in Operator.__mul__dispatch__.items():
             lhf, rhf = try_key
             if isinstance(factor, lhf) and isinstance(self, rhf):
                 Operator.__mul__dispatch__[key] = func
-                return func(factor, self)
+                result = func(factor, self)
+                return result  # func(factor, self)
 
         raise ValueError(type(self), "cannot be multiplied  with ", type(factor))
         return factor.to_qutip_operator() * self.to_qutip_operator()
@@ -512,6 +540,7 @@ class ProductOperator(Operator):
             prefactor = 0
             self.sites_op = {}
         self.prefactor = prefactor
+        assert isinstance(prefactor, (int, float, complex)), f"{type(prefactor)}"
         self.system = system
         if system is not None:
             self.size = len(system.sites)
@@ -658,17 +687,10 @@ class ProductOperator(Operator):
         prefactor = self.prefactor
         for site, op_factor in self.sites_op.items():
             if is_scalar_op(op_factor):
-                data = op_factor.data
-                if hasattr(data, "data"):
-                    prefactor *= data.data[0]
-                elif hasattr(data, "as_scipy"):
-                    prefactor *= data.as_scipy().data[0]
-                elif hasattr(data, "as_ndarray"):
-                    prefactor *= data.as_ndarray()[0, 0]
-                else:
-                    raise ValueError(
-                        f"type {type(data)} has not a way to access its value."
-                    )
+                prefactor *= op_factor[0, 0]
+                assert isinstance(
+                    prefactor, (int, float, complex)
+                ), f"{type(prefactor)}:{prefactor}"
                 if not prefactor:
                     return ScalarOperator(0, self.system)
             else:
@@ -687,12 +709,14 @@ class ProductOperator(Operator):
         ops = self.sites_op
         system = self.system
         if system:
-            return self.prefactor * qutip.tensor(
-                [
-                    ops.get(site, None) if site in ops else qutip.qeye(dim)
-                    for site, dim in self.system.dimensions.items()
-                ]
-            )
+            factors = [
+                ops.get(site, None) if site in ops else qutip.qeye(dim)
+                for site, dim in self.system.dimensions.items()
+            ]
+            if len(factors) == 0:
+                return ScalarOperator(self.prefactor, system)
+
+            return self.prefactor * qutip.tensor(factors)
         return self.prefactor * qutip.tensor(ops.values())
 
     def tr(self):
@@ -848,12 +872,12 @@ def _(x_op: LocalOperator, y_op: LocalOperator):
     if site_x == site_y:
         return LocalOperator(site_x, x_op.operator * y_op.operator, system)
     return ProductOperator(
-        {
+        sites_operators={
             site_x: x_op.operator,
             site_y: y_op.operator,
         },
-        1,
-        system,
+        prefactor=1,
+        system=system,
     )
 
 

@@ -136,12 +136,13 @@ test_cases_states["first full polarized"] = ProductDensityOperator(
     {sx_A.site: 0.5 * qutip.qeye(2) + 0.5 * qutip.sigmaz()}, 1.0, system=system
 )
 
-test_cases_states["mixture of first and second partially polarized"] = (.5 * ProductDensityOperator(
+test_cases_states[
+    "mixture of first and second partially polarized"
+] = 0.5 * ProductDensityOperator(
     {sx_A.site: 0.5 * qutip.qeye(2) + 0.25 * qutip.sigmaz()}, 1.0, system=system
-) + .5 * ProductDensityOperator(
+) + 0.5 * ProductDensityOperator(
     {sx_B.site: 0.5 * qutip.qeye(2) + 0.25 * qutip.sigmaz()}, 1.0, system=system
 )
-                                                       )
 
 
 test_cases_states["gibbs_sz"] = GibbsProductDensityOperator(sz_total, system=system)

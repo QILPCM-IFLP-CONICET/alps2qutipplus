@@ -420,7 +420,7 @@ def _(x_op: SumOperator, y_value: Number):
 
     terms = tuple(term * y_value for term in x_op.terms)
     isherm = x_op._isherm and (not isinstance(y_value, complex) or y_value.imag == 0)
-    return SumOperator(terms, x_op.system, isherm).simplify()
+    return SumOperator(terms, x_op.system, isherm)
 
 
 @Operator.register_mul_handler(
