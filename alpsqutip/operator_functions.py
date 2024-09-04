@@ -19,6 +19,7 @@ from alpsqutip.operators import (
     SumOperator,
 )
 from alpsqutip.scalarprod import orthogonalize_basis
+from alpsqutip.utils import matrix_to_wolfram, operator_to_wolfram
 
 
 def commutator(op_1: Operator, op_2: Operator) -> Operator:
@@ -256,5 +257,7 @@ def relative_entropy(rho: Operator, sigma: Operator) -> float:
 
     log_rho = log_op(rho)
     log_sigma = log_op(sigma)
-
-    return real(rho.expect(log_rho - log_sigma))
+    delta_log = log_rho - log_sigma
+    # TODO: fix rho.expect
+    # return real(rho.expect(delta_log))
+    return real((rho * delta_log).tr())

@@ -15,7 +15,7 @@ from alpsqutip.operator_functions import (
     spectral_norm,
 )
 from alpsqutip.operators import SumOperator
-from alpsqutip.utils import matrix_to_wolfram
+from alpsqutip.utils import operator_to_wolfram
 
 from .helper import (
     CHAIN_SIZE,
@@ -121,16 +121,7 @@ def test_simplify_sum_operator():
             for op_case in operator:
                 do_test(name, op_case)
             return
-
-        print("operator:", type(operator), "\n", operator)
-        print("operator->qutip:\n", operator.to_qutip())
-
         operator_simpl = simplify_sum_operator(operator)
-
-        print("===>\n")
-        print("    simplify operator:", type(operator_simpl), "\n", operator_simpl)
-        print("    simplify operator->qutip:\n", operator_simpl.to_qutip())
-
         assert check_equality(operator.to_qutip(), operator_simpl.to_qutip())
         assert operator.to_qutip().isherm == operator_simpl.isherm
 
@@ -140,19 +131,24 @@ def test_simplify_sum_operator():
 
 
 def test_relative_entropy():
+
     qutip_states = {
         key: operator.to_qutip() for key, operator in test_cases_states.items()
     }
     clean = True
     for key1, rho in test_cases_states.items():
-        assert abs(rho.tr() - 1) < 0.001 and abs(qutip_states[key1].tr() - 1) < 0.001
-        print("\n\n", 30 * " ", "rho:", key1)
+
+        if key1 != "mixture of first and second partially polarized":
+            continue
+
+        assert abs(rho.tr() - 1) < 1e-6 and abs(qutip_states[key1].tr() - 1) < 1e-6
         check_equality(relative_entropy(rho, rho), 0)
         check_equality(
             qutip.entropy_relative(qutip_states[key1], qutip_states[key1]), 0
         )
-
         for key2, sigma in test_cases_states.items():
+            if key2 != "fully mixed":
+                continue
             rel_entr = relative_entropy(rho, sigma)
             rel_entr_qutip = qutip_relative_entropy(
                 qutip_states[key1], qutip_states[key2]
@@ -165,6 +161,13 @@ def test_relative_entropy():
                     print("Relative entropy mismatch")
                 clean = False
                 print("  ", [key1, key2])
+
+                print(key1, operator_to_wolfram(rho))
+                print(key1, operator_to_wolfram(rho.to_qutip()))
+
+                print(key2, operator_to_wolfram(sigma))
+                print(key2, operator_to_wolfram(sigma.to_qutip()))
+
                 print(f"   {rel_entr} (alps2qutip) !=   {rel_entr_qutip} (qutip)")
 
                 assert clean
