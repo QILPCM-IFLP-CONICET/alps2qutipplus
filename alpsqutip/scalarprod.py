@@ -76,6 +76,7 @@ def fetch_corr_scalar_product(sigma: Operator):
     Build a correlation scalar product function
     associated to the state `sigma`
     """
+
     def sp_(op1: Operator, op2: Operator):
         """Correlation scalar product between
         two operators"""
