@@ -76,7 +76,6 @@ def fetch_corr_scalar_product(sigma: Operator):
     Build a correlation scalar product function
     associated to the state `sigma`
     """
-
     def sp_(op1: Operator, op2: Operator):
         """Correlation scalar product between
         two operators"""
@@ -84,12 +83,16 @@ def fetch_corr_scalar_product(sigma: Operator):
         op2_herm = op2.isherm
         if op1_herm:
             if op2_herm:
-                return (sigma * op1 * op2).tr().real
+                return sigma.expect(op1 * op2).real
             op1_dag = op1
         else:
             op1_dag = op1.dag()
-        w = (op1_dag * op2 + op2 * op1_dag).simplify()
-        return 0.5 * (sigma * w).tr()
+        if op1_dag is op2:
+            w = (op1_dag * op2).simplify()
+        else:
+            w = (op1_dag * op2 + op2 * op1_dag).simplify()
+
+        return 0.5 * sigma.expect(w)
 
     return sp_
 
