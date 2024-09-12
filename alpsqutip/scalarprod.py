@@ -1,12 +1,13 @@
 """
 Routines to compute generalized scalar products over the algebra of operators.
 """
+
 # from datetime import datetime
 from typing import Callable
 
 import numpy as np
 
-from alpsqutip.model import Operator
+from alpsqutip.operators import Operator
 
 #  ### Functions that build the scalar products ###
 
@@ -48,7 +49,7 @@ def fetch_kubo_int_scalar_product(sigma: Operator):
     """
     Build a KMB scalar product function
     associated to the state `sigma`, from
-    its intergral form.
+    its integral form.
     """
 
     evals, evecs = sigma.eigenstates()
@@ -76,7 +77,21 @@ def fetch_corr_scalar_product(sigma: Operator):
     associated to the state `sigma`
     """
 
-    return lambda op1, op2: 0.5 * (sigma * (op1.dag() * op2 + op2 * op1.dag())).tr()
+    def sp_(op1: Operator, op2: Operator):
+        """Correlation scalar product between
+        two operators"""
+        op1_herm = op1.isherm
+        op2_herm = op2.isherm
+        if op1_herm:
+            if op2_herm:
+                return (sigma * op1 * op2).tr().real
+            op1_dag = op1
+        else:
+            op1_dag = op1.dag()
+        w = (op1_dag * op2 + op2 * op1_dag).simplify()
+        return 0.5 * (sigma * w).tr()
+
+    return sp_
 
 
 def fetch_HS_scalar_product():
@@ -133,8 +148,7 @@ def orthogonalize_basis(basis: list, sp: Callable, idop: Operator = None):
     for i in range(1):
         gs = gram_matrix(basis, sp)
         lvecs, evals, rvecs = np.linalg.svd(gs)
-        coeffs = [(vec) / (val**0.5)
-                  for vec, val in zip(rvecs, evals) if val > 1e-20]
+        coeffs = [(vec) / (val**0.5) for vec, val in zip(rvecs, evals) if val > 1e-20]
         basis = [sum(c * op for c, op in zip(w, basis)) for w in coeffs]
     return basis
 

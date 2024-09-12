@@ -1,4 +1,12 @@
+"""
+Utility functions to import and process
+ALPS specification files.
+"""
+
+import logging
+
 import numpy as np
+import qutip
 from numpy.random import rand
 
 default_parms = {
@@ -36,9 +44,7 @@ def eval_expr(expr: str, parms: dict):
             pass
 
     parms = {
-        key.replace("'", "_prima"): val
-        for key, val in parms.items()
-        if val is not None
+        key.replace("'", "_prima"): val for key, val in parms.items() if val is not None
     }
     expr = expr.replace("'", "_prima")
 
@@ -73,7 +79,7 @@ def eval_expr(expr: str, parms: dict):
     except NameError:
         pass
     except TypeError as exc:
-        print("Type Error. Undefined variables in ", expr, exc)
+        logging.warning("Type Error. Undefined variables in ", expr, exc)
         return None
     return expr
 
@@ -88,10 +94,90 @@ def find_ref(node, root):
     return node
 
 
+def operator_to_wolfram(operator) -> str:
+    """
+    Produce a string with a Wolfram Mathematica expression
+    representing the operator.
+    """
+    from alpsqutip.operators.arithmetic import SumOperator
+    from alpsqutip.operators.basic import Operator, ProductOperator
+    from alpsqutip.operators.qutip import Qobj, QutipOperator
+
+    if hasattr(operator, "to_wolfram"):
+        return operator.to_wolfram()
+
+    if isinstance(operator, Qobj):
+        data = operator.data
+        if hasattr(data, "toarray"):
+            array = data.toarray()
+        elif hasattr(data, "to_array"):
+            array = data.to_array()
+        else:
+            raise TypeError(f"Do not know how to convert {type(data)} into a ndarray")
+
+        assert len(array.shape) == 2, f"the shape  {array.shape} is not a matrix"
+        return matrix_to_wolfram(array)
+
+    if isinstance(operator, ProductOperator):
+        sites = operator.system.sites
+        dimensions = operator.dimensions
+        prefactor = operator.prefactor
+        if prefactor == 0:
+            return "0"
+
+        def get_site_identity(site_name):
+            site_spec = sites[site_name]
+            if "operators" in site_spec:
+                return site_spec["operators"]["identity"]
+            dim = dimensions[site_name]
+            result = qutip.qeye(dim)
+            site_spec["operators"] = {"identity": result}
+            return result
+
+        prefix = "KroneckerProduct["
+        if prefactor != 1:
+            prefix = f"({prefactor}) * " + prefix
+
+        factors = [
+            operator.sites_op.get(site, get_site_identity(site)) for site in dimensions
+        ]
+        factors_str = [operator_to_wolfram(factor) for factor in factors]
+
+        return prefix + ", ".join(factors_str) + "]"
+
+    if isinstance(operator, SumOperator):
+        assert all(isinstance(term, Operator) for term in operator.terms)
+        terms = [operator_to_wolfram(term) for term in operator.terms]
+        terms = [term for term in terms if term != "0"]
+        return "(" + " + ".join(terms) + ")"
+
+    if hasattr(operator, "prefactor"):
+        prefactor = operator.prefactor
+        if prefactor == 0:
+            return "0"
+        return (
+            "("
+            + str(prefactor)
+            + ") * "
+            + operator_to_wolfram((operator / prefactor).to_qutip())
+        )
+
+    return operator.to_qutip()
+
+
 def matrix_to_wolfram(matr: np.ndarray):
     """Produce a string representing the data in the matrix"""
+    assert isinstance(
+        matr, (np.ndarray, complex, float)
+    ), f"{type(matr)} is not ndarray or number"
 
     def process_number(num):
+        assert isinstance(
+            num, (float, complex)
+        ), f"{type(num)} {num} is not float or complex."
+        if isinstance(num, np.ndarray) and len(num) == 1:
+            num = num[0]
+
         if isinstance(num, complex):
             if num.imag == 0:
                 return str(num.real).replace("e", "*^")
@@ -104,8 +190,7 @@ def matrix_to_wolfram(matr: np.ndarray):
         )
 
     rows = [
-        "{" + (", ".join(process_number(elem) for elem in row)) + "}"
-        for row in matr
+        "{" + (", ".join(process_number(elem) for elem in row)) + "}" for row in matr
     ]
     return "{\n" + ",\n".join(rows) + "\n}"
 

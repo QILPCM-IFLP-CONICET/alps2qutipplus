@@ -2,8 +2,11 @@
 Basic unit test.
 """
 
-
 from alpsqutip.model import build_spin_chain
+from alpsqutip.operator_functions import (
+    hermitian_and_antihermitian_parts,
+    simplify_sum_operator,
+)
 from alpsqutip.operators import (
     LocalOperator,
     OneBodyOperator,
@@ -13,14 +16,9 @@ from alpsqutip.operators import (
 )
 from alpsqutip.operators.quadratic import (
     QuadraticFormOperator,
-    simplify_quadratic_form,
     build_quadratic_form_from_operator,
+    simplify_quadratic_form,
 )
-from alpsqutip.operator_functions import (
-    hermitian_and_antihermitian_parts,
-    simplify_sum_operator,
-)
-
 
 from .helper import check_operator_equality, operator_type_cases
 
@@ -47,7 +45,12 @@ def test_first():
         real_part, imag_part = hermitian_and_antihermitian_parts(operator)
         imag_part = simplify_sum_operator(imag_part)
         if qutip_op.isherm:
-            assert not bool(imag_part)
+            if bool(imag_part):
+                print("imaginary part:", type(imag_part), imag_part.simplify())
+                print([type(t) for t in imag_part.terms])
+            assert not bool(
+                imag_part
+            ), f"<<{name}>> has marked as hermitician, but has an imaginary part."
 
         simplified = simplify_sum_operator(operator)
 
@@ -80,9 +83,7 @@ def test_quadratic():
             quadratic_form.to_qutip(), self_adjoint_part(qutip_operator)
         )
         print("quadratic form. Force hermitician, simplify")
-        quadratic_form = build_quadratic_form_from_operator(
-            operator, None, True, True
-        )
+        quadratic_form = build_quadratic_form_from_operator(operator, None, True, True)
         check_operator_equality(
             quadratic_form.to_qutip(), self_adjoint_part(qutip_operator)
         )
@@ -94,9 +95,7 @@ def test_quadratic():
         check_operator_equality(quadratic_form.to_qutip(), qutip_operator)
 
         print("quadratic form for the general case. Simplify")
-        quadratic_form = build_quadratic_form_from_operator(
-            operator, None, True, False
-        )
+        quadratic_form = build_quadratic_form_from_operator(operator, None, True, False)
         print(
             quadratic_form.weights,
             "\n----\n".join(repr(term) for term in quadratic_form.terms),

@@ -8,19 +8,19 @@ from typing import Iterable
 import numpy as np
 import qutip
 
-from alpsqutip.model import Operator, SystemDescriptor, build_spin_chain
-from alpsqutip.operators import (
-    OneBodyOperator,
-    ScalarOperator,
-    SumOperator,
-)
-from alpsqutip.settings import VERBOSITY_LEVEL
-from alpsqutip.states import (
+from alpsqutip.model import SystemDescriptor, build_spin_chain
+from alpsqutip.operators import OneBodyOperator, Operator, ScalarOperator, SumOperator
+from alpsqutip.operators.quadratic import build_quadratic_form_from_operator
+from alpsqutip.operators.states import (
     GibbsDensityOperator,
     GibbsProductDensityOperator,
     ProductDensityOperator,
 )
-from alpsqutip.operators.quadratic import build_quadratic_form_from_operator
+from alpsqutip.settings import VERBOSITY_LEVEL
+
+np.set_printoptions(
+    edgeitems=30, linewidth=100000, formatter=dict(float=lambda x: "%.3g" % x)
+)
 
 CHAIN_SIZE = 4
 
@@ -100,9 +100,7 @@ operator_type_cases = {
     "One body, hermitician": sz_total,
     "One body, non hermitician": sx_total + sy_total * 1j,
     "three body, hermitician": (sx_A * sy_B * sz_C),
-    "three body, non hermitician": (
-        (sminus_A * sminus_B + sy_A * sy_B) * sz_total
-    ),
+    "three body, non hermitician": ((sminus_A * sminus_B + sy_A * sy_B) * sz_total),
     "product operator, hermitician": sh_AB,
     "product operator, non hermitician": sminus_A * splus_B,
     "sum operator, hermitician": sx_A * sx_B + sy_A * sy_B,  # Sum operator
@@ -110,9 +108,7 @@ operator_type_cases = {
     + sminus_A * sminus_B,
     "sum operator, anti-hermitician": splus_A * splus_B - sminus_A * sminus_B,
     "qutip operator": hamiltonian.to_qutip_operator(),
-    "hermitician quadratic operator": build_quadratic_form_from_operator(
-        hamiltonian
-    ),
+    "hermitician quadratic operator": build_quadratic_form_from_operator(hamiltonian),
     "non hermitician quadratic operator": build_quadratic_form_from_operator(
         hamiltonian - sz_total * 1j
     ),
@@ -121,19 +117,41 @@ operator_type_cases = {
 
 test_cases_states = {}
 
-test_cases_states["fully mixed"] = ProductDensityOperator(
-    {}, 1.0, system=system
+test_cases_states["fully mixed"] = ProductDensityOperator({}, system=system)
+
+test_cases_states["z semipolarized"] = ProductDensityOperator(
+    {name: 0.5 * qutip.qeye(2) + 0.25 * qutip.sigmaz() for name in system.dimensions},
+    1.0,
+    system=system,
 )
 
-test_cases_states["gibbs_sz"] = GibbsProductDensityOperator(
-    sz_total, system=system
+test_cases_states["x semipolarized"] = ProductDensityOperator(
+    {name: 0.5 * qutip.qeye(2) + 0.25 * qutip.sigmax() for name in system.dimensions},
+    1.0,
+    system=system,
 )
+
+
+test_cases_states["first full polarized"] = ProductDensityOperator(
+    {sx_A.site: 0.5 * qutip.qeye(2) + 0.5 * qutip.sigmaz()}, 1.0, system=system
+)
+
+test_cases_states[
+    "mixture of first and second partially polarized"
+] = 0.5 * ProductDensityOperator(
+    {sx_A.site: 0.5 * qutip.qeye(2) + 0.25 * qutip.sigmaz()}, 1.0, system=system
+) + 0.5 * ProductDensityOperator(
+    {sx_B.site: 0.5 * qutip.qeye(2) + 0.25 * qutip.sigmaz()}, 1.0, system=system
+)
+
+
+test_cases_states["gibbs_sz"] = GibbsProductDensityOperator(sz_total, system=system)
 
 test_cases_states["gibbs_sz_as_product"] = GibbsProductDensityOperator(
     sz_total, system=system
 ).to_product_state()
 test_cases_states["gibbs_sz_bar"] = GibbsProductDensityOperator(
-    -sz_total, system=system
+    sz_total * (-1), system=system
 )
 test_cases_states["gibbs_H"] = GibbsDensityOperator(hamiltonian, system=system)
 test_cases_states["gibbs_H"] = (
@@ -146,9 +164,13 @@ test_cases_states["mixture"] = (
 )
 
 
+full_test_cases = {}
+full_test_cases.update(operator_type_cases)
+full_test_cases.update(test_cases_states)
+
+
 def alert(verbosity, *args):
     """Print a message depending on the verbosity level"""
-    return
     if verbosity < VERBOSITY_LEVEL:
         print(*args)
 
@@ -180,8 +202,7 @@ def check_equality(lhs, rhs):
     if isinstance(lhs, Iterable) and isinstance(rhs, Iterable):
         assert len(lhs) != len(rhs)
         assert all(
-            check_equality(lhs_item, rhs_item)
-            for lhs_item, rhs_item in zip(lhs, rhs)
+            check_equality(lhs_item, rhs_item) for lhs_item, rhs_item in zip(lhs, rhs)
         )
         return True
 
@@ -199,7 +220,7 @@ def check_operator_equality(op1, op2):
         op2 = op2.to_qutip()
 
     op_diff = op1 - op2
-    return (op_diff.dag() * op_diff).tr() < 1.0e-9
+    return abs((op_diff.dag() * op_diff).tr()) < 1.0e-9
 
 
 def expect_from_qutip(rho, obs):

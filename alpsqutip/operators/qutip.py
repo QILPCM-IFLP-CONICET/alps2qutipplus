@@ -3,19 +3,16 @@
 Qutip representation of an operator.
 """
 
-
-from typing import Optional, Union
 from numbers import Number
-
+from typing import Optional, Union
 
 from numpy import log as np_log
-import scipy.sparse.linalg as spla
-
 from qutip import Qobj
 
 from alpsqutip.alpsmodels import qutip_model_from_dims
 from alpsqutip.geometry import GraphDescriptor
-from alpsqutip.model import Operator, SystemDescriptor
+from alpsqutip.model import SystemDescriptor
+from alpsqutip.operators.basic import Operator, ScalarOperator, is_diagonal_op
 
 
 class QutipOperator(Operator):
@@ -28,6 +25,7 @@ class QutipOperator(Operator):
         names=None,
         prefactor=1,
     ):
+        assert isinstance(qoperator, Qobj), "qoperator should be a Qutip Operator"
         if system is None:
             dims = qoperator.dims[0]
             model = qutip_model_from_dims(dims)
@@ -71,6 +69,9 @@ class QutipOperator(Operator):
             prefactor=1 / self.prefactor**exponent,
         )
 
+    def __repr__(self) -> str:
+        return "qutip interface operator for\n" + repr(self.operator)
+
     def dag(self):
         prefactor = self.prefactor
         operator = self.operator
@@ -79,9 +80,7 @@ class QutipOperator(Operator):
         else:
             if operator.isherm:
                 return self
-        return QutipOperator(
-            operator.dag(), self.system, self.site_names, prefactor
-        )
+        return QutipOperator(operator.dag(), self.system, self.site_names, prefactor)
 
     def inv(self):
         """the inverse of the operator"""
@@ -97,17 +96,20 @@ class QutipOperator(Operator):
     def isherm(self) -> bool:
         return self.operator.isherm
 
+    @property
+    def isdiagonal(self) -> bool:
+        """Check if the operator is diagonal"""
+        return is_diagonal_op(self.operator)
+
     def logm(self):
         operator = self.operator
         evals, evecs = operator.eigenstates()
         evals = evals * self.prefactor
-        evals[abs(evals) < 1.0e-30] = 1.0e-30
-        print("evals:", evals)
+        evals[abs(evals) < 1.0e-50] = 1.0e-50
         if any(value < 0 for value in evals):
             evals = (1.0 + 0j) * evals
         log_op = sum(
-            np_log(e_val) * e_vec * e_vec.dag()
-            for e_val, e_vec in zip(evals, evecs)
+            np_log(e_val) * e_vec * e_vec.dag() for e_val, e_vec in zip(evals, evecs)
         )
         return QutipOperator(log_op, self.system, self.site_names)
 
@@ -125,12 +127,19 @@ class QutipOperator(Operator):
         else:
             op_ptrace = self.operator.tr()
 
-        return QutipOperator(
-            op_ptrace,
-            subsystem,
-            names=new_site_names,
-            prefactor=self.prefactor,
-        )
+        if isinstance(op_ptrace, Qobj):
+            return QutipOperator(
+                op_ptrace,
+                subsystem,
+                names=new_site_names,
+                prefactor=self.prefactor,
+            )
+        else:
+            return ScalarOperator(self.prefactor * op_ptrace, subsystem)
+
+    def tidyup(self, atol=None):
+        """Removes small elements from the quantum object."""
+        return QutipOperator(self.operator.tidyup(atol), self.system, self.prefactor)
 
     def to_qutip(self):
         return self.operator * self.prefactor
@@ -165,6 +174,21 @@ def sum_qutip_operator_plus_operator(x_op: QutipOperator, y_op: QutipOperator):
 
 @Operator.register_add_handler(
     (
+        ScalarOperator,
+        QutipOperator,
+    )
+)
+def sum_scalarop_with_qutipop(x_op: ScalarOperator, y_op: QutipOperator):
+    """Sum a Scalar operator to a Qutip Operator"""
+    return QutipOperator(
+        y_op.operator * y_op.prefactor + x_op.prefactor,
+        names=y_op.site_names,
+        prefactor=1,
+    )
+
+
+@Operator.register_add_handler(
+    (
         QutipOperator,
         Number,
     )
@@ -175,9 +199,7 @@ def sum_qutip_operator_plus_operator(x_op: QutipOperator, y_op: QutipOperator):
         Qobj,
     )
 )
-def sum_qutip_operator_plus_number(
-    x_op: QutipOperator, y_val: Union[Number, Qobj]
-):
+def sum_qutip_operator_plus_number(x_op: QutipOperator, y_val: Union[Number, Qobj]):
     """Sum an operator and a number  or a Qobj"""
     return QutipOperator(
         x_op.operator + y_val,
@@ -193,9 +215,7 @@ def sum_qutip_operator_plus_number(
         QutipOperator,
     )
 )
-def mul_qutip_operator_qutip_operator(
-    x_op: QutipOperator, y_op: QutipOperator
-):
+def mul_qutip_operator_qutip_operator(x_op: QutipOperator, y_op: QutipOperator):
     """Product of two qutip operators"""
     names = x_op.site_names.copy()
     names.update(y_op.site_names)
@@ -209,8 +229,46 @@ def mul_qutip_operator_qutip_operator(
 
 @Operator.register_mul_handler(
     (
+        ScalarOperator,
+        QutipOperator,
+    )
+)
+def mul_scalarop_with_qutipop(x_op: ScalarOperator, y_op: QutipOperator):
+    """Sum a Scalar operator to a Qutip Operator"""
+    return QutipOperator(
+        y_op.operator, names=y_op.site_names, prefactor=x_op.prefactor * y_op.prefactor
+    )
+
+
+@Operator.register_mul_handler(
+    (
+        QutipOperator,
+        ScalarOperator,
+    )
+)
+def mul_qutipop_with_scalarop(y_op: QutipOperator, x_op: ScalarOperator):
+    """Sum a Scalar operator to a Qutip Operator"""
+    return QutipOperator(
+        y_op.operator, names=y_op.site_names, prefactor=x_op.prefactor * y_op.prefactor
+    )
+
+
+@Operator.register_mul_handler(
+    (
         QutipOperator,
         Number,
+    )
+)
+@Operator.register_mul_handler(
+    (
+        QutipOperator,
+        float,
+    )
+)
+@Operator.register_mul_handler(
+    (
+        QutipOperator,
+        complex,
     )
 )
 def mul_qutip_operator_times_number(x_op: QutipOperator, y_val: Number):
@@ -226,6 +284,18 @@ def mul_qutip_operator_times_number(x_op: QutipOperator, y_val: Number):
 @Operator.register_mul_handler(
     (
         Number,
+        QutipOperator,
+    )
+)
+@Operator.register_mul_handler(
+    (
+        float,
+        QutipOperator,
+    )
+)
+@Operator.register_mul_handler(
+    (
+        complex,
         QutipOperator,
     )
 )

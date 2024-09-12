@@ -2,31 +2,32 @@
 Define SystemDescriptors and different kind of operators
 """
 
-from typing import Union
+from numbers import Number
 
 # from numbers import Number
 from time import time
-
-from numbers import Number
+from typing import Union
 
 import numpy as np
 from numpy.linalg import eigh, svd
 from numpy.random import random
 
-from alpsqutip.model import Operator, SystemDescriptor
-from alpsqutip.operators import (
-    LocalOperator,
-    OneBodyOperator,
-    ProductOperator,
-    ScalarOperator,
-    SumOperator,
-)
-from alpsqutip.scalarprod import gram_matrix
-from alpsqutip.states import GibbsProductDensityOperator
+from alpsqutip.model import SystemDescriptor
 from alpsqutip.operator_functions import (
     hermitian_and_antihermitian_parts,
     simplify_sum_operator,
 )
+from alpsqutip.operators import (
+    LocalOperator,
+    OneBodyOperator,
+    Operator,
+    ProductOperator,
+    QutipOperator,
+    ScalarOperator,
+    SumOperator,
+)
+from alpsqutip.operators.states import GibbsProductDensityOperator
+from alpsqutip.scalarprod import gram_matrix
 
 
 class QuadraticFormOperator(Operator):
@@ -51,8 +52,9 @@ class QuadraticFormOperator(Operator):
                 else:
                     system = system.union(term.system)
 
-        # If check_and_simplify, ensure that all the terms are one-body operators
-        # and try to use the simplified forms of the operators.
+        # If check_and_simplify, ensure that all the terms are
+        # one-body operators and try to use the simplified forms
+        # of the operators.
 
         self.weights = weights
         self.terms = terms
@@ -126,9 +128,7 @@ class QuadraticFormOperator(Operator):
             operand.operator, (int, float, complex)
         ):
             operand = operand.operator
-        elif (
-            isinstance(operand, ProductOperator) and len(operand.sites_op) == 0
-        ):
+        elif isinstance(operand, ProductOperator) and len(operand.sites_op) == 0:
             operand = operand.prefactor
 
         if isinstance(operand, (int, float, complex)):
@@ -140,8 +140,7 @@ class QuadraticFormOperator(Operator):
             )
         return SumOperator(
             tuple(
-                w * term * term * operand
-                for w, term in zip(self.terms, self.weights)
+                w * term * term * operand for w, term in zip(self.terms, self.weights)
             ),
             self.system,
         )
@@ -159,9 +158,7 @@ class QuadraticFormOperator(Operator):
             operand.operator, (int, float, complex)
         ):
             operand = operand.operator
-        elif (
-            isinstance(operand, ProductOperator) and len(operand.site_ops) == 0
-        ):
+        elif isinstance(operand, ProductOperator) and len(operand.site_ops) == 0:
             operand = operand.prefactor
 
         if isinstance(operand, (int, float, complex)):
@@ -174,8 +171,7 @@ class QuadraticFormOperator(Operator):
 
         return SumOperator(
             tuple(
-                weight * term * term
-                for weight, term in zip(self.weights, self.terms)
+                weight * term * term for weight, term in zip(self.weights, self.terms)
             ),
             self.system,
         )
@@ -198,7 +194,8 @@ class QuadraticFormOperator(Operator):
             tuple(
                 w * (op_term * op_term).partial_trace(sites)
                 for w, op_term in zip(self.weights, self.terms)
-            )
+            ),
+            self.system,
         )
 
     def to_qutip(self):
@@ -207,6 +204,16 @@ class QuadraticFormOperator(Operator):
             for w, op_term in zip(self.weights, self.terms)
         )
 
+    def to_sum_operator(self, symplify: bool = True) -> SumOperator:
+        """Convert to a linear combination of quadratic operators"""
+        result = sum(
+            (w * op_term.dag() * op_term)
+            for w, op_term in zip(self.weights, self.terms)
+        )
+        if symplify:
+            return result.simplify()
+        return result
+
 
 def hs_scalar_product(o_1, o_2):
     """HS scalar product"""
@@ -214,7 +221,7 @@ def hs_scalar_product(o_1, o_2):
 
 
 def matrix_change_to_orthogonal_basis(
-    basis: list, scalar_product=hs_scalar_product, threeshold=1.0e-10
+    basis: list, scalar_product=hs_scalar_product, threshold=1.0e-10
 ):
     """
     Build the coefficient matrix of the base change to an orthogonal base.
@@ -223,7 +230,7 @@ def matrix_change_to_orthogonal_basis(
     # pylint: disable=unused-variable
     # TODO: Check if there is a way to obtain just the left singular vectors.
     left_sv, s_diag, v_h = svd(gram, hermitian=True, full_matrices=False)
-    kappa = len([sv for sv in s_diag if sv > threeshold])
+    kappa = len([sv for sv in s_diag if sv > threshold])
     v_h = v_h[:kappa]
     return v_h.conj()
 
@@ -235,7 +242,8 @@ def simplify_quadratic_form(
 ):
     """
     Takes a 2-body operator and returns lists weights, ops
-    such that the original operator is sum(w * op.dag()*op for w,op in zip(weights,ops))
+    such that the original operator is
+    sum(w * op.dag()*op for w,op in zip(weights,ops))
     """
     local_ops = operator.terms
     coeffs = operator.weights
@@ -303,8 +311,9 @@ def simplify_quadratic_form(
 def selfconsistent_meanfield_from_quadratic_form(
     quadratic_form: QuadraticFormOperator, max_it, logdict=None
 ):
-    """Build a self-consistent mean field approximation to the gibbs state associated to
-    the quadratic form.
+    """
+    Build a self-consistent mean field approximation
+    to the gibbs state associated to the quadratic form.
     """
     #    quadratic_form = simplify_quadratic_form(quadratic_form)
     system = quadratic_form.system
@@ -330,17 +339,16 @@ def selfconsistent_meanfield_from_quadratic_form(
             tuple(phi_i * operator for phi_i, operator in zip(phi, basis)),
             system,
         )
+        k_exp = ((k_exp + k_exp.dag()).simplify()) * 0.5
         assert k_exp.isherm
         rho = GibbsProductDensityOperator(k_exp, 1.0, system)
-        new_phi = rho.expect(operators).conj()
-
+        new_phi = -rho.expect(operators).conj()
         if isinstance(logdict, dict):
             evolution.append(new_phi)
             timestamps.append(time())
 
         change = sum(
-            abs(old_phi_i - new_phi_i)
-            for old_phi_i, new_phi_i in zip(new_phi, phi)
+            abs(old_phi_i - new_phi_i) for old_phi_i, new_phi_i in zip(new_phi, phi)
         )
         if change < 1.0e-10:
             break
@@ -353,7 +361,7 @@ def build_quadratic_form_from_operator(
     operator: Operator, system=None, simplify: bool = True, herm: bool = True
 ):
     """
-    Try to bring operator to a quadratic form object
+    Try to bring operator to a quadratic form object.
     """
 
     def scalar_to_quadratic_form(scalar):
@@ -448,9 +456,7 @@ def build_quadratic_form_from_operator(
             OneBodyOperator(
                 (
                     LocalOperator(factor1[0], factor1[1], system),
-                    LocalOperator(
-                        factor2[0], factor2[1] * (-prefactor), system
-                    ),
+                    LocalOperator(factor2[0], factor2[1] * (-prefactor), system),
                 ),
                 system,
                 None,
@@ -467,18 +473,14 @@ def build_quadratic_form_from_operator(
         weights = []
         offset = []
         for term in operator.terms:
-            q_term = build_quadratic_form_from_operator(
-                term, system, False, True
-            )
+            q_term = build_quadratic_form_from_operator(term, system, False, True)
             if q_term is None:
                 return None
             terms.extend(q_term.terms)
             weights.extend(q_term.weights)
             if q_term.offset:
                 offset.extend(q_term.offset)
-        return QuadraticFormOperator(
-            tuple(terms), tuple(weights), system, offset
-        )
+        return QuadraticFormOperator(tuple(terms), tuple(weights), system, offset)
 
     def subclass_to_quadratic_form(operator):
         for base_type, func in lookup_table_methods.items():
@@ -496,15 +498,11 @@ def build_quadratic_form_from_operator(
         imag_part = simplify_sum_operator(imag_part)
 
         if not bool(imag_part):
-            return build_quadratic_form_from_operator(
-                real_part, system, simplify, True
-            )
+            return build_quadratic_form_from_operator(real_part, system, simplify, True)
 
         if not bool(real_part):
             return (
-                build_quadratic_form_from_operator(
-                    imag_part, system, simplify, True
-                )
+                build_quadratic_form_from_operator(imag_part, system, simplify, True)
                 * 1j
             )
 
@@ -517,9 +515,7 @@ def build_quadratic_form_from_operator(
         )
 
         terms = result_re.terms + result_im.terms
-        weights = result_re.weights + tuple(
-            weight * 1j for weight in result_im.weights
-        )
+        weights = result_re.weights + tuple(weight * 1j for weight in result_im.weights)
         return QuadraticFormOperator(terms, weights, system, None)
 
     lookup_table_methods = {
@@ -545,9 +541,9 @@ def build_quadratic_form_from_operator(
         if simplify:
             operator = operator.simplify()
     # Now, process assuming operator is hermitician
-    return lookup_table_methods.get(
-        type(operator), subclass_to_quadratic_form
-    )(operator)
+    return lookup_table_methods.get(type(operator), subclass_to_quadratic_form)(
+        operator
+    )
 
 
 # #####################
@@ -555,6 +551,8 @@ def build_quadratic_form_from_operator(
 #  Arithmetic
 #
 # #######################
+
+# Sum Quadratic with Quadratic
 
 
 @Operator.register_add_handler(
@@ -568,6 +566,19 @@ def _(x_op: QuadraticFormOperator, y_op: QuadraticFormOperator):
     return QuadraticFormOperator(
         x_op.terms + y_op.terms, x_op.weights + y_op.weights, system, None
     )
+
+
+@Operator.register_mul_handler(
+    (
+        QuadraticFormOperator,
+        QuadraticFormOperator,
+    )
+)
+def _(x_op: QuadraticFormOperator, y_op: QuadraticFormOperator):
+    return x_op.to_sum_operator() * y_op.to_sum_operator()
+
+
+# Number and QuadraticFormOperator
 
 
 @Operator.register_add_handler(
@@ -587,6 +598,41 @@ def _(qf_op: QuadraticFormOperator, y_val: ScalarOperator):
     )
 
 
+@Operator.register_mul_handler(
+    (
+        QuadraticFormOperator,
+        Number,
+    )
+)
+def _(x_op: QuadraticFormOperator, y_val: Number):
+    system = x_op.system
+    return QuadraticFormOperator(
+        x_op.terms,
+        tuple(weight * y_val for weight in x_op.weights),
+        system,
+        None,
+    )
+
+
+@Operator.register_mul_handler(
+    (
+        Number,
+        QuadraticFormOperator,
+    )
+)
+def _(y_val: Number, x_op: QuadraticFormOperator):
+    system = x_op.system
+    return QuadraticFormOperator(
+        x_op.terms,
+        tuple(weight * y_val for weight in x_op.weights),
+        system,
+        None,
+    )
+
+
+# QuadraticOperator form and ScalarOperator
+
+
 @Operator.register_add_handler(
     (
         QuadraticFormOperator,
@@ -601,39 +647,6 @@ def _(qf_op: QuadraticFormOperator, sf_op: ScalarOperator):
         weights=weights + (sf_op.prefactor,),
         terms=terms + (ScalarOperator(1, system),),
         system=system,
-    )
-
-
-@Operator.register_add_handler(
-    (
-        QuadraticFormOperator,
-        LocalOperator,
-    )
-)
-@Operator.register_add_handler(
-    (
-        QuadraticFormOperator,
-        ProductOperator,
-    )
-)
-def _(
-    qf_op: QuadraticFormOperator, y_op: Union[LocalOperator, ProductOperator]
-):
-    system = qf_op.system or y_op.system
-    try:
-        term = build_quadratic_form_from_operator(y_op, system, True, None)
-    except ValueError:
-        term = None
-
-    if term:
-        return qf_op + term
-
-    return SumOperator(
-        (
-            qf_op,
-            y_op,
-        ),
-        system,
     )
 
 
@@ -671,33 +684,104 @@ def _(y_op: ScalarOperator, x_op: QuadraticFormOperator):
     )
 
 
-@Operator.register_mul_handler(
+# Quadratic form and Local / Product operators
+
+
+@Operator.register_add_handler(
     (
         QuadraticFormOperator,
-        Number,
+        LocalOperator,
     )
 )
-def _(x_op: QuadraticFormOperator, y_val: Number):
-    system = x_op.system
-    return QuadraticFormOperator(
-        x_op.terms,
-        tuple(weight * y_val for weight in x_op.weights),
+@Operator.register_add_handler(
+    (
+        QuadraticFormOperator,
+        ProductOperator,
+    )
+)
+def _(qf_op: QuadraticFormOperator, y_op: Union[LocalOperator, ProductOperator]):
+    system = qf_op.system or y_op.system
+    try:
+        term = build_quadratic_form_from_operator(y_op, system, True, None)
+    except ValueError:
+        term = None
+
+    if term:
+        return qf_op + term
+
+    return SumOperator(
+        (
+            qf_op,
+            y_op,
+        ),
         system,
-        None,
     )
 
 
 @Operator.register_mul_handler(
     (
-        Number,
+        QuadraticFormOperator,
+        LocalOperator,
+    )
+)
+@Operator.register_mul_handler(
+    (
+        QuadraticFormOperator,
+        ProductOperator,
+    )
+)
+def _(qf_op: QuadraticFormOperator, y_op: Union[LocalOperator, ProductOperator]):
+    return qf_op.to_sum_operator() * y_op
+
+
+@Operator.register_mul_handler(
+    (
+        LocalOperator,
         QuadraticFormOperator,
     )
 )
-def _(y_val: Number, x_op: QuadraticFormOperator):
-    system = x_op.system
-    return QuadraticFormOperator(
-        x_op.terms,
-        tuple(weight * y_val for weight in x_op.weights),
-        system,
-        None,
+@Operator.register_mul_handler(
+    (
+        ProductOperator,
+        QuadraticFormOperator,
     )
+)
+def _(y_op: Union[LocalOperator, ProductOperator], qf_op: QuadraticFormOperator):
+    return y_op * qf_op.to_sum_operator()
+
+
+def _(y_op: Union[LocalOperator, ProductOperator], qf_op: QuadraticFormOperator):
+    return y_op * qf_op.to_sum_operator()
+
+
+# QuadraticForm and QutipOperator
+
+
+@Operator.register_add_handler(
+    (
+        QuadraticFormOperator,
+        QutipOperator,
+    )
+)
+def _(qf_op: QuadraticFormOperator, y_op: QutipOperator):
+    return qf_op.to_qutip() + y_op
+
+
+@Operator.register_mul_handler(
+    (
+        QuadraticFormOperator,
+        QutipOperator,
+    )
+)
+def _(qf_op: QuadraticFormOperator, y_op: QutipOperator):
+    return qf_op.to_qutip_operator() * y_op
+
+
+@Operator.register_mul_handler(
+    (
+        QutipOperator,
+        QuadraticFormOperator,
+    )
+)
+def _(y_op: QutipOperator, qf_op: QuadraticFormOperator):
+    return y_op * qf_op.to_qutip_operator()

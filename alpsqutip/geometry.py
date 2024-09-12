@@ -221,7 +221,7 @@ def graph_from_alps_xml(
         )
 
     def process_parms(node, parms):
-        """Process tje <PARAMETER>s nodes"""
+        """Process the <PARAMETER>s nodes"""
         default_parms = {}
         for parameter in node.findall("./PARAMETER"):
             key_vals = parameter.attrib
@@ -330,7 +330,7 @@ class GraphDescriptor:
         self.subgraphs = {}
 
     def complete_coordiantes(self):
-        """Add coordinates to nodes without speficied coordinates"""
+        """Add coordinates to nodes without specified coordinates"""
         nodes = self.nodes
         lattice = self.lattice
         # TODO: it would be great to use a better algorithm to
@@ -417,7 +417,7 @@ class GraphDescriptor:
                 ax_mpl.plot(*[[u, v] for u, v in zip(src, tgt)], **spec)
 
     def subgraph(self, node_tuple: tuple, name: str = ""):
-        """A subgraph containing the speficied nodes"""
+        """A subgraph containing the specified nodes"""
         subgraph = self.subgraphs.get(node_tuple, None)
         if subgraph is not None:
             return subgraph

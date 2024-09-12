@@ -6,18 +6,20 @@ Functions for operators.
 # from typing import Callable, List, Optional, Tuple
 from numbers import Number
 from typing import Tuple
+
 from numpy import array as np_array, real
 
-from alpsqutip.model import Operator
 from alpsqutip.operators import (
-    ScalarOperator,
     LocalOperator,
     OneBodyOperator,
+    Operator,
     ProductOperator,
-    SumOperator,
     QutipOperator,
+    ScalarOperator,
+    SumOperator,
 )
 from alpsqutip.scalarprod import orthogonalize_basis
+from alpsqutip.utils import matrix_to_wolfram, operator_to_wolfram
 
 
 def commutator(op_1: Operator, op_2: Operator) -> Operator:
@@ -28,21 +30,18 @@ def commutator(op_1: Operator, op_2: Operator) -> Operator:
     if isinstance(op_1, SumOperator):
         return SumOperator(
             [commutator(term, op_2) for term in op_1.terms], system
-        )
+        ).simplify()
     if isinstance(op_2, SumOperator):
         return SumOperator(
             [commutator(op_1, term) for term in op_2.terms], system
-        )
+        ).simplify()
 
     act_over_1, act_over_2 = op_1.act_over(), op_2.act_over()
     if act_over_1 is not None:
         if len(act_over_1) == 0:
             return ScalarOperator(0, system)
         if act_over_2 is not None:
-            if (
-                len(act_over_2) == 0
-                or len(act_over_1.intersection(act_over_2)) == 0
-            ):
+            if len(act_over_2) == 0 or len(act_over_1.intersection(act_over_2)) == 0:
                 return ScalarOperator(0, system)
 
     return simplify_sum_operator(op_1 * op_2 - op_2 * op_1)
@@ -71,9 +70,13 @@ def eigenvalues(
     maxiter: int = 100000,
 ) -> np_array:
     """Compute the eigenvalues of operator"""
-    return operator.to_qutip().eigenenergies(
-        sparse, sort, eigvals, tol, maxiter
-    )
+
+    qutip_op = operator.to_qutip() if isinstance(operator, Operator) else operator
+    if eigvals > 0 and qutip_op.data.shape[0] < eigvals:
+        sparse = False
+        eigvals = 0
+
+    return qutip_op.eigenenergies(sparse, sort, eigvals, tol, maxiter)
 
 
 def hermitian_and_antihermitian_parts(operator) -> Tuple[Operator]:
@@ -111,7 +114,7 @@ def hermitian_and_antihermitian_parts(operator) -> Tuple[Operator]:
             ),
             system,
             isherm=True,
-        ),
+        ).simplify(),
         SumOperator(
             (
                 operator_dag * 1j,
@@ -119,7 +122,7 @@ def hermitian_and_antihermitian_parts(operator) -> Tuple[Operator]:
             ),
             system,
             isherm=True,
-        ),
+        ).simplify(),
     )
 
 
@@ -136,8 +139,7 @@ def reduce_by_orthogonalization(operator_list):
     if len(basis) > len(operator_list):
         return operator_list
     coeffs = [
-        sum(scalar_product(op_b, term) for term in operator_list)
-        for op_b in basis
+        sum(scalar_product(op_b, term) for term in operator_list) for op_b in basis
     ]
 
     return [op_b * coeff for coeff, op_b in zip(coeffs, basis)]
@@ -145,84 +147,81 @@ def reduce_by_orthogonalization(operator_list):
 
 def simplify_sum_operator(operator):
     """
-    Try to simplify a sum of operators by flatten it,
-    classifying the terms according to which subsystem acts,
-    reducing the partial sums.
+    Try a more agressive simplification that self.simplify()
+    by classifing the terms according to which subsystem acts,
+    reducing the partial sums by orthogonalization.
     """
+    simplified_op = operator.simplify()
 
-    if not isinstance(operator, SumOperator):
-        return operator.simplify()
+    if isinstance(simplified_op, OneBodyOperator) or not isinstance(
+        simplified_op, SumOperator
+    ):
+        return simplified_op
 
+    operator = simplified_op
+    # Now, operator has at least two non-trivial terms.
     operator_terms = operator.terms
-    if len(operator_terms) < 2:
-        return operator.simplify()
 
     system = operator.system
     isherm = operator._isherm
 
-    null_subsystem = tuple()
-    terms_by_subsystem = {
-        null_subsystem: [0.0],
-        None: [],
-    }
-
-    def process_term(term):
-        """
-        Flatten the list of terms and classify them
-        according to over which subsystem act.
-        """
-        if isinstance(term, Number):
-            terms_by_subsystem.setdefault(null_subsystem, []).append(term)
-        if isinstance(term, SumOperator):
-            for sub_term in term.terms:
-                process_term(sub_term)
-            return
-        sites = tuple(term.act_over())
-        terms_by_subsystem.setdefault(sites, []).append(term)
-
-    # Flatten and classify the terms
-    for term in operator_terms:
-        term = term.simplify()
-        process_term(term)
-
-    # Reduce the partial sums
-    new_terms = []
+    terms_by_subsystem = {}
     one_body_terms = []
-    scalar_term = 0
-    for subsystem, terms in terms_by_subsystem.items():
-        if subsystem is None:
-            new_terms.extend(terms)
-            continue
-        if len(subsystem) > 1:
-            terms = reduce_by_orthogonalization(terms)
-            new_terms.extend(terms)
-            continue
-        if len(subsystem) == 0:
-            scalar_term = sum(terms)
-            continue
-        assert len(subsystem) == 1
-        one_body_terms.extend(terms)
+    scalar_terms = []
 
-    # One-body terms are put together and added as a OneBodyOperator term
-    if one_body_terms:
-        one_body_term = (
-            one_body_terms[0]
-            if len(one_body_terms) == 1
-            else OneBodyOperator(tuple(one_body_terms), system)
-        )
-        if scalar_term:
-            one_body_term = one_body_term + scalar_term
-        new_terms.append(one_body_term)
-    elif scalar_term:
-        if isinstance(scalar_term, Number):
-            scalar_term = ScalarOperator(scalar_term, system)
-        new_terms.append(scalar_term)
+    for term in operator_terms:
+        assert not isinstance(
+            term, SumOperator
+        ), f"{type(term)} should not be here. Check simplify."
+        assert not isinstance(
+            term, Number
+        ), f"In a sum, numbers should be represented by ScalarOperator's, but {type(term)} was found."
+
+    for term in operator_terms:
+        if isinstance(term, LocalOperator):
+            one_body_terms.append(term)
+        elif isinstance(term, ScalarOperator):
+            scalar_terms.append(term)
+        else:
+            sites = tuple(term.act_over())
+            terms_by_subsystem.setdefault(sites, []).append(term)
+
+    # Simplify the scalars:
+    if len(scalar_terms) > 1:
+        assert all(isinstance(t, ScalarOperator) for t in scalar_terms)
+        value = sum(value for value in scalar_terms.prefactor)
+        scalar_terms = [ScalarOperator(value, system)] if value else []
+    elif len(scalar_terms) == 1:
+        if scalar_terms[0].prefactor == 0:
+            scalar_terms = []
+
+    one_body_terms = (
+        [OneBodyOperator(tuple(one_body_terms), system)]
+        if len(one_body_terms) != 0
+        else []
+    )
+    new_terms = scalar_terms + one_body_terms
+
+    # Try to reduce the other terms
+    for subsystem, block_terms in terms_by_subsystem.items():
+        if subsystem is None:
+            # Maybe here we should convert block_terms into
+            # qutip, add the terms and if the result is not zero,
+            # store as a single term
+            new_terms.extend(block_terms)
+        elif len(subsystem) > 1:
+            if len(block_terms) > 1:
+                block_terms = reduce_by_orthogonalization(block_terms)
+            new_terms.extend(block_terms)
+        else:
+            # Never reached?
+            assert False
+            new_terms.extend(block_terms)
 
     # Build the return value
     if new_terms:
         if len(new_terms) == 1:
             return new_terms[0]
-
         if not isherm:
             isherm = None
         return SumOperator(tuple(new_terms), system, isherm)
@@ -258,5 +257,7 @@ def relative_entropy(rho: Operator, sigma: Operator) -> float:
 
     log_rho = log_op(rho)
     log_sigma = log_op(sigma)
-
-    return real(rho.expect(log_rho - log_sigma))
+    delta_log = log_rho - log_sigma
+    # TODO: fix rho.expect
+    # return real(rho.expect(delta_log))
+    return real((rho * delta_log).tr())
