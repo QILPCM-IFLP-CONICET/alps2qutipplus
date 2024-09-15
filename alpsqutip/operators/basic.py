@@ -495,10 +495,9 @@ class LocalOperator(Operator):
         dimensions = self.system.dimensions
         operator = self.operator
         if isinstance(operator, (int, float, complex)):
-            operator = qutip.qeye(dimensions[site]) * operator
-        elif isinstance(operator, Operator):
+            return qutip.qeye(dimensions[site]) * operator
+        if isinstance(operator, Operator):
             operator = operator.to_qutip()
-
         return qutip.tensor(
             [operator if s == site else qutip.qeye(d) for s, d in dimensions.items()]
         )

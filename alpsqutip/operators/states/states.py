@@ -11,16 +11,16 @@ from qutip import Qobj, qeye as qutip_qeye, tensor as qutip_tensor
 
 from alpsqutip.model import SystemDescriptor
 from alpsqutip.operator_functions import eigenvalues
-from alpsqutip.operators import (
+from alpsqutip.operators.arithmetic import OneBodyOperator, SumOperator
+from alpsqutip.operators.basic import (
     LocalOperator,
-    OneBodyOperator,
     Operator,
     ProductOperator,
-    QutipOperator,
     ScalarOperator,
-    SumOperator,
+    check_multiplication,
+    is_diagonal_op,
 )
-from alpsqutip.operators.basic import check_multiplication, is_diagonal_op
+from alpsqutip.operators.qutip import QutipOperator
 from alpsqutip.utils import operator_to_wolfram
 
 
@@ -859,10 +859,9 @@ def _(x_op: ProductDensityOperator, y_op: LocalOperator):
 
 
 @Operator.register_mul_handler((ProductOperator, ProductDensityOperator))
-def _(x_op: ProductDensityOperator, y_op: ProductDensityOperator):
+def _(x_op: ProductOperator, y_op: ProductDensityOperator):
     system = y_op.system or x_op.system
-    prefactor = x_op.prefactor * y_op.prefactor
-    prefactor = prefactor * np.exp(sum(y_op.local_fs.values()))
+    prefactor = x_op.prefactor
     sites_op = x_op.sites_op.copy()
     for site, factor in y_op.sites_op.items():
         if site in sites_op:
@@ -1103,4 +1102,5 @@ def _(x_op: GibbsProductDensityOperator, y_op: Operator):
 @Operator.register_mul_handler((LocalOperator, GibbsProductDensityOperator))
 @Operator.register_mul_handler((ProductOperator, GibbsProductDensityOperator))
 def _(x_op: Operator, y_op: GibbsProductDensityOperator):
-    return x_op * y_op.to_product_state()
+    y_prod = y_op.to_product_state()
+    return x_op * y_prod

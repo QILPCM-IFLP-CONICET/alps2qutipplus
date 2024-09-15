@@ -112,6 +112,8 @@ operator_type_cases = {
     "non hermitician quadratic operator": build_quadratic_form_from_operator(
         hamiltonian - sz_total * 1j
     ),
+    "log unitary": build_quadratic_form_from_operator(hamiltonian * 1j),
+    "single interaction term": build_quadratic_form_from_operator(sx_A * sx_B),
 }
 
 

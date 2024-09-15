@@ -10,6 +10,7 @@ from alpsqutip.operators.basic import (
     ProductOperator,
     ScalarOperator,
 )
+from alpsqutip.operators.quadratic import QuadraticFormOperator
 from alpsqutip.operators.qutip import QutipOperator
 
 __all__ = [
@@ -17,6 +18,7 @@ __all__ = [
     "OneBodyOperator",
     "Operator",
     "ProductOperator",
+    "QuadraticFormOperator",
     "QutipOperator",
     "ScalarOperator",
     "SumOperator",

@@ -9,15 +9,14 @@ from typing import Tuple
 
 from numpy import array as np_array, real
 
-from alpsqutip.operators import (
+from alpsqutip.operators.arithmetic import OneBodyOperator, SumOperator
+from alpsqutip.operators.basic import (
     LocalOperator,
-    OneBodyOperator,
     Operator,
     ProductOperator,
-    QutipOperator,
     ScalarOperator,
-    SumOperator,
 )
+from alpsqutip.operators.qutip import QutipOperator
 from alpsqutip.scalarprod import orthogonalize_basis
 from alpsqutip.utils import matrix_to_wolfram, operator_to_wolfram
 

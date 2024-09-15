@@ -3,6 +3,7 @@ Define SystemDescriptors and different kind of operators
 """
 
 import logging
+import re
 from typing import Optional
 
 from alpsqutip.geometry import GraphDescriptor
@@ -277,7 +278,10 @@ class SystemDescriptor:
             node_type = node.get("type", None)
             if site_type is not None and site_type != node_type:
                 continue
-            s_expr = expr.replace("#", node_type).replace("@", "__")
+            s_expr = expr.replace("#", node_type)
+            operator_names = set(re.findall(r"\b([a-zA-Z_]+)\b@", s_expr))
+
+            s_expr = s_expr.replace("@", "__")
             s_parm = {key.replace("#", node_type): val for key, val in t_parm.items()}
             s_parm.update(
                 {
@@ -289,7 +293,9 @@ class SystemDescriptor:
             )
             term_op = eval_expr(s_expr, s_parm)
             if term_op is None or isinstance(term_op, str):
-                raise ValueError(f"<<{s_expr}>> could not be evaluated.")
+                raise ValueError(
+                    f"<<{s_expr}>> could not be evaluated.", operator_names
+                )
             term_ops.append(term_op)
 
         return OneBodyOperator(tuple(term_ops), self)
@@ -347,12 +353,16 @@ class SystemDescriptor:
         for edge_type, edges in graph.edges.items():
             if term_type is not None and term_type != edge_type:
                 continue
-            e_expr = expr.replace("#", edge_type).replace("@", "__")
+
+            e_expr = expr.replace("#", edge_type)
+            operator_names = set(re.findall(r"\b([a-zA-Z_]+)\b@", e_expr))
+            e_expr = e_expr.replace("@", "__")
             for src, dst in edges:
                 term_op = process_edge(e_expr, (edge_type, src, dst), model, t_parm)
                 if isinstance(term_op, str):
                     raise ValueError(
-                        f"   Bond term <<{term_op}>> could not be evaluated."
+                        f"   Bond term <<{term_op}>> could not be evaluated.",
+                        operator_names,
                     )
 
                 result_terms.append(term_op)
