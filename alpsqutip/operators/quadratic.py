@@ -186,10 +186,9 @@ class QuadraticFormOperator(Operator):
         Build a new representation with a smaller basis.
         """
         operator = self
-        assert all(b.isherm for b in self.basis)
         if not all(b.isherm for b in self.basis):
-            return simplify_hermitician_quadratic_form(ensure_hermitician_basis(self))
-        result = simplify_hermitician_quadratic_form(self)
+            operator = ensure_hermitician_basis(operator)
+        result = simplify_hermitician_quadratic_form(operator)
         if (
             len(result.basis) > len(self.basis)
             or len(result.basis) == len(self.basis)
