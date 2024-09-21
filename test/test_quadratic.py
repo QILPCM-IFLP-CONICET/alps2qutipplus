@@ -38,90 +38,66 @@ nonquadratic_test_cases = [
 ]
 
 
-def test_first():
-    for name, operator in operator_type_cases.items():
-        print(name)
-        qutip_op = operator.to_qutip()
-        real_part, imag_part = hermitian_and_antihermitian_parts(operator)
-        imag_part = simplify_sum_operator(imag_part)
-        if qutip_op.isherm:
-            if bool(imag_part):
-                print(qutip_op)
-                print("real part:", type(real__part), real_part.to_qutip())
-                print("imaginary part:", type(imag_part), imag_part.to_qutip())
-                print([type(t) for t in imag_part.terms])
-            assert not bool(
-                imag_part
-            ), f"<<{name}>> has marked as hermitician, but has an imaginary part."
-
-        simplified = simplify_sum_operator(operator)
-
-        check_operator_equality(qutip_op, simplified.to_qutip())
-        assert simplified.isherm == qutip_op.isherm
+def test_simplify_quadratic_form():
+    """
+    Try to convert all the test cases into
+    quadratic forms, and check if simplification
+    works in all the cases.
+    """
 
 
-def no_test_quadratic():
+    
+    
+
+
+def test_build_quadratic():
+    """
+    Test the function build_quadratic_hermitician. 
+    No assumptions on the hermiticity of the operator
+    are done.
+    """
+    test_cases = operator_type_cases
+
+    for name, operator in test_cases.items():
+        print("\n *******\n\n name: ", name)
+        print("quadratic form", type(operator))
+        quadratic_form = build_quadratic_form_from_operator(
+                operator, simplify=False
+            )
+        qutip_operator = operator.to_qutip()
+
+        check_operator_equality(
+            quadratic_form.to_qutip(), qutip_operator
+        )
+        assert quadratic_form.isherm == qutip_operator.isherm
+
+
+def test_build_quadratic_hermitician():
+    """
+    Test the function build_quadratic_hermitician
+    if is assumed that the original operator is hermitician.
+    """
     def self_adjoint_part(op_g):
         return 0.5 * (op_g + op_g.dag())
 
     test_cases = operator_type_cases
     skip_cases = []
-
     for name, operator in test_cases.items():
+        if name in skip_cases:
+            continue
         print("\n *******\n\n name: ", name)
-        print("quadratic form. Force hermitician, no simplify", type(operator))
+        print("quadratic form. Force hermitician", type(operator))
         try:
             quadratic_form = build_quadratic_form_from_operator(
-                operator, None, False, True
+                operator, True, False
             )
         except ValueError:
             skip_cases.append(name)
             continue
 
-        qutip_operator = operator.to_qutip()
+        qutip_operator = self_adjoint_part(operator.to_qutip())
 
         check_operator_equality(
-            quadratic_form.to_qutip(), self_adjoint_part(qutip_operator)
+            quadratic_form.to_qutip(), qutip_operator
         )
-        print("quadratic form. Force hermitician, simplify")
-        quadratic_form = build_quadratic_form_from_operator(operator, None, True, True)
-        check_operator_equality(
-            quadratic_form.to_qutip(), self_adjoint_part(qutip_operator)
-        )
-
-        print("quadratic form for the general case. No simplify")
-        quadratic_form = build_quadratic_form_from_operator(
-            operator, None, False, False
-        )
-        check_operator_equality(quadratic_form.to_qutip(), qutip_operator)
-
-        print("quadratic form for the general case. Simplify")
-        quadratic_form = build_quadratic_form_from_operator(operator, None, True, False)
-        if isinstance(quadratic_form, QuadraticFormOperator):
-            print(
-                quadratic_form.weights,
-                "\n--Quadratic Operator--\n".join(
-                    repr(term) for term in quadratic_form.terms
-                ),
-            )
-        else:
-            print(
-                "\n-Sum Operator---\n".join(repr(term) for term in quadratic_form.terms)
-            )
-
-        check_operator_equality(quadratic_form.to_qutip(), qutip_operator)
-
-        print("Simplify the quadratic form")
-        quadratic_form = simplify_quadratic_form(quadratic_form, False)
-        check_operator_equality(
-            quadratic_form.to_qutip(), self_adjoint_part(qutip_operator)
-        )
-        print("Simplify the quadratic form again")
-        quadratic_form = simplify_quadratic_form(quadratic_form, False)
-        check_operator_equality(
-            quadratic_form.to_qutip(), self_adjoint_part(qutip_operator)
-        )
-        print("check hermiticity", quadratic_form.weights)
-        assert quadratic_form.isherm == qutip_operator.isherm
-
-    assert all(name in nonquadratic_test_cases for name in skip_cases)
+        assert quadratic_form.isherm

@@ -65,6 +65,7 @@ class QuadraticFormOperator(Operator):
         self.basis = basis
         self.system = system
         self.offset = offset
+        self._simplified = False
 
     def __bool__(self):
         return len(self.weights) > 0 and any(self.weights) and any(self.basis)
@@ -180,8 +181,12 @@ class QuadraticFormOperator(Operator):
         ).simplify()
 
     def simplify(self):
-        """Simplify the operator"""
+        """
+        Simplify the operator.
+        Build a new representation with a smaller basis.
+        """
         operator = self
+        assert all(b.isherm for b in self.basis)
         if not all(b.isherm for b in self.basis):
             return simplify_hermitician_quadratic_form(ensure_hermitician_basis(self))
         result = simplify_hermitician_quadratic_form(self)
@@ -217,14 +222,23 @@ class QuadraticFormOperator(Operator):
         return result
 
 
-def build_quadratic_form_from_operator(operator, isherm=None):
+def build_quadratic_form_from_operator(operator, isherm=None, simplify=True):
     """
     Simplify the operator and try to decompose it
     as a Quadratic Form.
     """
     operator = operator.simplify()
     if isinstance(operator, QuadraticFormOperator):
-        return operator
+        if isherm and not operator.isherm:
+            offset = operator.offset
+            if offset is not None and not offset.isherm:
+                offset = SumOperator((offset*.5, offset.dag()*.5,), operator.system, isherm)
+                if simplify:
+                    offset = offset.simplify()
+            result = QuadraticFormOperator(operator.basis, tuple((np.real(w) for w in operator.weights)) , operator.system, offset)
+        else:
+            return operator.simplify() if simplify else operator
+        return result
 
     # First, classify terms
     terms = operator.flat().terms if isinstance(operator, SumOperator) else [operator]
@@ -264,6 +278,10 @@ def build_quadratic_form_from_operator(operator, isherm=None):
 
     # If no two-body terms are collected, return the original operator
     if len(terms_dict["2"]) == 0:
+        if isherm and not operator.isherm:
+            operator = SumOperator((operator*.5,operator.dag()*.5,),operator.system, isherm=True)
+        if simplify:
+            operator = operator.simplify()
         return operator
 
     # parameters
@@ -275,8 +293,8 @@ def build_quadratic_form_from_operator(operator, isherm=None):
     # Decomposing two-body terms
     basis = []
     weights = []
-    basis_a = []
-    weights_a = []
+    basis_h = []
+    weights_h = []
 
     for term in terms_dict["2"]:
         if not isinstance(term, ProductOperator):
@@ -291,26 +309,26 @@ def build_quadratic_form_from_operator(operator, isherm=None):
             LocalOperator(site, l_op, system) for site, l_op in term.sites_op.items()
         )
         op2_dag = op2 if op2.isherm else op2.dag()
-        weights.extend(
+        weights_h.extend(
             (
                 prefactor * 0.25,
                 -prefactor * 0.25,
             )
         )
-        basis.extend(
+        basis_h.extend(
             (
                 op1 + op2_dag,
                 op1 - op2_dag,
             )
         )
         if not isherm:
-            weights_a.extend(
+            weights.extend(
                 (
                     prefactor * 0.25j,
                     -prefactor * 0.25j,
                 )
             )
-            basis_a.extend(
+            basis.extend(
                 (
                     op1 + op2_dag * 1j,
                     op1 - op2_dag * 1j,
@@ -318,10 +336,12 @@ def build_quadratic_form_from_operator(operator, isherm=None):
             )
 
     # Anti-hermitician terms at the end...
-    if not isherm:
-        basis.extend(basis_a)
-        weights.extend(weights_a)
-        basis_a, weighs_a = None, None
+    if isherm:
+        basis = basis_h
+        weights = weights_h
+    else:
+        basis.extend(basis_h)
+        weights.extend(weights_h)
 
     # if the basis includes antihermitician terms, rewrite them
     # by a canonical transformation
@@ -355,25 +375,30 @@ def build_quadratic_form_from_operator(operator, isherm=None):
         if len(terms_dict["1"]) > 1
         else terms_dict["1"]
     )
+    offset = one_body_terms[0] if one_body_terms else None
+    
+    if isherm and offset and not offset.isherm:
+        offset = (offset+offset.dag())*.5
 
-    if one_body_terms:
-        result = QuadraticFormOperator(
-            tuple(basis), tuple(weights), system=system, offset=one_body_terms[0]
+    result = QuadraticFormOperator(
+            tuple(basis), tuple(weights), system=system, offset=offset
         )
-    else:
-        result = QuadraticFormOperator(tuple(basis), tuple(weights), system=system)
-
-    result = result.simplify()
+    
+    if simplify:
+        result = result.simplify()
 
     other_terms = (
         [SumOperator(tuple(terms_dict[None]), system)]
         if len(terms_dict[None]) > 1
         else terms_dict[None]
     )
-
-    if other_terms:
-        result = result + other_terms[0]
-
+    rest = other_terms[0] if other_terms else None
+    if rest:
+        if isherm and rest and not rest.isherm:
+            rest = SumOperator((rest*.5,rest.dag()*.5,), system, isherm)
+            if simplify:
+                rest = rest.simplify()
+        result = result + rest
     return result
 
 
@@ -583,7 +608,11 @@ def one_body_operator_hermitician_hs_sp(x: OneBodyOperator, y: OneBodyOperator):
     terms_x = x.terms if isinstance(x, OneBodyOperator) else (x,)
     terms_y = y.terms if isinstance(y, OneBodyOperator) else (y,)
     for t1, t2 in zip(terms_x, terms_y):
-        if t1.site == t2.site:
+        if isinstance(t1, ScalarOperator):
+            result +=t2.tr() * t1.prefactor
+        elif isinstance(t2, ScalarOperator):
+            result += t1.tr()*t2.prefactor 
+        elif t1.site == t2.site:
             result += (t1.operator * t2.operator).tr()
         else:
             result += t1.operator.tr() * t2.operator.tr()
