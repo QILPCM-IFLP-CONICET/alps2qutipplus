@@ -4,6 +4,7 @@ Define SystemDescriptors and different kind of operators
 
 # from numbers import Number
 from time import time
+from typing import Callable
 
 import numpy as np
 from numpy.linalg import eigh, svd
@@ -44,9 +45,11 @@ class QuadraticFormOperator(Operator):
 
     def __init__(self, basis, weights, system=None, offset=None):
         # If the system is not given, infer it from the terms
+        if offset:
+            offset = offset.simplify()
         assert isinstance(basis, tuple)
         assert isinstance(weights, tuple)
-        assert isinstance(offset, Operator) or offset is None
+        assert isinstance(offset, (OneBodyOperator, LocalOperator, ScalarOperator)) or offset is None, f"{type(offset)} should be an Operator"
         if system is None:
             for term in basis:
                 if system is None:
@@ -91,7 +94,7 @@ class QuadraticFormOperator(Operator):
             if offset is None:
                 offset = other
             else:
-                offset = offset + other                
+                offset = offset + other
             basis = self.basis
             weights = self.weights
             return QuadraticFormOperator(basis, weights, system, offset)
@@ -104,19 +107,22 @@ class QuadraticFormOperator(Operator):
         )
 
     def __mul__(self, other):
+        system = self.system
         if isinstance(other, ScalarOperator):
-            prefactor = other.prefactor
+            other = other.prefactor
+            system = system or other.system
+        if isinstance(other, (float, complex)):
             offset = self.offset
             if offset is not None:
-                offset = offset * prefactor
+                offset = offset * other
             return QuadraticFormOperator(
                 self.basis,
-                tuple(w * prefactor for w in self.weights),
-                self.system,
+                tuple(w * other for w in self.weights),
+                system,
                 offset,
             )
         standard_repr = self.to_sum_operator().simplify()
-        return  standard_repr * other
+        return standard_repr * other
 
     def __neg__(self):
         offset = self.offset
@@ -157,7 +163,8 @@ class QuadraticFormOperator(Operator):
             isherm = offset.isherm
             if isherm is not True:
                 return isherm
-        return all(isinstance(weight, (int, float)) for weight in self.weights)
+
+        return all(abs(np.imag(weight))<1e-10 for weight in self.weights)
 
     def partial_trace(self, sites):
         terms = tuple(
@@ -174,7 +181,17 @@ class QuadraticFormOperator(Operator):
 
     def simplify(self):
         """Simplify the operator"""
-        return self
+        operator = self
+        if not all(b.isherm for b in self.basis):
+            return simplify_hermitician_quadratic_form(ensure_hermitician_basis(self))
+        result = simplify_hermitician_quadratic_form(self)
+        if (
+            len(result.basis) > len(self.basis)
+            or len(result.basis) == len(self.basis)
+            and self.offset is result.offset
+        ):
+            return self
+        return result
 
     def to_qutip(self):
         result = sum(
@@ -200,7 +217,7 @@ class QuadraticFormOperator(Operator):
         return result
 
 
-def build_quadratic_operator(operator, isherm=None):
+def build_quadratic_form_from_operator(operator, isherm=None):
     """
     Simplify the operator and try to decompose it
     as a Quadratic Form.
@@ -211,8 +228,20 @@ def build_quadratic_operator(operator, isherm=None):
 
     # First, classify terms
     terms = operator.flat().terms if isinstance(operator, SumOperator) else [operator]
-    terms_dict = {None:[], "1":[t for t in terms if isinstance(t, (ScalarOperator, LocalOperator, OneBodyOperator))], "2":[]}
-    terms = (t for t in terms if not isinstance(t, (ScalarOperator, LocalOperator, OneBodyOperator)))
+    terms_dict = {
+        None: [],
+        "1": [
+            t
+            for t in terms
+            if isinstance(t, (ScalarOperator, LocalOperator, OneBodyOperator))
+        ],
+        "2": [],
+    }
+    terms = (
+        t
+        for t in terms
+        if not isinstance(t, (ScalarOperator, LocalOperator, OneBodyOperator))
+    )
 
     def key_func(t):
         if not isinstance(t, ProductOperator):
@@ -221,20 +250,20 @@ def build_quadratic_operator(operator, isherm=None):
         if act_over is None:
             return None
         size = len(act_over)
-        if size<2:
+        if size < 2:
             return "1"
-        if size==2:
+        if size == 2:
             return "2"
         return None
-    
+
     for term in terms:
         terms_dict[key_func(term)].append(term)
     terms = None
 
     # Process terms
-    
+
     # If no two-body terms are collected, return the original operator
-    if len(terms_dict["2"])==0:
+    if len(terms_dict["2"]) == 0:
         return operator
 
     # parameters
@@ -242,49 +271,106 @@ def build_quadratic_operator(operator, isherm=None):
         isherm = True
     system = operator.system
 
-    one_body_terms = ([OneBodyOperator(tuple(terms_dict["1"]), system)]
-                     if len(terms_dict["1"])>1 else terms_dict["1"])
 
     # Decomposing two-body terms
     basis = []
     weights = []
     basis_a = []
     weights_a = []
-    
+
     for term in terms_dict["2"]:
         if not isinstance(term, ProductOperator):
             other_terms.append(term)
             continue
-        
+
         prefactor = term.prefactor
         if prefactor == 0:
             continue
-            
-        op1, op2 = (LocalOperator(site, l_op, system) for site, l_op in term.sites_op.items())
-        op2_dag = op2.dag()
-        weights.extend((prefactor*.25,-prefactor*.25,))
-        basis.extend((op1+op2_dag,op1-op2_dag,))
+
+        op1, op2 = (
+            LocalOperator(site, l_op, system) for site, l_op in term.sites_op.items()
+        )
+        op2_dag = op2 if op2.isherm else op2.dag()
+        weights.extend(
+            (
+                prefactor * 0.25,
+                -prefactor * 0.25,
+            )
+        )
+        basis.extend(
+            (
+                op1 + op2_dag,
+                op1 - op2_dag,
+            )
+        )
         if not isherm:
-            weights_a.extend((prefactor*.25j,-prefactor*.25j,))
-            basis_a.extend((op1+op2_dag*1j, op1-op2_dag*1j,))
+            weights_a.extend(
+                (
+                    prefactor * 0.25j,
+                    -prefactor * 0.25j,
+                )
+            )
+            basis_a.extend(
+                (
+                    op1 + op2_dag * 1j,
+                    op1 - op2_dag * 1j,
+                )
+            )
 
     # Anti-hermitician terms at the end...
     if not isherm:
         basis.extend(basis_a)
-        weights_a.extend(weights_a)
+        weights.extend(weights_a)
         basis_a, weighs_a = None, None
-    
-    
+
+    # if the basis includes antihermitician terms, rewrite them
+    # by a canonical transformation
+    basis_h, weights_h = [], []
+    for b, w in zip(basis, weights):
+        if b.isherm:
+            basis_h.append(b)
+            weights_h.append(w)
+        else:
+            b_h = (b + b.dag()).simplify()
+            b_a = ((b.dag()-b)*1j).simplify()
+            if bool(b_h):
+                basis_h.append(b_h)
+                weights_h.append(.25*w)
+                if bool(b_a):
+                    basis_h.append(b_h)
+                    weights_h.append(.25*w)
+                    comm = ((b_h*b_a-b_a*b_h)*.25j).simplify()
+                    if bool(comm):
+                        terms_dict["1"].append(comm)
+            elif bool(b_a):
+                basis_h.append(b_h)
+                weights_h.append(.25*w)
+
+    basis, weights = basis_h, weights_h
+    basis_h, weights_h = None, None
+
+    # Add all one body terms
+    one_body_terms = (
+        [OneBodyOperator(tuple(terms_dict["1"]), system)]
+        if len(terms_dict["1"]) > 1
+        else terms_dict["1"]
+    )
+
     if one_body_terms:
-        result = QuadraticFormOperator(tuple(basis), tuple(weights), system=system, offset=one_body_terms[0])
+        result = QuadraticFormOperator(
+            tuple(basis), tuple(weights), system=system, offset=one_body_terms[0]
+        )
     else:
         result = QuadraticFormOperator(tuple(basis), tuple(weights), system=system)
 
     result = result.simplify()
-        
-    other_terms = ([SumOperator(tuple(terms_dict[None]), system)]
-                     if len(terms_dict[None])>1 else terms_dict[None])
-    
+
+    other_terms = (
+        [SumOperator(tuple(terms_dict[None]), system)]
+        if len(terms_dict[None]) > 1
+        else terms_dict[None]
+    )
+
     if other_terms:
         result = result + other_terms[0]
 
@@ -313,8 +399,8 @@ def matrix_change_to_orthogonal_basis(
 
 def simplify_quadratic_form(
     operator: QuadraticFormOperator,
-    hermitic=True,
-    scalar_product=hs_scalar_product,
+    hermitic: bool = True,
+    scalar_product: Callable = hs_scalar_product,
 ):
     """
     Takes a 2-body operator and returns lists weights, ops
@@ -433,195 +519,152 @@ def selfconsistent_meanfield_from_quadratic_form(
     return rho
 
 
-def build_quadratic_form_from_operator(
-    operator: Operator, system=None, simplify: bool = True, herm: bool = True
+def ensure_hermitician_basis(self: QuadraticFormOperator):
+    """
+    Ensure that the quadratic form is expanded using a
+    basis of hermitician operators.
+    """
+    basis = self.basis
+    assert all(b.isherm for b in basis)
+    return self
+
+    
+    coeffs = self.weights
+    system = self.system
+    offset = self.offset
+
+    # Reduce the basis to an hermitician basis
+    new_basis = []
+    new_coeffs = []
+    commut_terms = []
+    local_terms = []
+    for la, b in zip(coeffs, basis):
+        if b.isherm:
+            new_basis.append(b)
+            new_coeffs.append(la)
+            continue
+        # Not hermitician. Decompose as two hermitician terms
+        # and an offset
+        if la == 0:
+            continue
+        b_h = ((b + b.dag()) * 0.5).simplify()
+        b_a = ((b - b.dag()) * 0.5j).simplify()
+        if b_h:
+            new_basis.append(b_h)
+            new_coeffs.append(la)
+            if b_a:
+                new_basis.append(b_a)
+                new_coeffs.append(la)
+                comm = ((b_h * b_a - b_a * b_h) * (1j * la)).simplify()
+                if comm:
+                    local_terms.append(comm)
+        elif b_a:
+            new_basis.append(b_a)
+            new_coeffs.append(la)
+
+    local_terms = [term for term in local_terms if term]
+    if offset is not None:
+        local_terms = [offset] + local_terms
+    if local_terms:
+        new_offset = sum(local_terms).simplify()
+
+    if not (bool(new_offset)):
+        new_offset = None
+    return QuadraticFormOperator(
+        tuple(new_basis), tuple(new_coeffs), system, new_offset
+    )
+
+
+def one_body_operator_hermitician_hs_sp(x: OneBodyOperator, y: OneBodyOperator):
+    """
+    Hilbert Schmidt scalar product optimized for OneBodyOperators
+    """
+    result = 0
+    terms_x = x.terms if isinstance(x, OneBodyOperator) else (x,)
+    terms_y = y.terms if isinstance(y, OneBodyOperator) else (y,)
+    for t1, t2 in zip(terms_x, terms_y):
+        if t1.site == t2.site:
+            result += (t1.operator * t2.operator).tr()
+        else:
+            result += t1.operator.tr() * t2.operator.tr()
+    return result
+
+
+def simplify_hermitician_quadratic_form(
+    self: QuadraticFormOperator, sp: Callable = one_body_operator_hermitician_hs_sp
 ):
     """
-    Try to bring operator to a quadratic form object.
+    Assuming that the basis is hermitician, and the coefficients are real,
+    find another representation using a smaller basis.
     """
-    return build_quadratic_operator(operator, herm)
+    basis = tuple((b.simplify() for b in self.basis))
+    coeffs = self.weights
+    system = self.system
+    offset = self.offset
+    if offset:
+        offset = offset.simplify()
 
-    def scalar_to_quadratic_form(scalar):
-        """process scalars"""
-        if operator == 0:
-            return QuadraticFormOperator([], [], system, False)
+    def reduce_real_case(real_basis, real_coeffs, sp):
+        # remove null coeffs:
+        real_basis = tuple((b for c, b in zip(real_coeffs, real_basis) if c))
+        real_coeffs = [c for c in real_coeffs if abs(c) > 1e-10]
+        if len(real_coeffs) == 0:
+            return tuple(), tuple()
 
-        if isinstance(scalar, complex) and (herm or operator.imag == 0):
-            scalar = scalar.real
+        # first build the gramm matrix
+        gram_mat = gram_matrix(real_basis, sp)
 
-        return QuadraticFormOperator(
-            (ScalarOperator(1, system),), (scalar,), system, None
-        )
+        # and its SVD decomposition
+        u_mat, s_mat, vd_mat = svd(gram_mat, full_matrices=False, hermitian=True)
 
-    def local_to_quadratic_form(local_operator):
-        """process local operators"""
-        site = local_operator.site
-        loc_op = local_operator.operator
+        # t is a matrix that builds a reduced basis of hermitician operators
+        # from the original generators
 
-        return QuadraticFormOperator(
+        t = np.array([row * s ** (-0.5) for row, s in zip(vd_mat, s_mat) if s > 1e-10])
+
+        if len(t) == 0:
+            return tuple(), tuple()
+
+        # Then, we build the change back to the hermitician basis
+        q = np.array(
+            [row * s ** (0.5) for row, s in zip(u_mat.T, s_mat) if s > 1e-10]
+        ).T
+        # Now, we build the (non-diaognal) quadratic form in the new reduced basis
+        new_qf = (q.T * real_coeffs).dot(q)
+        # and diagonalize it
+        real_coeffs, evecs = np.linalg.eigh(new_qf)
+        evecs = evecs[:, abs(real_coeffs) > 1e-10]
+        real_coeffs = real_coeffs[abs(real_coeffs) > 1e-10]
+        # the optimized expansion is the product of the matrix of eigenvectors times
+        # the basis reduction
+        t = evecs.T.dot(t)
+
+        # finally, rebuild the basis. This is the most expensive part
+        real_basis = tuple(
             (
-                LocalOperator(site, loc_op + 0.5, system),
-                LocalOperator(site, loc_op - 0.5, system),
-            ),
-            (
-                0.5,
-                -0.5,
-            ),
-            system,
-        )
-
-    def one_body_to_quadratic_form(ob_op):
-        """process local operators"""
-        return QuadraticFormOperator(
-            (
-                ob_op + 0.5,
-                ob_op.dag() - 0.5,
-            ),
-            (
-                0.5,
-                -0.5,
-            ),
-            system,
-            None,
-        )
-
-    def product_to_quadratic_form(prod_op):
-        """Process product operators"""
-        sites_op = prod_op.sites_op
-        system = prod_op.system
-        if len(sites_op) > 2:
-            raise ValueError(
-                "argument is not a quadratic form on local operators",
-                type(prod_op),
-                " with ",
-                len(sites_op),
-                "factors",
+                OneBodyOperator(
+                    tuple((op * c for c, op in zip(row, real_basis) if abs(c) > 1e-10)),
+                    system,
+                ).simplify()
+                for row in t
             )
-
-        prefactor = prod_op.prefactor
-        if len(sites_op) == 0:
-            return scalar_to_quadratic_form(prefactor)
-        if len(sites_op) == 1:
-            site, loc_op = next(iter(sites_op.items()))
-            return local_to_quadratic_form(LocalOperator(site, loc_op, system))
-
-        factor1, factor2 = tuple(
-            (
-                site,
-                op,
-            )
-            for site, op in sites_op.items()
         )
 
-        prefactor = prefactor * 0.5
-        if not factor1[1].isherm:
-            if factor2[1].isherm:
-                factor1, factor2 = factor2, factor1
-            else:
-                factor1 = factor1[0], factor1[1].dag()
+        return real_basis, tuple(real_coeffs)
 
-        terms = (
-            OneBodyOperator(
-                (
-                    LocalOperator(factor1[0], factor1[1], system),
-                    LocalOperator(factor2[0], factor2[1] * prefactor, system),
-                ),
-                system,
-                None,
-            ),
-            OneBodyOperator(
-                (
-                    LocalOperator(factor1[0], factor1[1], system),
-                    LocalOperator(factor2[0], factor2[1] * (-prefactor), system),
-                ),
-                system,
-                None,
-            ),
-        )
-        weights = (
-            0.5,
-            -0.5,
-        )
-        return QuadraticFormOperator(terms, weights, system, None)
+    if any(hasattr(z, "imag") for z in coeffs):
+        coeffs_r = tuple((z.real if hasattr(z, "real") else z for z in coeffs))
+        coeffs_i = tuple((z.imag if hasattr(z, "imag") else 0 for z in coeffs))
+        basis_r, coeffs_r = reduce_real_case(basis, coeffs_r, sp)
+        basis_i, coeffs_i = reduce_real_case(basis, coeffs_i, sp)
+        basis = basis_r + basis_i
+        coeffs = coeffs_r + tuple((1j * c for c in coeffs_i))
+    else:
+        basis, coeffs = reduce_real_case(basis, coeffs, sp)
 
-    def sum_to_quadratic_form(operator):
-        terms = []
-        weights = []
-        offset = []
-        for term in operator.terms:
-            q_term = build_quadratic_form_from_operator(term, system, False, True)
-            if q_term is None:
-                return None
-            terms.extend(q_term.terms)
-            weights.extend(q_term.weights)
-            if q_term.offset:
-                offset.extend(q_term.offset)
-        return QuadraticFormOperator(
-            tuple(terms), tuple(weights), system, SumOperator(tuple(offset), system)
-        )
+    result = QuadraticFormOperator(basis, coeffs, system, offset)
 
-    def subclass_to_quadratic_form(operator):
-        for base_type, func in lookup_table_methods.items():
-            if isinstance(operator, base_type):
-                return func(operator)
-
-        raise ValueError(
-            "argument is not a quadratic form on local operators",
-            type(operator),
-        )
-
-    def handle_non_hermitic_case(operator):
-        real_part, imag_part = hermitian_and_antihermitian_parts(operator)
-        real_part = simplify_sum_operator(real_part)
-        imag_part = simplify_sum_operator(imag_part)
-
-        if not bool(imag_part):
-            return build_quadratic_form_from_operator(real_part, system, simplify, True)
-
-        if not bool(real_part):
-            return (
-                build_quadratic_form_from_operator(imag_part, system, simplify, True)
-                * 1j
-            )
-
-        result_re = build_quadratic_form_from_operator(
-            real_part, system, simplify, True
-        )
-
-        result_im = build_quadratic_form_from_operator(
-            imag_part, system, simplify, True
-        )
-
-        terms = result_re.terms + result_im.terms
-        weights = result_re.weights + tuple(weight * 1j for weight in result_im.weights)
-        return QuadraticFormOperator(terms, weights, system, None)
-
-    lookup_table_methods = {
-        int: scalar_to_quadratic_form,
-        float: scalar_to_quadratic_form,
-        complex: scalar_to_quadratic_form,
-        QuadraticFormOperator: (lambda x: x),
-        LocalOperator: local_to_quadratic_form,
-        OneBodyOperator: one_body_to_quadratic_form,
-        ProductOperator: product_to_quadratic_form,
-        SumOperator: sum_to_quadratic_form,
-    }
-
-    if isinstance(operator, Operator):
-        if system is None:
-            system = operator.system
-
-        # Reduce the general case to the hermitician case:
-        herm = herm or operator.isherm
-        if not herm:
-            return handle_non_hermitic_case(operator)
-
-        if simplify:
-            operator = operator.simplify()
-    # Now, process assuming operator is hermitician
-    return lookup_table_methods.get(type(operator), subclass_to_quadratic_form)(
-        operator
-    )
+    return result
 
 
 # #####################

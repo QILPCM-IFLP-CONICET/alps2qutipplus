@@ -46,7 +46,9 @@ def test_first():
         imag_part = simplify_sum_operator(imag_part)
         if qutip_op.isherm:
             if bool(imag_part):
-                print("imaginary part:", type(imag_part), imag_part.simplify())
+                print(qutip_op)
+                print("real part:", type(real__part), real_part.to_qutip())
+                print("imaginary part:", type(imag_part), imag_part.to_qutip())
                 print([type(t) for t in imag_part.terms])
             assert not bool(
                 imag_part
