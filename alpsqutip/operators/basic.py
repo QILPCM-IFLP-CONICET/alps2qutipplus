@@ -108,9 +108,7 @@ def is_scalar_op(op: Qobj) -> bool:
     if not hasattr(data, "nonzero"):
         # if DIA
         if hasattr(data, "num_diag"):
-            print("is of type Dia", data.num_diag)
             if data.num_diag == 0:
-                print("No diagonal entries. Must be 0")
                 return True
             corner_element = op[0, 0]
             if data.num_diag > 1 or corner_element == 0:
@@ -120,6 +118,13 @@ def is_scalar_op(op: Qobj) -> bool:
         # If sparse, convert it to the scipy form
         if hasattr(data, "as_scipy"):
             data = data.as_scipy()
+            if len(data.data)==0:
+                return True
+            if len(data.data)!=data.shape[0]:
+                return False
+            val = data.data[0]
+            return all(val == op[i, i] for i in range(data.shape[0]))
+            
         # If the matrix is dense, look element by element.
         elif hasattr(data, "as_ndarray"):
             dim = data.shape[0]
