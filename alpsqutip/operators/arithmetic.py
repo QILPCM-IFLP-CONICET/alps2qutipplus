@@ -31,17 +31,17 @@ class SumOperator(Operator):
 
     def __init__(
         self,
-        term_list: tuple,
+        term_tuple: tuple,
         system=None,
         isherm: Optional[bool] = None,
         isdiag: Optional[bool] = None,
     ):
-        assert isinstance(term_list, tuple)
+        assert isinstance(term_tuple, tuple)
         assert system is not None
-        self.terms = tuple(term_list)
+        self.terms = term_tuple
         assert system is not None
-        if system is None and term_list:
-            for term in term_list:
+        if system is None and term_tuple:
+            for term in term_tuple:
                 if system is None:
                     system = term.system
                 else:

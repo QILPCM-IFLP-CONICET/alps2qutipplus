@@ -11,16 +11,16 @@ from qutip import Qobj, qeye as qutip_qeye, tensor as qutip_tensor
 
 from alpsqutip.model import SystemDescriptor
 from alpsqutip.operator_functions import eigenvalues
-from alpsqutip.operators import (
+from alpsqutip.operators.arithmetic import OneBodyOperator, SumOperator
+from alpsqutip.operators.basic import (
     LocalOperator,
-    OneBodyOperator,
     Operator,
     ProductOperator,
-    QutipOperator,
     ScalarOperator,
-    SumOperator,
+    check_multiplication,
+    is_diagonal_op,
 )
-from alpsqutip.operators.basic import check_multiplication, is_diagonal_op
+from alpsqutip.operators.qutip import QutipOperator
 from alpsqutip.utils import operator_to_wolfram
 
 
@@ -498,7 +498,7 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
                 -self.k
             )  # pylint: disable=unused-variable
             self.k = self.k + log_prefactor
-            self.free_energy = log_prefactor
+            self.free_energy = -log_prefactor
             self.normalized = True
 
     def partial_trace(self, sites):
@@ -508,7 +508,7 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
         if not self.normalized:
             rho, log_prefactor = safe_exp_and_normalize(-self.k)
             self.k = self.k + log_prefactor
-            self.free_energy = log_prefactor
+            self.free_energy = -log_prefactor
             self.normalized = True
             return rho.to_qutip()
         result = (-self.k).to_qutip().expm()
@@ -543,7 +543,11 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
             k_by_site = {k.site: k.operator}
         elif isinstance(k, OneBodyOperator):
             self.system = system or k.system
-            k_by_site = {k_local.site: k_local.operator for k_local in k.terms}
+            k_by_site = {
+                k_local.site: k_local.operator
+                for k_local in k.terms
+                if isinstance(k_local, LocalOperator)
+            }
         elif isinstance(k, dict):
             self.system = system
             k_by_site = k
@@ -567,7 +571,7 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
                 self.free_energies = {site: 0 for site in k_by_site}
         else:
             f_locals = {
-                site: np.log((-l_op).expm().tr()) for site, l_op in k_by_site.items()
+                site: -np.log((-l_op).expm().tr()) for site, l_op in k_by_site.items()
             }
 
             if system:
@@ -579,7 +583,7 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
                 self.free_energies = f_locals
 
             k_by_site = {
-                site: local_k + f_locals[site] for site, local_k in k_by_site.items()
+                site: local_k - f_locals[site] for site, local_k in k_by_site.items()
             }
 
         self.k_by_site = k_by_site
@@ -859,10 +863,9 @@ def _(x_op: ProductDensityOperator, y_op: LocalOperator):
 
 
 @Operator.register_mul_handler((ProductOperator, ProductDensityOperator))
-def _(x_op: ProductDensityOperator, y_op: ProductDensityOperator):
+def _(x_op: ProductOperator, y_op: ProductDensityOperator):
     system = y_op.system or x_op.system
-    prefactor = x_op.prefactor * y_op.prefactor
-    prefactor = prefactor * np.exp(sum(y_op.local_fs.values()))
+    prefactor = x_op.prefactor
     sites_op = x_op.sites_op.copy()
     for site, factor in y_op.sites_op.items():
         if site in sites_op:
@@ -1103,4 +1106,5 @@ def _(x_op: GibbsProductDensityOperator, y_op: Operator):
 @Operator.register_mul_handler((LocalOperator, GibbsProductDensityOperator))
 @Operator.register_mul_handler((ProductOperator, GibbsProductDensityOperator))
 def _(x_op: Operator, y_op: GibbsProductDensityOperator):
-    return x_op * y_op.to_product_state()
+    y_prod = y_op.to_product_state()
+    return x_op * y_prod

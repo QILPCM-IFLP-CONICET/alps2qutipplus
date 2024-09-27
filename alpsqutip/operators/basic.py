@@ -14,7 +14,7 @@ from qutip import Qobj
 from alpsqutip.model import SystemDescriptor
 
 
-def check_multiplication(a, b, result, func=None):
+def check_multiplication(a, b, result, func=None) -> bool:
     if isinstance(a, Qobj) and isinstance(b, Qobj):
         return True
     if isinstance(a, Operator):
@@ -36,6 +36,7 @@ def check_multiplication(a, b, result, func=None):
     assert (
         abs(q_trace - tr) < 1e-8
     ), f"{type(a)}*{type(b)}->{type(result)} ({where}) failed: traces are different  {tr}!={q_trace}"
+    return True
 
 
 def empty_op(op: Qobj) -> bool:
@@ -105,6 +106,17 @@ def is_scalar_op(op: Qobj) -> bool:
     data = op.data
     # Qutip 5
     if not hasattr(data, "nonzero"):
+        # if DIA
+        if hasattr(data, "num_diag"):
+            print("is of type Dia", data.num_diag)
+            if data.num_diag == 0:
+                print("No diagonal entries. Must be 0")
+                return True
+            corner_element = op[0, 0]
+            if data.num_diag > 1 or corner_element == 0:
+                return False
+            return all(corner_element == op[i, i] for i in range(data.shape[0]))
+
         # If sparse, convert it to the scipy form
         if hasattr(data, "as_scipy"):
             data = data.as_scipy()
@@ -116,15 +128,16 @@ def is_scalar_op(op: Qobj) -> bool:
                 return False
             prefactor = data[0, 0]
             return all(data[i, i] == prefactor for i in range(dim))
-        else:
-            logging.warning("elements cannot be determined. Assuming False.")
-            return False
+        print(type(data))
+
+        logging.warning("elements cannot be determined. Assuming False.")
+        return False
     # Now, we can work with a scipy sparse array
 
     ies, jeys = data.nonzero()
     if len(ies) == 0:
         return True
-    elif len(ies) != data.shape[0]:
+    if len(ies) != data.shape[0]:
         return False
     if any(i != j for i, j in zip(ies, jeys)):
         return False
@@ -253,7 +266,7 @@ class Operator:
                 return result  # func(factor, self)
 
         raise ValueError(type(self), "cannot be multiplied  with ", type(factor))
-        return factor.to_qutip_operator() * self.to_qutip_operator()
+        # return factor.to_qutip_operator() * self.to_qutip_operator()
 
     def __rsub__(self, operand):
         if operand is None:
@@ -495,10 +508,9 @@ class LocalOperator(Operator):
         dimensions = self.system.dimensions
         operator = self.operator
         if isinstance(operator, (int, float, complex)):
-            operator = qutip.qeye(dimensions[site]) * operator
-        elif isinstance(operator, Operator):
+            return qutip.qeye(dimensions[site]) * operator
+        if isinstance(operator, Operator):
             operator = operator.to_qutip()
-
         return qutip.tensor(
             [operator if s == site else qutip.qeye(d) for s, d in dimensions.items()]
         )
@@ -563,8 +575,8 @@ class ProductOperator(Operator):
 
     def __repr__(self):
         result = "  " + str(self.prefactor) + " * (\n  "
-        result += "\n  ".join(
-            f"({item[1].full()} <-  {item[0]})  (x)" for item in self.sites_op.items()
+        result += "  (x)\n  ".join(
+            f"({item[1].full()} <-  {item[0]})" for item in self.sites_op.items()
         )
         result += "\n   )"
         return result

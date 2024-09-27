@@ -76,6 +76,8 @@ def test_act_over():
             "1[1]",
             "1[2]",
         },
+        "log unitary": {"1[0]", "1[3]", "1[2]", "1[1]"},
+        "single interaction term": {"1[1]", "1[0]"},
     }
 
     for name, operator in full_test_cases.items():
@@ -385,13 +387,14 @@ def test_arithmetic_operators():
         check_operator_equality(result.to_qutip(), op1_qutip.dag())
 
         for key2, test_operator2 in operator_type_cases.items():
-            # print("add ", key1, " and ", key2)
+            print("add ", key1, " and ", key2)
             op2_qutip = operator_type_cases_qutip[key2]
+            print(type(test_operator1), "+", type(test_operator2))
             result = test_operator1 + test_operator2
 
             check_operator_equality(result.to_qutip(), (op1_qutip + op2_qutip))
 
-            # print("product of ", key1, " and ", key2)
+            print("product of ", key1, " and ", key2)
             result = test_operator1 * test_operator2
 
             check_operator_equality(result.to_qutip(), (op1_qutip * op2_qutip))

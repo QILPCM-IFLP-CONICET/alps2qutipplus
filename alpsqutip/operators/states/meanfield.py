@@ -6,6 +6,7 @@ from typing import Optional, Union
 
 import numpy as np
 from qutip import Qobj
+from scipy.optimize import minimize_scalar
 
 from alpsqutip.operators import (
     LocalOperator,
@@ -18,6 +19,7 @@ from alpsqutip.operators import (
 from alpsqutip.operators.qutip import QutipOperator
 from alpsqutip.operators.states.states import (
     DensityOperatorMixin,
+    GibbsProductDensityOperator,
     ProductDensityOperator,
 )
 
@@ -186,3 +188,68 @@ def self_consistent_meanfield(operator, sigma0=None, max_it=100) -> ProductOpera
         sigma0 = sigma0 / sigma0.tr()
 
     return sigma0
+
+
+def self_consistent_quadratic_mfa(ham: Operator):
+    """
+    Find the Mean field approximation for the exponential
+    of a quadratic form.
+
+    Starts by decomposing ham as a quadratic form
+
+    """
+    from alpsqutip.operators.quadratic import (
+        QuadraticFormOperator,
+        build_quadratic_form_from_operator,
+    )
+
+    system = ham.system
+    print("Decomposing as simplified quadratic form")
+    ham_qf = build_quadratic_form_from_operator(ham, isherm=True, simplify=True)
+    # TODO: use random choice
+    print("Reduce the basis")
+    basis = sorted(
+        [(w, b) for w, b in zip(ham_qf.weights, ham_qf.basis) if w < 0],
+        key=lambda x: x[0],
+    )
+    w_0, b_0 = basis[0]
+    offset = ham_qf.offset or ScalarOperator(0, system)
+
+    def try_state(beta):
+        k_op = beta * w_0 * b_0 + offset
+        return GibbsProductDensityOperator(k_op, system=b_0.system), k_op
+
+    def hartree_free_energy(state, k_op):
+        free_energy = np.real(sum(state.free_energies.values()))
+        h_av, k_av = np.real(state.expect([state.expect(ham), state.expect(k_op)]))
+        return np.real(h_av - k_av + free_energy)
+
+    # Start by optimizing with the best candidate:
+    def try_function(beta):
+        return hartree_free_energy(*try_state(beta)) + 0.001 * beta**2
+
+    res = minimize_scalar(try_function, (-0.2, 0.25), method="golden")
+    # Now, run a self consistent loop
+    print("s=", res.x)
+    h_fe = res.fun
+    phis = [0 for b in basis]
+    phis[0] = res.x
+    state_mf, kappa = try_state(res.x)
+
+    for it_int in range(10):
+        exp_vals = state_mf.expect([w_b[1] for w_b in basis]).real
+        new_phis = [2 * o_av for w_b, o_av in zip(basis, exp_vals)]
+        phis = new_phis
+        # phis = [.75*a + .25*b for a,b in zip(phis, new_phis)]
+        kappa = offset + sum(
+            w_b[1] * (w_b[0] * coeff) for coeff, w_b in zip(phis, basis)
+        )
+        kappa = kappa.simplify()
+        state_mf = GibbsProductDensityOperator(kappa, system=system)
+        new_h_fe = hartree_free_energy(state_mf, kappa)
+        print("checking if", new_h_fe, ">", h_fe)
+        if new_h_fe > h_fe:
+            break
+        h_fe = new_h_fe
+        print("it:", it_int)
+    return state_mf
