@@ -7,7 +7,7 @@ Functions for operators.
 from numbers import Number
 from typing import Tuple
 
-from numpy import array as np_array, real, imag
+from numpy import array as np_array, imag, real
 
 from alpsqutip.operators.arithmetic import OneBodyOperator, SumOperator
 from alpsqutip.operators.basic import (

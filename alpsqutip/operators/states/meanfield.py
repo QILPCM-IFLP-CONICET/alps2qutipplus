@@ -5,10 +5,8 @@ Module that implements a meanfield approximation of a Gibbsian state
 from typing import Optional, Union
 
 import numpy as np
-
-from scipy.optimize import minimize_scalar
 from qutip import Qobj
-
+from scipy.optimize import minimize_scalar
 
 from alpsqutip.operators import (
     LocalOperator,
@@ -21,8 +19,8 @@ from alpsqutip.operators import (
 from alpsqutip.operators.qutip import QutipOperator
 from alpsqutip.operators.states.states import (
     DensityOperatorMixin,
-    ProductDensityOperator,
     GibbsProductDensityOperator,
+    ProductDensityOperator,
 )
 
 
@@ -202,8 +200,10 @@ def self_consistent_quadratic_mfa(ham: Operator):
     Starts by decomposing ham as a quadratic form
 
     """
-    from alpsqutip.operators.quadratic import (QuadraticFormOperator,
-                                               build_quadratic_form_from_operator)
+    from alpsqutip.operators.quadratic import (
+        QuadraticFormOperator,
+        build_quadratic_form_from_operator,
+    )
 
     system = ham.system
     print("Decomposing as simplified quadratic form")

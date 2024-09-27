@@ -20,8 +20,8 @@ from alpsqutip.operators.basic import (
 )
 from alpsqutip.operators.states import (
     GibbsProductDensityOperator,
-    ProductDensityOperator,
     MixtureDensityOperator,
+    ProductDensityOperator,
 )
 from alpsqutip.scalarprod import gram_matrix
 
