@@ -108,12 +108,12 @@ def is_scalar_op(op: Qobj) -> bool:
     if not hasattr(data, "nonzero"):
         # if DIA
         if hasattr(data, "num_diag"):
-            print("is of type Dia", data.num_diag )
+            print("is of type Dia", data.num_diag)
             if data.num_diag == 0:
                 print("No diagonal entries. Must be 0")
                 return True
             corner_element = op[0, 0]
-            if data.num_diag >1 or corner_element==0:
+            if data.num_diag > 1 or corner_element == 0:
                 return False
             return all(corner_element == op[i, i] for i in range(data.shape[0]))
 
@@ -230,8 +230,7 @@ class Operator:
                 return result  # func(self, factor)
 
         if not hasattr(factor, "to_qutip_operator"):
-            raise ValueError(
-                type(self), "cannot be multiplied with ", type(factor))
+            raise ValueError(type(self), "cannot be multiplied with ", type(factor))
         factor = factor.to_qutip_operator()
         return self.to_qutip_operator() * factor
 
@@ -266,8 +265,7 @@ class Operator:
                 result = func(factor, self)
                 return result  # func(factor, self)
 
-        raise ValueError(
-            type(self), "cannot be multiplied  with ", type(factor))
+        raise ValueError(type(self), "cannot be multiplied  with ", type(factor))
         # return factor.to_qutip_operator() * self.to_qutip_operator()
 
     def __rsub__(self, operand):
@@ -288,8 +286,7 @@ class Operator:
             return self * (1.0 / operand)
         if isinstance(operand, Operator):
             return self * operand.inv()
-        raise ValueError("Division of an operator by ",
-                         type(operand), " not defined.")
+        raise ValueError("Division of an operator by ", type(operand), " not defined.")
 
     def _repr_latex_(self):
         """LaTeX Representation"""
@@ -339,8 +336,7 @@ class Operator:
 
         op_qutip = self.to_qutip()
         try:
-            max_eval = eigenvalues(op_qutip, sort="high",
-                                   sparse=True, eigvals=3)[0]
+            max_eval = eigenvalues(op_qutip, sort="high", sparse=True, eigvals=3)[0]
         except ArpackError:
             max_eval = max(op_qutip.diag())
 
@@ -516,8 +512,7 @@ class LocalOperator(Operator):
         if isinstance(operator, Operator):
             operator = operator.to_qutip()
         return qutip.tensor(
-            [operator if s == site else qutip.qeye(
-                d) for s, d in dimensions.items()]
+            [operator if s == site else qutip.qeye(d) for s, d in dimensions.items()]
         )
 
     def tr(self):
@@ -557,8 +552,7 @@ class ProductOperator(Operator):
             prefactor = 0
             self.sites_op = {}
         self.prefactor = prefactor
-        assert isinstance(prefactor, (int, float, complex)
-                          ), f"{type(prefactor)}"
+        assert isinstance(prefactor, (int, float, complex)), f"{type(prefactor)}"
         self.system = system
         if system is not None:
             self.size = len(system.sites)
@@ -629,8 +623,7 @@ class ProductOperator(Operator):
         prefactor = self.prefactor
 
         n_ops = len(sites_op)
-        sites_op = {site: op_local.inv()
-                    for site, op_local in sites_op.items()}
+        sites_op = {site: op_local.inv() for site, op_local in sites_op.items()}
         if n_ops == 1:
             site, op_local = next(iter(sites_op.items()))
             return LocalOperator(site, op_local / prefactor, system)
@@ -962,8 +955,7 @@ def _(x_op: ProductOperator, y_op: ProductOperator):
     site_op = x_op.sites_op.copy()
     site_op_y = y_op.sites_op
     for site, op_local in site_op_y.items():
-        site_op[site] = site_op[site] * \
-            op_local if site in site_op else op_local
+        site_op[site] = site_op[site] * op_local if site in site_op else op_local
     prefactor = x_op.prefactor * y_op.prefactor
     if len(site_op) == 0 or prefactor == 0:
         return ScalarOperator(prefactor, system)
