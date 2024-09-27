@@ -498,7 +498,7 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
                 -self.k
             )  # pylint: disable=unused-variable
             self.k = self.k + log_prefactor
-            self.free_energy = log_prefactor
+            self.free_energy = -log_prefactor
             self.normalized = True
 
     def partial_trace(self, sites):
@@ -508,7 +508,7 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
         if not self.normalized:
             rho, log_prefactor = safe_exp_and_normalize(-self.k)
             self.k = self.k + log_prefactor
-            self.free_energy = log_prefactor
+            self.free_energy = -log_prefactor
             self.normalized = True
             return rho.to_qutip()
         result = (-self.k).to_qutip().expm()
@@ -543,7 +543,7 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
             k_by_site = {k.site: k.operator}
         elif isinstance(k, OneBodyOperator):
             self.system = system or k.system
-            k_by_site = {k_local.site: k_local.operator for k_local in k.terms}
+            k_by_site = {k_local.site: k_local.operator for k_local in k.terms if isinstance(k_local, LocalOperator)}
         elif isinstance(k, dict):
             self.system = system
             k_by_site = k
@@ -567,7 +567,7 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
                 self.free_energies = {site: 0 for site in k_by_site}
         else:
             f_locals = {
-                site: np.log((-l_op).expm().tr()) for site, l_op in k_by_site.items()
+                site: -np.log((-l_op).expm().tr()) for site, l_op in k_by_site.items()
             }
 
             if system:
@@ -579,7 +579,7 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
                 self.free_energies = f_locals
 
             k_by_site = {
-                site: local_k + f_locals[site] for site, local_k in k_by_site.items()
+                site: local_k - f_locals[site] for site, local_k in k_by_site.items()
             }
 
         self.k_by_site = k_by_site

@@ -14,7 +14,7 @@ from qutip import Qobj
 from alpsqutip.model import SystemDescriptor
 
 
-def check_multiplication(a, b, result, func=None):
+def check_multiplication(a, b, result, func=None) -> bool:
     if isinstance(a, Qobj) and isinstance(b, Qobj):
         return True
     if isinstance(a, Operator):
@@ -36,6 +36,7 @@ def check_multiplication(a, b, result, func=None):
     assert (
         abs(q_trace - tr) < 1e-8
     ), f"{type(a)}*{type(b)}->{type(result)} ({where}) failed: traces are different  {tr}!={q_trace}"
+    return True
 
 
 def empty_op(op: Qobj) -> bool:
@@ -112,19 +113,20 @@ def is_scalar_op(op: Qobj) -> bool:
         elif hasattr(data, "as_ndarray"):
             dim = data.shape[0]
             data = data.as_ndarray()
-            if any(data[i, j] != 0 for i in range(dim) for j in range(dim) if i != j):
+            if any(data[i, j] != 0
+                   for i in range(dim) for j in range(dim) if i != j):
                 return False
             prefactor = data[0, 0]
             return all(data[i, i] == prefactor for i in range(dim))
-        else:
-            logging.warning("elements cannot be determined. Assuming False.")
-            return False
+
+        logging.warning("elements cannot be determined. Assuming False.")
+        return False
     # Now, we can work with a scipy sparse array
 
     ies, jeys = data.nonzero()
     if len(ies) == 0:
         return True
-    elif len(ies) != data.shape[0]:
+    if len(ies) != data.shape[0]:
         return False
     if any(i != j for i, j in zip(ies, jeys)):
         return False
@@ -253,7 +255,7 @@ class Operator:
                 return result  # func(factor, self)
 
         raise ValueError(type(self), "cannot be multiplied  with ", type(factor))
-        return factor.to_qutip_operator() * self.to_qutip_operator()
+        # return factor.to_qutip_operator() * self.to_qutip_operator()
 
     def __rsub__(self, operand):
         if operand is None:
@@ -548,7 +550,8 @@ class ProductOperator(Operator):
             }
 
     def __bool__(self):
-        return bool(self.prefactor) and all(bool(factor) for factor in self.sites_op)
+        return (bool(self.prefactor) and
+                all(bool(factor) for factor in self.sites_op))
 
     def __neg__(self):
         return ProductOperator(self.sites_op, -self.prefactor, self.system)
@@ -562,8 +565,9 @@ class ProductOperator(Operator):
 
     def __repr__(self):
         result = "  " + str(self.prefactor) + " * (\n  "
-        result += "\n  ".join(
-            f"({item[1].full()} <-  {item[0]})  (x)" for item in self.sites_op.items()
+        result += "  (x)\n  ".join(
+            f"({item[1].full()} <-  {item[0]})"
+            for item in self.sites_op.items()
         )
         result += "\n   )"
         return result
