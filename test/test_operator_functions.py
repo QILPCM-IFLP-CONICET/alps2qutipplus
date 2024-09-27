@@ -100,7 +100,6 @@ def qutip_relative_entropy(qutip_1, qutip_2):
     return qutip.entropy_relative(qutip_1, qutip_2)
 
 
-
 def test_decompose_hermitician():
     """Test the decomposition as Q=A+iB with
     A=A.dag() and B=B.dag()

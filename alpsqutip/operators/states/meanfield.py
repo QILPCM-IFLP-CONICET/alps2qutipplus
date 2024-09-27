@@ -157,12 +157,10 @@ def project_meanfield(operator, sigma0=None, **kwargs):
         terms = [np.prod(list(factors.values()))]
 
         for name, local_op in operator.sites_op.items():
-            prefactor = np.prod(
-                [f for name_f, f in factors.items() if name_f != name])
+            prefactor = np.prod([f for name_f, f in factors.items() if name_f != name])
             loc_mv = factors[name]
             terms.append(
-                LocalOperator(name, prefactor *
-                              (local_op - loc_mv), system=system)
+                LocalOperator(name, prefactor * (local_op - loc_mv), system=system)
             )
         return sum(terms)
 
@@ -207,13 +205,12 @@ def self_consistent_quadratic_mfa(ham: Operator):
 
     system = ham.system
     print("Decomposing as simplified quadratic form")
-    ham_qf = build_quadratic_form_from_operator(
-        ham, isherm=True, simplify=True)
+    ham_qf = build_quadratic_form_from_operator(ham, isherm=True, simplify=True)
     # TODO: use random choice
     print("Reduce the basis")
     basis = sorted(
         [(w, b) for w, b in zip(ham_qf.weights, ham_qf.basis) if w < 0],
-        key=lambda x: x[0]
+        key=lambda x: x[0],
     )
     w_0, b_0 = basis[0]
     offset = ham_qf.offset or ScalarOperator(0, system)
@@ -224,8 +221,7 @@ def self_consistent_quadratic_mfa(ham: Operator):
 
     def hartree_free_energy(state, k_op):
         free_energy = np.real(sum(state.free_energies.values()))
-        h_av, k_av = np.real(state.expect(
-            [state.expect(ham), state.expect(k_op)]))
+        h_av, k_av = np.real(state.expect([state.expect(ham), state.expect(k_op)]))
         return np.real(h_av - k_av + free_energy)
 
     # Start by optimizing with the best candidate:

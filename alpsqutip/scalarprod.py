@@ -162,11 +162,9 @@ def project_op(op: Operator, orthogonal_basis: list, sp: Callable):
     return np.array([sp(op2, op) for op2 in orthogonal_basis])
 
 
-
-
-def build_hermitician_basis(basis, sp=lambda x,y:((x.dag()*y).tr())):
+def build_hermitician_basis(basis, sp=lambda x, y: ((x.dag() * y).tr())):
     """
-    Build a basis of independent hermitician operators 
+    Build a basis of independent hermitician operators
     from a set of operators, and the coefficients for the expansion
     of basis in terms of the new orthogonal basis.
     """
@@ -182,36 +180,51 @@ def build_hermitician_basis(basis, sp=lambda x,y:((x.dag()*y).tr())):
         if b.isherm:
             if b:
                 new_basis.append(b)
-                indices[-1].append((indx, 1.,))
-                indx +=1
+                indices[-1].append(
+                    (
+                        indx,
+                        1.0,
+                    )
+                )
+                indx += 1
         else:
-            op = (b+b.dag())# .simplify()
+            op = b + b.dag()  # .simplify()
             if op:
                 new_basis.append(op)
-                indices[-1].append((indx, .5,))
-                indx +=1
-            op = (1j*b-1j*b.dag()) # .simplify()
+                indices[-1].append(
+                    (
+                        indx,
+                        0.5,
+                    )
+                )
+                indx += 1
+            op = 1j * b - 1j * b.dag()  # .simplify()
             if op:
-                new_basis.append(1j*(b-b.dag()))
-                indices[-1].append((indx, -.5j,))
-                indx +=1
+                new_basis.append(1j * (b - b.dag()))
+                indices[-1].append(
+                    (
+                        indx,
+                        -0.5j,
+                    )
+                )
+                indx += 1
 
-    # Now, we work with the hermitician basis. 
+    # Now, we work with the hermitician basis.
     # The first step is to build the Gram's matrix
     gram_mat = gram_matrix(new_basis, sp)
 
-    # Now, we construct the SVD of the Gram's matrix 
+    # Now, we construct the SVD of the Gram's matrix
     u_mat, s_mat, vd_mat = svd(gram_mat, full_matrices=False, hermitian=True)
     # And find a change of basis to an orthonormalized basis
-    t = np.array([row*s**(-.5) for row, s in zip(vd_mat,s_mat) if s>1e-10])
+    t = np.array([row * s ** (-0.5) for row, s in zip(vd_mat, s_mat) if s > 1e-10])
     # and build the hermitician, orthogonalized basis
-    new_basis = [sum(c*op  for c, op in zip(row, new_basis)) for row, s in zip(t, s_mat)]
+    new_basis = [
+        sum(c * op for c, op in zip(row, new_basis)) for row, s in zip(t, s_mat)
+    ]
     # Then, we build the change back to the hermitician basis
-    q = np.array([row*s**(.5) for row, s in zip(u_mat.T,s_mat) if s>1e-10]).T
-    # Finally, we apply the change of basis to the original (non-hermitician) 
+    q = np.array([row * s ** (0.5) for row, s in zip(u_mat.T, s_mat) if s > 1e-10]).T
+    # Finally, we apply the change of basis to the original (non-hermitician)
     # basis
-    q = np.array([
-        sum(spec[1]*q[spec[0]] for spec in row)
-        for row in indices])
-    
+    q = np.array([sum(spec[1] * q[spec[0]] for spec in row) for row in indices])
+
     return new_basis, q

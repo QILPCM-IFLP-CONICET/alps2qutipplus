@@ -97,10 +97,17 @@ def hermitian_and_antihermitian_parts(operator) -> Tuple[Operator]:
             real_offset, imag_offset = (None, None)
         else:
             real_offset, imag_offset = hermitian_and_antihermitian_parts(offset)
-        weights_re, weights_im = tuple((real(w) for w in weights)), tuple((imag(w) for w in weights))
-        return (QuadraticFormOperator(basis, weights_re, system=system, offset=real_offset).simplify(),
-                QuadraticFormOperator(basis, weights_im, system=system, offset=imag_offset).simplify()
-                )
+        weights_re, weights_im = tuple((real(w) for w in weights)), tuple(
+            (imag(w) for w in weights)
+        )
+        return (
+            QuadraticFormOperator(
+                basis, weights_re, system=system, offset=real_offset
+            ).simplify(),
+            QuadraticFormOperator(
+                basis, weights_im, system=system, offset=imag_offset
+            ).simplify(),
+        )
 
     if isinstance(operator, ProductOperator):
         sites_op = operator.sites_op
@@ -117,7 +124,10 @@ def hermitian_and_antihermitian_parts(operator) -> Tuple[Operator]:
     elif isinstance(operator, (LocalOperator, OneBodyOperator, QutipOperator)):
         operator = operator * 0.5
         op_dagger = compute_dagger(operator)
-        return ((operator + op_dagger).simplify(), (op_dagger - operator).simplify() * 1j)
+        return (
+            (operator + op_dagger).simplify(),
+            (op_dagger - operator).simplify() * 1j,
+        )
 
     operator = operator * 0.5
     operator_dag = compute_dagger(operator)

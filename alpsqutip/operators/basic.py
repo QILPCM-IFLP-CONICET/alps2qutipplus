@@ -113,8 +113,7 @@ def is_scalar_op(op: Qobj) -> bool:
         elif hasattr(data, "as_ndarray"):
             dim = data.shape[0]
             data = data.as_ndarray()
-            if any(data[i, j] != 0
-                   for i in range(dim) for j in range(dim) if i != j):
+            if any(data[i, j] != 0 for i in range(dim) for j in range(dim) if i != j):
                 return False
             prefactor = data[0, 0]
             return all(data[i, i] == prefactor for i in range(dim))
@@ -550,8 +549,7 @@ class ProductOperator(Operator):
             }
 
     def __bool__(self):
-        return (bool(self.prefactor) and
-                all(bool(factor) for factor in self.sites_op))
+        return bool(self.prefactor) and all(bool(factor) for factor in self.sites_op)
 
     def __neg__(self):
         return ProductOperator(self.sites_op, -self.prefactor, self.system)
@@ -566,8 +564,7 @@ class ProductOperator(Operator):
     def __repr__(self):
         result = "  " + str(self.prefactor) + " * (\n  "
         result += "  (x)\n  ".join(
-            f"({item[1].full()} <-  {item[0]})"
-            for item in self.sites_op.items()
+            f"({item[1].full()} <-  {item[0]})" for item in self.sites_op.items()
         )
         result += "\n   )"
         return result

@@ -543,7 +543,11 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
             k_by_site = {k.site: k.operator}
         elif isinstance(k, OneBodyOperator):
             self.system = system or k.system
-            k_by_site = {k_local.site: k_local.operator for k_local in k.terms if isinstance(k_local, LocalOperator)}
+            k_by_site = {
+                k_local.site: k_local.operator
+                for k_local in k.terms
+                if isinstance(k_local, LocalOperator)
+            }
         elif isinstance(k, dict):
             self.system = system
             k_by_site = k

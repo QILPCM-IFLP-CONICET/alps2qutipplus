@@ -389,7 +389,7 @@ def test_arithmetic_operators():
         for key2, test_operator2 in operator_type_cases.items():
             print("add ", key1, " and ", key2)
             op2_qutip = operator_type_cases_qutip[key2]
-            print(type(test_operator1), "+",type(test_operator2))
+            print(type(test_operator1), "+", type(test_operator2))
             result = test_operator1 + test_operator2
 
             check_operator_equality(result.to_qutip(), (op1_qutip + op2_qutip))
