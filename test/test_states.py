@@ -19,8 +19,7 @@ from .helper import (
 
 def test_mixtures():
     qt_test_cases = {
-        name: operator.to_qutip()
-        for name, operator in test_cases_states.items()
+        name: operator.to_qutip() for name, operator in test_cases_states.items()
     }
 
     for name_rho, rho in test_cases_states.items():
@@ -28,8 +27,7 @@ def test_mixtures():
             print(".3*", name_rho, " + .7 * ", name_sigma)
             mixture = 0.3 * rho + 0.7 * sigma
             qutip_mixture = (
-                0.3 * qt_test_cases[name_rho] +
-                0.7 * qt_test_cases[name_sigma]
+                0.3 * qt_test_cases[name_rho] + 0.7 * qt_test_cases[name_sigma]
             )
             assert check_equality(rho.tr(), 1)
             assert check_equality(sigma.tr(), 1)
@@ -46,8 +44,7 @@ def test_states():
     print(80 * "=", "\n")
     assert isinstance(sz_total, OneBodyOperator)
     qt_test_cases = {
-        name: operator.to_qutip()
-        for name, operator in test_cases_states.items()
+        name: operator.to_qutip() for name, operator in test_cases_states.items()
     }
 
     for name, rho in test_cases_states.items():
@@ -56,8 +53,7 @@ def test_states():
             continue
 
         print(
-            "\n     ", 120 * "@", "\n testing", name,
-            f"({type(rho)})", "\n", 100 * "@"
+            "\n     ", 120 * "@", "\n testing", name, f"({type(rho)})", "\n", 100 * "@"
         )
         assert abs(rho.tr() - 1) < 1.0e-10, "la traza de rho no es 1"
         assert (
@@ -76,10 +72,7 @@ def test_states():
         print(" ??????????????? testing expectation values")
         print(rho.expect)
         expectation_values = rho.expect(observable_cases)
-        qt_expectation_values = expect_from_qutip(
-            qt_test_cases[name],
-            observable_cases
-        )
+        qt_expectation_values = expect_from_qutip(qt_test_cases[name], observable_cases)
 
         assert isinstance(expectation_values, dict)
         assert isinstance(qt_expectation_values, dict)

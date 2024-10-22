@@ -114,7 +114,6 @@ else:
         """
         check if the matrix is empty
         """
-        print(type(data))
         if hasattr(data, "num_diag"):
             return data.num_diag == 0
         if hasattr(data, "as_scipy"):
@@ -125,17 +124,18 @@ else:
         """
         Check if data is diagonal
         """
-        if hasattr(data, "numdiag"):
-            if data.numdiag == 0:
+        if hasattr(data, "num_diag"):
+            if data.num_diag == 0:
                 return True
-            if data.numdiag > 1:
+            if data.num_diag > 1:
                 return False
             offsets = data.as_scipy().offsets
             return bool(offsets[0] == 0)
-        if hasattr(data, "nnz"):
+        if hasattr(data, "as_scipy"):
+            data = data.as_scipy()
             if data.nnz == 0:
                 return True
-            return all(a == b for a, b in zip(data.as_scipy().nonzero()))
+            return all(a == b for a, b in zip(*data.nonzero()))
         data = data.as_ndarray()
         dim_i, dim_j = data.shape
         return not any(
@@ -150,23 +150,24 @@ else:
         Check if data is a multiple of the identity matrix.
         """
         dim1, dim2 = data.shape
-        if hasattr(data, "numdiag"):
-            if data.numdiag == 0:
+        if hasattr(data, "num_diag"):
+            if data.num_diag == 0:
                 return True
-            if data.numdiag > 1:
+            if data.num_diag > 1:
                 return False
-            offsets = data.as_scipy().offsets
+            data = data.as_scipy()
+            offsets = data.offsets
             if bool(offsets[0] != 0):
                 return False
             diagonal = data.diagonal(0)
             scalar = diagonal[0]
             return len(diagonal) == dim1 and all(elem == scalar for elem in diagonal)
 
-        if hasattr(data, "nnz"):
+        if hasattr(data, "as_scipy"):
+            data = data.as_scipy()
             if data.nnz == 0:
                 return True
-            data = data.as_scipy()
-            if not all(a == b for a, b in zip(data.nonzero())):
+            if not all(a == b for a, b in zip(*data.nonzero())):
                 return False
             dim = data.shape[0]
             data = data.data
@@ -186,17 +187,6 @@ else:
         return all(scalar == data[i, i] for i in range(data.shape[0]))
 
 
-def empty_op(op: Qobj) -> bool:
-    """
-    Check if op is an sparse operator without
-    non-zero elements.
-    """
-    return data_is_zero(op.data)
-
-
-def is_diagonal_op(op: Qobj) -> bool:
-    """Check if op is a diagonal operator"""
-    return data_is_diag(op.data)
 
 def is_scalar_op(op: Qobj) -> bool:
     """Check if op is a multiple of the identity operator"""

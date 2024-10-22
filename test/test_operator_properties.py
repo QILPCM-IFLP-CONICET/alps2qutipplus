@@ -17,9 +17,7 @@ from .helper import (
     sz_total,
 )
 
-sx_A = ProductOperator({
-    local_sx_A.site: local_sx_A.operator
-}, 1.0, local_sx_A.system)
+sx_A = ProductOperator({local_sx_A.site: local_sx_A.operator}, 1.0, local_sx_A.system)
 sx_A2 = sx_A * sx_A
 sx_Asy_B = sx_A * sy_B
 sx_AsyB_times_2 = 2 * sx_Asy_B
@@ -134,7 +132,5 @@ def test_isdiagonal():
             full_array = data_qt.to_array()
 
         print(full_array)
-        qt_is_diagonal = not (full_array -
-                              np.diag(full_array.diagonal())
-                              ).any()
+        qt_is_diagonal = not (full_array - np.diag(full_array.diagonal())).any()
         assert qt_is_diagonal == operator.isdiagonal

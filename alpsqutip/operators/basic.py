@@ -12,7 +12,7 @@ import qutip
 from qutip import Qobj
 
 from alpsqutip.model import SystemDescriptor
-from alpsqutip.qutip_tools.tools import empty_op, is_diagonal_op, is_scalar_op
+from alpsqutip.qutip_tools.tools import data_is_zero, data_is_diag, data_is_scalar
 
 
 def check_multiplication(a, b, result, func=None) -> bool:
@@ -40,6 +40,31 @@ def check_multiplication(a, b, result, func=None) -> bool:
     return True
 
 
+def empty_op(op: Qobj) -> bool:
+    """
+    Check if op is an sparse operator without
+    non-zero elements.
+    """
+    if not hasattr(op, "data"):
+        if isinstance(op, ScalarOperator):
+            return op.prefactor == 0
+        if hasattr(op, "operator"):
+            return empty_op(op.operator)
+        raise ValueError(f"Operator of type {type(op)} is not allowed.")    
+    return data_is_zero(op.data)
+
+
+def is_diagonal_op(op: Qobj) -> bool:
+    """Check if op is a diagonal operator"""
+    if not hasattr(op, "data"):
+        if isinstance(op, ScalarOperator):
+            return True
+        if hasattr(op, "operator"):
+            return is_diagonal_op(op.operator)
+        raise ValueError(f"Operator of type {type(op)} is not allowed.")    
+    return data_is_diag(op.data)
+
+
 def is_scalar_op(op: Qobj) -> bool:
     """
     Check if the operator is a
@@ -51,52 +76,7 @@ def is_scalar_op(op: Qobj) -> bool:
         if hasattr(op, "operator"):
             return is_scalar_op(op.operator)
         raise ValueError(f"Operator of type {type(op)} is not allowed.")
-    data = op.data
-    # Qutip 5
-    if not hasattr(data, "nonzero"):
-        # if DIA
-        if hasattr(data, "num_diag"):
-            if data.num_diag == 0:
-                return True
-            corner_element = op[0, 0]
-            if data.num_diag > 1 or corner_element == 0:
-                return False
-            return all(corner_element == op[i, i] for i in range(data.shape[0]))
-
-        # If sparse, convert it to the scipy form
-        if hasattr(data, "as_scipy"):
-            data = data.as_scipy()
-            if len(data.data) == 0:
-                return True
-            if len(data.data) != data.shape[0]:
-                return False
-            val = data.data[0]
-            return all(val == op[i, i] for i in range(data.shape[0]))
-
-        # If the matrix is dense, look element by element.
-        elif hasattr(data, "as_ndarray"):
-            dim = data.shape[0]
-            data = data.as_ndarray()
-            if any(data[i, j] != 0 for i in range(dim) for j in range(dim) if i != j):
-                return False
-            prefactor = data[0, 0]
-            return all(data[i, i] == prefactor for i in range(dim))
-        print(type(data))
-
-        logging.warning("elements cannot be determined. Assuming False.")
-        return False
-    # Now, we can work with a scipy sparse array
-
-    ies, jeys = data.nonzero()
-    if len(ies) == 0:
-        return True
-    if len(ies) != data.shape[0]:
-        return False
-    if any(i != j for i, j in zip(ies, jeys)):
-        return False
-    values = data.data.flatten()
-    value = values[0]
-    return all(v == value for v in values)
+    return data_is_scalar(op.data)
 
 
 class Operator:
