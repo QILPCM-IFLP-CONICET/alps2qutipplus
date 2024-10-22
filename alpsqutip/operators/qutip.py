@@ -8,12 +8,70 @@ from typing import List, Optional, Union, Tuple
 
 from numpy import log as np_log, zeros as np_zeros
 from scipy.linalg import svd
-from qutip import Qobj
+from qutip import Qobj, __version__ as qutip_version
 
 from alpsqutip.alpsmodels import qutip_model_from_dims
 from alpsqutip.geometry import GraphDescriptor
 from alpsqutip.model import SystemDescriptor
 from alpsqutip.operators.basic import Operator, ScalarOperator, is_diagonal_op
+
+if int(qutip_version[0])<5:
+
+    def is_zero_matrix(data):
+        return data.nnz==0
+
+    def data_get_type(data):
+        return data.dtype
+
+    def data_is_diag(data):
+        return all(a==b for a,b in zip(data.nonzero()))
+
+    def data_get_coeff(data, i_idx, j_idx):
+        return data[i_idx, j_idx]
+    
+else:
+
+    def is_zero_matrix(data):
+        if hasattr(data, "numdiag"):
+            return data.numdiag==0
+        if hasattr(data, "nnz"):
+            return data.nnz
+        return bool(data.as_ndarray().any())
+
+
+    def data_get_type(data):
+        if hasattr(data, "as_scipy"):
+            return data.as_scipy().dtype
+        return data.as_ndarray().dtype
+
+    def data_is_diag(data):
+        if hasattr(data, "numdiag"):
+            if data.numdiag==0:
+                return True
+            if data.numdiag>1:
+                return False
+            offsets = data.as_scipy().offsets
+            return bool(offsets[0]==0)
+        if hasattr(data, "nnz"):
+            if data.nnz==0:
+                return True
+            return all(a==b for a,b in zip(data.as_scipy().nonzero()))
+        data = data.as_ndarray()
+        dim_i, dim_j = data.shape
+        return not any(data[i,j] for i_idx in range(dim_i)  for j_idx in range(dim_j) if i_idx!=j_idx)
+
+    def data_get_coeff(data, i_idx, j_idx):
+        if hasattr(data, "num_diag"):
+            data_sp = data.as_scipy()
+            offset = j_idx-i_idx
+            offsets = data_sp.offsets
+            if offset not in offsets:
+                return 0
+            return data_sp.diagonal(offset)[j_idx]
+        if hasattr(data, "as_scipy"):
+            return data.as_scipy()[i_idx, j_idx]
+        return data.as_ndarray()[i_idx, j_idx]
+
 
 
 class QutipOperator(Operator):
@@ -156,7 +214,9 @@ def reshape_qutip_data(data, dims):
     as an array with shape
     dims' = [[dim1,dim1],[dim2,dim3,... dim2,dim3,...]]
     """
-    data_type = data.data.dtype
+    
+    data_type = data_get_type(data)
+        
     dim_1 = dims[0]
     dim_2 = int(data.shape[0]/dim_1)
     new_data = np_zeros((dim_1**2, dim_2**2,), dtype=data_type)
@@ -170,11 +230,11 @@ def reshape_qutip_data(data, dims):
                     beta = dim_2*k_idx+l_idx
                     gamma = dim_2*i_idx+k_idx
                     delta = dim_2*j_idx+l_idx
-                    new_data[alpha, beta] = data[gamma, delta]
+                    new_data[alpha, beta] = data_get_coeff(data, gamma, delta)
     return new_data
 
 
-def factorize_qutip_operator(operator: Qobj) -> List[Tuple]:
+def factorize_qutip_operator(operator: Qobj, tol:float=1e-10) -> List[Tuple]:
     """
     Decompose a qutip operator q123... into a sum
     of tensor products sum_{ka, kb, kc...} q1^{ka} q2^{kakb} q3^{kakbkc}...
@@ -187,21 +247,19 @@ def factorize_qutip_operator(operator: Qobj) -> List[Tuple]:
     dim_1 = dims[0]
     dim_2 = int(data.shape[0]/dim_1)
     dims_1 = [[dim_1], [dim_1]]
-    shape_1 = [dim_1, dim_1]
     dims_2 = [dims[1:], dims[1:]]
-    shape_2 = [dim_2, dim_2]
     u_mat, s_mat, vh_mat = svd(reshape_qutip_data(data, dims),
                                full_matrices=False,
                                overwrite_a=True)
     ops_1 = [Qobj(s*u_mat[:, i].reshape(dim_1, dim_1),
-                  dims_1, shape_1, copy=False)
-             for i, s in enumerate(s_mat) if s]
+                  dims=dims_1, copy=False)
+             for i, s in enumerate(s_mat) if s>tol]
     ops_2 = [Qobj(vh_mat_row.reshape(dim_2, dim_2),
-                  dims_2, shape_2, copy=False)
-             for vh_mat_row, s in zip(vh_mat, s_mat) if s]
+                  dims=dims_2, copy=False)
+             for vh_mat_row, s in zip(vh_mat, s_mat) if s>tol]
     if len(dims) < 3:
         return list(zip(ops_1, ops_2))
-    ops_2_factors = [factorize_qutip_operator(op2) for op2 in ops_2]
+    ops_2_factors = [factorize_qutip_operator(op2, tol) for op2 in ops_2]
     return [(op1,) + factors
             for op1, op21_factors in zip(ops_1, ops_2_factors)
             for factors in op21_factors]

@@ -304,7 +304,7 @@ class Operator:
             tex = str(qutip_repr)
         return f"${tex}$"
 
-    def act_over(self) -> Optional[set]:
+    def acts_over(self) -> Optional[set]:
         """
         Return the list of sites over which the operator acts nontrivially.
         If this cannot be determined, return None.
@@ -424,7 +424,7 @@ class LocalOperator(Operator):
     def __repr__(self):
         return f"Local Operator on site {self.site}:" f"\n {repr(self.operator.full())}"
 
-    def act_over(self):
+    def acts_over(self):
         return set((self.site,))
 
     def dag(self):
@@ -586,7 +586,7 @@ class ProductOperator(Operator):
         result += "\n   )"
         return result
 
-    def act_over(self):
+    def acts_over(self):
         return set((site for site in self.sites_op))
 
     def dag(self):
@@ -765,7 +765,7 @@ class ScalarOperator(ProductOperator):
         result = str(self.prefactor) + " * Identity "
         return result
 
-    def act_over(self):
+    def acts_over(self):
         return set()
 
     def dag(self):

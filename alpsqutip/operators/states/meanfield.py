@@ -132,10 +132,10 @@ def project_to_n_body_operator(operator ,nmax=1, sigma=None):
     terms_by_factors = {0:[], 1:[], nmax:[]}
     untouched = True
     for term in terms:
-        act_over = term.act_over()
-        if act_over is None:
+        acts_over = term.acts_over()
+        if acts_over is None:
             continue
-        n = len(act_over)
+        n = len(acts_over)
         if nmax>=n:
             terms_by_factors.setdefault(n, []).append(term)
             continue
