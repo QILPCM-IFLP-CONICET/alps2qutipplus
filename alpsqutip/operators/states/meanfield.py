@@ -2,6 +2,8 @@
 Module that implements a meanfield approximation of a Gibbsian state
 """
 
+from functools import reduce
+from itertools import combinations, permutations
 from typing import Optional, Union
 
 import numpy as np
@@ -22,12 +24,6 @@ from alpsqutip.operators.states.states import (
     GibbsProductDensityOperator,
     ProductDensityOperator,
 )
-
-
-
-
-from itertools import combinations, permutations
-from functools import reduce
 
 
 def one_body_from_qutip_operator(
@@ -112,70 +108,78 @@ def one_body_from_qutip_operator(
     )
 
 
-def project_to_n_body_operator(operator ,nmax=1, sigma=None):
+def project_to_n_body_operator(operator, nmax=1, sigma=None):
     """
     Approximate `operator` by a sum of (up to) nmax-body
     terms, relative to the state sigma.
-    
+
     ``operator`` can be a SumOperator or a Product Operator.
     """
-    mul_func = lambda x,y: x*y
-    
+    mul_func = lambda x, y: x * y
+
     if isinstance(operator, SumOperator):
         terms = operator.simplify().flat().terms
     else:
         terms = (operator,)
-        
+
     system = operator.system
     if sigma is None:
         sigma = ProductDensityOperator({}, system=system)
-    terms_by_factors = {0:[], 1:[], nmax:[]}
+    terms_by_factors = {0: [], 1: [], nmax: []}
     untouched = True
     for term in terms:
         acts_over = term.acts_over()
         if acts_over is None:
             continue
         n = len(acts_over)
-        if nmax>=n:
+        if nmax >= n:
             terms_by_factors.setdefault(n, []).append(term)
             continue
         untouched = False
-        if n==1:
+        if n == 1:
             term = ScalarOperator(sigma.expect(term), system)
             terms_by_factors[0].append(term)
             continue
-            
+
         # Now, let's assume that `term` is a `ProductOperator`
         sites_op = term.sites_op
-        averages = sigma.expect({site:sigma.expect(LocalOperator(site, l_op, system)) for site, l_op in  sites_op.items()})
-        fluct_op = {site: l_op-averages[site] for site, l_op in sites_op.items()}
-        # Now, we run a loop over 
-        for n_factors in range(nmax+1):
-            subterms = terms_by_factors.setdefault(n_factors,[])
+        averages = sigma.expect(
+            {
+                site: sigma.expect(LocalOperator(site, l_op, system))
+                for site, l_op in sites_op.items()
+            }
+        )
+        fluct_op = {site: l_op - averages[site] for site, l_op in sites_op.items()}
+        # Now, we run a loop over
+        for n_factors in range(nmax + 1):
+            subterms = terms_by_factors.setdefault(n_factors, [])
             for subcomb in combinations(sites_op, n_factors):
-                num_factors = (val for site, val in averages.items() if site not in subcomb)
+                num_factors = (
+                    val for site, val in averages.items() if site not in subcomb
+                )
                 prefactor = reduce(mul_func, num_factors, term.prefactor)
                 if prefactor == 0:
                     continue
                 sub_site_ops = {site: fluct_op[site] for site in subcomb}
-                terms_by_factors[nmax].append(ProductOperator(sub_site_ops, prefactor, system))
-                
+                terms_by_factors[nmax].append(
+                    ProductOperator(sub_site_ops, prefactor, system)
+                )
+
     if untouched:
         # The projection is trivial. Return the original operator.
         return operator
 
     scalars = terms_by_factors[0]
-    if len(scalars)>1:
-        total =  sum(term.prefactor for term in scalars)
+    if len(scalars) > 1:
+        total = sum(term.prefactor for term in scalars)
         terms_by_factors[0] = [ScalarOperator(total, system)] if total else []
     one_body = terms_by_factors.get(1, [])
-    if len(one_body)>1:
+    if len(one_body) > 1:
         terms_by_factors[1] = [OneBodyOperator(tuple(one_body), system).simplify()]
-        
+
     terms = tuple((term for terms in terms_by_factors.values() for term in terms))
     result = SumOperator(terms, system).simplify()
     return result
-
 
 
 def project_meanfield(operator, sigma0=None, **kwargs):

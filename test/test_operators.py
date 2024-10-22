@@ -325,15 +325,12 @@ def test_factorize_qutip_operators():
         qutip_operator = operator_case.to_qutip()
         terms = factorize_qutip_operator(qutip_operator)
         reconstructed = sum(tensor(*t) for t in terms)
-        assert check_operator_equality(qutip_operator, reconstructed), "reconstruction does not match with the original."
-        
-        
+        assert (
+            check_operator_equality(qutip_operator, reconstructed),
+            "reconstruction does not match with the original.",
+        )
 
-        
-    
-    
-    
-    
+
 def test_qutip_operators():
     """Test for the qutip representation"""
 

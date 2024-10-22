@@ -78,8 +78,9 @@ def test_nbody_projection():
         proj_sq_3 = one_body_from_qutip_operator(op_sq, 3)
         proj_sq_2 = one_body_from_qutip_operator(op_sq, 2)
         proj_sq_3_2 = one_body_from_qutip_operator(op_sq_3, 2)
-        assert check_operator_equality(proj_sq_2,proj_sq_3_2), "Projections do not match."
-        
+        assert check_operator_equality(
+            proj_sq_2, proj_sq_3_2
+        ), "Projections do not match."
 
 
 def test_meanfield_projection():

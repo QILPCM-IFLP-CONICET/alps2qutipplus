@@ -118,13 +118,13 @@ def is_scalar_op(op: Qobj) -> bool:
         # If sparse, convert it to the scipy form
         if hasattr(data, "as_scipy"):
             data = data.as_scipy()
-            if len(data.data)==0:
+            if len(data.data) == 0:
                 return True
-            if len(data.data)!=data.shape[0]:
+            if len(data.data) != data.shape[0]:
                 return False
             val = data.data[0]
             return all(val == op[i, i] for i in range(data.shape[0]))
-            
+
         # If the matrix is dense, look element by element.
         elif hasattr(data, "as_ndarray"):
             dim = data.shape[0]
