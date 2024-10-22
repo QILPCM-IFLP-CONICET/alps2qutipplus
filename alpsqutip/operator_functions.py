@@ -7,17 +7,16 @@ Functions for operators.
 from numbers import Number
 from typing import Tuple
 
-from numpy import array as np_array, real
+from numpy import array as np_array, imag, real
 
-from alpsqutip.operators import (
+from alpsqutip.operators.arithmetic import OneBodyOperator, SumOperator
+from alpsqutip.operators.basic import (
     LocalOperator,
-    OneBodyOperator,
     Operator,
     ProductOperator,
-    QutipOperator,
     ScalarOperator,
-    SumOperator,
 )
+from alpsqutip.operators.qutip import QutipOperator
 from alpsqutip.scalarprod import orthogonalize_basis
 from alpsqutip.utils import matrix_to_wolfram, operator_to_wolfram
 
@@ -83,9 +82,32 @@ def hermitian_and_antihermitian_parts(operator) -> Tuple[Operator]:
     """Decompose an operator Q as A + i B with
     A and B self-adjoint operators
     """
+    from alpsqutip.operators.quadratic import QuadraticFormOperator
+
     system = operator.system
     if operator.isherm:
         return operator, ScalarOperator(0, system)
+
+    if isinstance(operator, QuadraticFormOperator):
+        weights = operator.weights
+        basis = operator.basis
+        system = operator.system
+        offset = operator.offset
+        if offset is None:
+            real_offset, imag_offset = (None, None)
+        else:
+            real_offset, imag_offset = hermitian_and_antihermitian_parts(offset)
+        weights_re, weights_im = tuple((real(w) for w in weights)), tuple(
+            (imag(w) for w in weights)
+        )
+        return (
+            QuadraticFormOperator(
+                basis, weights_re, system=system, offset=real_offset
+            ).simplify(),
+            QuadraticFormOperator(
+                basis, weights_im, system=system, offset=imag_offset
+            ).simplify(),
+        )
 
     if isinstance(operator, ProductOperator):
         sites_op = operator.sites_op
@@ -102,7 +124,10 @@ def hermitian_and_antihermitian_parts(operator) -> Tuple[Operator]:
     elif isinstance(operator, (LocalOperator, OneBodyOperator, QutipOperator)):
         operator = operator * 0.5
         op_dagger = compute_dagger(operator)
-        return (operator + op_dagger, (op_dagger - operator) * 1j)
+        return (
+            (operator + op_dagger).simplify(),
+            (op_dagger - operator).simplify() * 1j,
+        )
 
     operator = operator * 0.5
     operator_dag = compute_dagger(operator)
@@ -183,7 +208,8 @@ def simplify_sum_operator(operator):
         elif isinstance(term, ScalarOperator):
             scalar_terms.append(term)
         else:
-            sites = tuple(term.acts_over())
+            sites = term.acts_over()
+            sites = tuple(sites) if sites is not None else None
             terms_by_subsystem.setdefault(sites, []).append(term)
 
     # Simplify the scalars:

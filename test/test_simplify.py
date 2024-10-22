@@ -35,7 +35,7 @@ def compute_size(operator: Operator):
     if isinstance(operator, QutipOperator):
         return 1
     if isinstance(operator, QuadraticFormOperator):
-        return sum(compute_size(term) for term in operator.terms)
+        return sum(compute_size(term) for term in operator.basis)
     if isinstance(operator, GibbsProductDensityOperator):
         return len(operator.k_by_site)
     if isinstance(operator, GibbsDensityOperator):
