@@ -2,23 +2,8 @@
 Basic unit test.
 """
 
-from alpsqutip.model import build_spin_chain
-from alpsqutip.operator_functions import (
-    hermitian_and_antihermitian_parts,
-    simplify_sum_operator,
-)
-from alpsqutip.operators import (
-    LocalOperator,
-    OneBodyOperator,
-    ProductOperator,
-    QutipOperator,
-    SumOperator,
-)
-from alpsqutip.operators.quadratic import (
-    QuadraticFormOperator,
-    build_quadratic_form_from_operator,
-    simplify_quadratic_form,
-)
+
+from alpsqutip.operators.quadratic import build_quadratic_form_from_operator
 
 from .helper import check_operator_equality, operator_type_cases
 
@@ -48,7 +33,8 @@ def test_simplify_quadratic_form():
     for name, operator in test_cases.items():
         print("\n *******\n\n name: ", name)
         print("quadratic form", type(operator))
-        quadratic_form = build_quadratic_form_from_operator(operator, simplify=False)
+        quadratic_form = build_quadratic_form_from_operator(operator,
+                                                            simplify=False)
         qutip_operator = operator.to_qutip()
         simplified = quadratic_form.simplify()
         check_operator_equality(qutip_operator, simplified.to_qutip())
@@ -68,7 +54,8 @@ def test_build_quadratic():
     for name, operator in test_cases.items():
         print("\n *******\n\n name: ", name)
         print("quadratic form", type(operator))
-        quadratic_form = build_quadratic_form_from_operator(operator, simplify=False)
+        quadratic_form = build_quadratic_form_from_operator(operator,
+                                                            simplify=False)
         qutip_operator = operator.to_qutip()
 
         check_operator_equality(quadratic_form.to_qutip(), qutip_operator)
@@ -92,7 +79,8 @@ def test_build_quadratic_hermitician():
         print("\n *******\n\n name: ", name)
         print("quadratic form. Force hermitician", type(operator))
         try:
-            quadratic_form = build_quadratic_form_from_operator(operator, True, False)
+            quadratic_form = build_quadratic_form_from_operator(operator,
+                                                                True, False)
         except ValueError:
             skip_cases.append(name)
             continue

@@ -4,7 +4,6 @@ Basic unit test for operator functions.
 
 import numpy as np
 import qutip
-from qutip import Qobj
 
 from alpsqutip.operator_functions import (
     eigenvalues,
@@ -12,7 +11,6 @@ from alpsqutip.operator_functions import (
     log_op,
     relative_entropy,
     simplify_sum_operator,
-    spectral_norm,
 )
 from alpsqutip.operators import SumOperator
 from alpsqutip.utils import operator_to_wolfram
@@ -250,17 +248,17 @@ def test_log_op():
             if True:
                 print(
                     "\n  Op=",
-                    matrix_to_wolfram(test_op.to_qutip().full()),
+                    operator_to_wolfram(test_op.to_qutip().full()),
                     ";",
                 )
                 print(
                     "\n  ExpOp=",
-                    matrix_to_wolfram(op_exp.to_qutip().full()),
+                    operator_to_wolfram(op_exp.to_qutip().full()),
                     ";",
                 )
                 print(
                     "\n  LogExpOp=",
-                    matrix_to_wolfram(op_exp_log.to_qutip().full()),
+                    operator_to_wolfram(op_exp_log.to_qutip().full()),
                     ";",
                 )
 

@@ -4,7 +4,10 @@ Basic unit test.
 
 import matplotlib.pyplot as plt
 
-from alpsqutip.alpsmodels import list_operators_in_alps_xml, model_from_alps_xml
+from alpsqutip.alpsmodels import (
+    list_operators_in_alps_xml,
+    model_from_alps_xml,
+)
 from alpsqutip.geometry import graph_from_alps_xml, list_graph_in_alps_xml
 from alpsqutip.model import SystemDescriptor
 from alpsqutip.settings import FIGURES_DIR, LATTICE_LIB_FILE, MODEL_LIB_FILE
@@ -90,8 +93,9 @@ def test_load_all_models_and_lattices():
                 parms={"L": 2, "W": 2, "a": 1, "b": 1, "c": 1, "Nmax": 5},
             )
             try:
-                system = SystemDescriptor(g, model, {})
+                SystemDescriptor(g, model, {})
             except Exception as exc:
-                # assert False, f"model {model_name} over graph {graph_name} could not be loaded due to {type(e)}:{e}"
+                # assert False, f"model {model_name} over
+                # graph {graph_name} could not be loaded due to {type(e)}:{e}"
                 alert(1, "   ", graph_name, "  [failed]", exc)
                 continue

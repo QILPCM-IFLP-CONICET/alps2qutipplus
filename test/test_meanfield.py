@@ -12,6 +12,7 @@ from alpsqutip.operators import (
 from alpsqutip.operators.states.meanfield import (  # self_consistent_meanfield,
     one_body_from_qutip_operator,
     project_meanfield,
+    project_to_n_body_operator,
 )
 
 from .helper import (  # alert,; check_equality,; expect_from_qutip,;; hamiltonian,; observable_cases,; subsystems,; sz_total,
@@ -75,9 +76,9 @@ def test_nbody_projection():
 
     for op_name, op_test in TEST_OPERATORS.items():
         op_sq = op_test * op_test
-        proj_sq_3 = one_body_from_qutip_operator(op_sq, 3)
-        proj_sq_2 = one_body_from_qutip_operator(op_sq, 2)
-        proj_sq_3_2 = one_body_from_qutip_operator(op_sq_3, 2)
+        proj_sq_3 = project_to_n_body_operator(op_sq, 3)
+        proj_sq_2 = project_to_n_body_operator(op_sq, 2)
+        proj_sq_3_2 = project_to_n_body_operator(proj_sq_3, 2)
         assert check_operator_equality(
             proj_sq_2, proj_sq_3_2
         ), "Projections do not match."
