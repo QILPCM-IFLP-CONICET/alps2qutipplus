@@ -176,13 +176,13 @@ class QuadraticFormOperator(Operator):
             self.system,
         )
 
-    def act_over(self):
+    def acts_over(self):
         result = set()
         for term in self.terms:
-            term_act_over = term.act_over()
-            if term_act_over is None:
+            term_acts_over = term.acts_over()
+            if term_acts_over is None:
                 return None
-            result = result.union(term_act_over)
+            result = result.union(term_acts_over)
         return result
 
     @property

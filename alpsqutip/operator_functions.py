@@ -36,12 +36,12 @@ def commutator(op_1: Operator, op_2: Operator) -> Operator:
             [commutator(op_1, term) for term in op_2.terms], system
         ).simplify()
 
-    act_over_1, act_over_2 = op_1.act_over(), op_2.act_over()
-    if act_over_1 is not None:
-        if len(act_over_1) == 0:
+    acts_over_1, acts_over_2 = op_1.acts_over(), op_2.acts_over()
+    if acts_over_1 is not None:
+        if len(acts_over_1) == 0:
             return ScalarOperator(0, system)
-        if act_over_2 is not None:
-            if len(act_over_2) == 0 or len(act_over_1.intersection(act_over_2)) == 0:
+        if acts_over_2 is not None:
+            if len(acts_over_2) == 0 or len(acts_over_1.intersection(acts_over_2)) == 0:
                 return ScalarOperator(0, system)
 
     return simplify_sum_operator(op_1 * op_2 - op_2 * op_1)
@@ -183,7 +183,7 @@ def simplify_sum_operator(operator):
         elif isinstance(term, ScalarOperator):
             scalar_terms.append(term)
         else:
-            sites = tuple(term.act_over())
+            sites = tuple(term.acts_over())
             terms_by_subsystem.setdefault(sites, []).append(term)
 
     # Simplify the scalars:

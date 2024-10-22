@@ -90,13 +90,13 @@ class SumOperator(Operator):
     def __repr__(self):
         return "(\n" + "\n  +".join(repr(t) for t in self.terms) + "\n)"
 
-    def act_over(self):
+    def acts_over(self):
         result = set()
         for term in self.terms:
-            term_act_over = term.act_over()
-            if term_act_over is None:
+            term_acts_over = term.acts_over()
+            if term_acts_over is None:
                 return None
-            result = result.union(term_act_over)
+            result = result.union(term_acts_over)
         return result
 
     def dag(self):
@@ -571,8 +571,8 @@ def _(x_op: SumOperator, y_op: SumOperator):
         return terms[0]
 
     if all(
-        act_over and len(act_over) < 2
-        for act_over in (term.act_over() for term in terms)
+        acts_over and len(acts_over) < 2
+        for acts_over in (term.acts_over() for term in terms)
     ):
         return OneBodyOperator(terms, system, False)
     return SumOperator(terms, system)
