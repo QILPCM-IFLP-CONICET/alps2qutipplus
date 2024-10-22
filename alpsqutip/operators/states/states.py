@@ -374,14 +374,14 @@ class MixtureDensityOperator(DensityOperatorMixin, SumOperator):
             )
         return super().__rmul__(a)
 
-    def act_over(self) -> set:
+    def acts_over(self) -> set:
         """
         Return a set with the name of the
         sites where the operator nontrivially acts
         """
         sites = set()
         for term in self.terms:
-            sites.update(term.act_over())
+            sites.update(term.acts_over())
         return sites
 
     def expect(self, obs: Union[Operator, Iterable]) -> Union[np.ndarray, dict, Number]:
@@ -476,12 +476,12 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
             return self * operand.inv()
         raise ValueError("Division of an operator by ", type(operand), " not defined.")
 
-    def act_over(self) -> set:
+    def acts_over(self) -> set:
         """
         Return a set with the name of the
         sites where the operator nontrivially acts
         """
-        return self.k.act_over()
+        return self.k.acts_over()
 
     def expect(self, obs: Union[Operator, Iterable]) -> Union[np.ndarray, dict, Number]:
         return self.to_qutip_operator().expect(obs)
@@ -607,7 +607,7 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
                 )
         return operand * self.to_product_state()
 
-    def act_over(self) -> set:
+    def acts_over(self) -> set:
         """
         Return a set with the names of the sites where
         the operator non-trivially acts over.

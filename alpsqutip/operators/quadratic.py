@@ -132,17 +132,17 @@ class QuadraticFormOperator(Operator):
             self.basis, tuple(-w for w in self.weights), self.system, offset
         )
 
-    def act_over(self):
+    def acts_over(self):
         """
         Set of sites over the state acts.
         """
         offset = self.offset
-        result = set() if offset is None else set(offset.act_over())
+        result = set() if offset is None else set(offset.acts_over())
         for term in self.basis:
-            term_act_over = term.act_over()
-            if term_act_over is None:
+            term_acts_over = term.acts_over()
+            if term_acts_over is None:
                 return None
-            result = result.union(term_act_over)
+            result = result.union(term_acts_over)
         return result
 
     @property
@@ -285,10 +285,10 @@ def build_quadratic_form_from_operator(operator, isherm=None, simplify=True):
     def key_func(t_op):
         if not isinstance(t_op, ProductOperator):
             return None
-        act_over = t_op.act_over()
-        if act_over is None:
+        acts_over = t_op.acts_over()
+        if acts_over is None:
             return None
-        size = len(act_over)
+        size = len(acts_over)
         if size < 2:
             return "1"
         if size == 2:

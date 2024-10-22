@@ -40,8 +40,8 @@ sx_AsyB_times_2 = 2 * sx_Asy_B
 opglobal = sz_C + sx_AsyB_times_2
 
 
-def test_act_over():
-    """Check act_over method"""
+def test_acts_over():
+    """Check acts_over method"""
     full_chain = {f"1[{s}]" for s in range(CHAIN_SIZE)}
 
     results = {
@@ -82,13 +82,13 @@ def test_act_over():
 
     for name, operator in full_test_cases.items():
         print(name)
-        act_over = operator.act_over()
-        print("    acts over ", act_over)
-        assert act_over == results[name]
+        acts_over = operator.acts_over()
+        print("    acts over ", acts_over)
+        assert acts_over == results[name]
 
 
 def test_product_and_trace():
-    """Check act_over method"""
+    """Check acts_over method"""
     qutip_ops = {}
     skip_cases = {
         "hermitician quadratic operator",
