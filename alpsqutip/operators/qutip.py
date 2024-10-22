@@ -4,9 +4,10 @@ Qutip representation of an operator.
 """
 
 from numbers import Number
-from typing import Optional, Union
+from typing import List, Optional, Union, Tuple
 
-from numpy import log as np_log
+from numpy import log as np_log, zeros as np_zeros
+from scipy.linalg import svd
 from qutip import Qobj
 
 from alpsqutip.alpsmodels import qutip_model_from_dims
@@ -134,8 +135,8 @@ class QutipOperator(Operator):
                 names=new_site_names,
                 prefactor=self.prefactor,
             )
-        else:
-            return ScalarOperator(self.prefactor * op_ptrace, subsystem)
+
+        return ScalarOperator(self.prefactor * op_ptrace, subsystem)
 
     def tidyup(self, atol=None):
         """Removes small elements from the quantum object."""
@@ -146,6 +147,64 @@ class QutipOperator(Operator):
 
     def tr(self):
         return self.operator.tr() * self.prefactor
+
+
+def reshape_qutip_data(data, dims):
+    """
+    reshape the data representing an operator with dimensions
+    dims = [[dim1, dim2,...],[dim1, dim2,...]]
+    as an array with shape
+    dims' = [[dim1,dim1],[dim2,dim3,... dim2,dim3,...]]
+    """
+    data_type = data.data.dtype
+    dim_1 = dims[0]
+    dim_2 = int(data.shape[0]/dim_1)
+    new_data = np_zeros((dim_1**2, dim_2**2,), dtype=data_type)
+    # reshape the operator
+    # TODO: see to exploit the sparse structure of data to build the matrix
+    for i_idx in range(dim_1):
+        for j_idx in range(dim_1):
+            for k_idx in range(dim_2):
+                for l_idx in range(dim_2):
+                    alpha = dim_1*i_idx+j_idx
+                    beta = dim_2*k_idx+l_idx
+                    gamma = dim_2*i_idx+k_idx
+                    delta = dim_2*j_idx+l_idx
+                    new_data[alpha, beta] = data[gamma, delta]
+    return new_data
+
+
+def factorize_qutip_operator(operator: Qobj) -> List[Tuple]:
+    """
+    Decompose a qutip operator q123... into a sum
+    of tensor products sum_{ka, kb, kc...} q1^{ka} q2^{kakb} q3^{kakbkc}...
+    return a list of tuples, with each factor.
+    """
+    dims = operator.dims[0]
+    if len(dims) < 2:
+        return [(operator,)]
+    data = operator.data
+    dim_1 = dims[0]
+    dim_2 = int(data.shape[0]/dim_1)
+    dims_1 = [[dim_1], [dim_1]]
+    shape_1 = [dim_1, dim_1]
+    dims_2 = [dims[1:], dims[1:]]
+    shape_2 = [dim_2, dim_2]
+    u_mat, s_mat, vh_mat = svd(reshape_qutip_data(data, dims),
+                               full_matrices=False,
+                               overwrite_a=True)
+    ops_1 = [Qobj(s*u_mat[:, i].reshape(dim_1, dim_1),
+                  dims_1, shape_1, copy=False)
+             for i, s in enumerate(s_mat) if s]
+    ops_2 = [Qobj(vh_mat_row.reshape(dim_2, dim_2),
+                  dims_2, shape_2, copy=False)
+             for vh_mat_row, s in zip(vh_mat, s_mat) if s]
+    if len(dims) < 3:
+        return list(zip(ops_1, ops_2))
+    ops_2_factors = [factorize_qutip_operator(op2) for op2 in ops_2]
+    return [(op1,) + factors
+            for op1, op21_factors in zip(ops_1, ops_2_factors)
+            for factors in op21_factors]
 
 
 # #################################

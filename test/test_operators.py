@@ -3,6 +3,7 @@ Basic unit test.
 """
 
 import numpy as np
+from qutip import tensor
 
 from alpsqutip.operators import (
     LocalOperator,
@@ -11,6 +12,7 @@ from alpsqutip.operators import (
     QutipOperator,
     SumOperator,
 )
+from alpsqutip.operators.qutip import factorize_qutip_operator
 from alpsqutip.operators.states import DensityOperatorMixin
 
 from .helper import (
@@ -310,8 +312,25 @@ def test_product_operator():
     assert (opglobal_qt * opglobal_qt).tr() == 2 ** (CHAIN_SIZE - 2) * 2
 
 
+def test_factorize_qutip_operators():
+    """
+    test decomposition of qutip operators
+    as sums of product operators
+    """
+    for name, operator_case in operator_type_cases.items():
+        print("decomposing ", name)
+        qutip_operator = operator_case.to_qutip()
+        terms = factorize_qutip_operator(qutip_operator)
+        for t in terms:
+            print("---\n term\n", t)
+        reconstructed = sum(tensor(*t) for t in terms)
+        assert check_operator_equality(qutip_operator, reconstructed), "reconstruction does not match with the original."
+    
+    
+    
+    
 def test_qutip_operators():
-    """Test for the quip representation"""
+    """Test for the qutip representation"""
 
     sx_A_qt = sx_A.to_qutip_operator()
     sx_A2_qt = sx_A_qt * sx_A_qt

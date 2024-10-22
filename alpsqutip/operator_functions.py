@@ -28,11 +28,11 @@ def commutator(op_1: Operator, op_2: Operator) -> Operator:
     system = op_1.system or op_2.system
     if isinstance(op_1, SumOperator):
         return SumOperator(
-            [commutator(term, op_2) for term in op_1.terms], system
+            tuple((commutator(term, op_2) for term in op_1.terms)), system
         ).simplify()
     if isinstance(op_2, SumOperator):
         return SumOperator(
-            [commutator(op_1, term) for term in op_2.terms], system
+            tuple((commutator(op_1, term) for term in op_2.terms)), system
         ).simplify()
 
     act_over_1, act_over_2 = op_1.act_over(), op_2.act_over()
