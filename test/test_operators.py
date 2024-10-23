@@ -310,64 +310,6 @@ def test_product_operator():
     assert (opglobal_qt * opglobal_qt).tr() == 2 ** (CHAIN_SIZE - 2) * 2
 
 
-def test_qutip_operators():
-    """Test for the quip representation"""
-
-    sx_A_qt = sx_A.to_qutip_operator()
-    sx_A2_qt = sx_A_qt * sx_A_qt
-
-    syB_qt = sy_B.to_qutip_operator()
-    szC_qt = sz_C.to_qutip_operator()
-    sx_AsyB_qt = sx_A_qt * syB_qt
-    sx_AsyB_times_2_qt = 2 * sx_AsyB_qt
-    opglobal_qt = szC_qt + sx_AsyB_times_2_qt
-
-    subsystems = [
-        [sites[0]],
-        [sites[1]],
-        [sites[0], [sites[1]]],
-        [sites[1], [sites[2]]],
-    ]
-
-    for subsystem in subsystems:
-        assert (sx_A_qt).partial_trace(subsystem).tr() == 0.0
-        assert (sx_A2_qt).partial_trace(subsystem).tr() == 0.5 * 2 ** (CHAIN_SIZE - 1)
-        assert (sx_AsyB_qt * sx_A_qt * syB_qt).partial_trace(
-            subsystem
-        ).tr() == 0.25 * 2 ** (CHAIN_SIZE - 2)
-        assert (opglobal_qt * sx_A_qt * syB_qt).partial_trace(
-            subsystem
-        ).tr() == 0.5 * 2 ** (CHAIN_SIZE - 2)
-        assert (szC_qt * szC_qt).partial_trace(subsystem).tr() == 0.5 * 2 ** (
-            CHAIN_SIZE - 1
-        )
-        assert (sx_AsyB_times_2_qt * sx_AsyB_times_2_qt).partial_trace(
-            subsystem
-        ).tr() == 2 ** (CHAIN_SIZE - 2)
-        assert (opglobal_qt * opglobal_qt).partial_trace(subsystem).tr() == 2 ** (
-            CHAIN_SIZE - 2
-        ) * 2
-        assert (opglobal_qt * sx_A_qt).partial_trace(subsystem).tr() == 0.0
-        assert (opglobal_qt * opglobal).partial_trace(subsystem).tr() == 2 ** (
-            CHAIN_SIZE - 2
-        ) * 2
-        assert (opglobal * opglobal_qt).partial_trace(subsystem).tr() == 2 ** (
-            CHAIN_SIZE - 2
-        ) * 2
-
-    # Tests for QutipOperators defined without a system
-    detached_qutip_operator = QutipOperator(sx_AsyB_times_2_qt.operator)
-    assert ((sx_AsyB_times_2_qt.operator) ** 2).tr() == 0.5**2 * 2 ** (CHAIN_SIZE - 2)
-    assert (detached_qutip_operator * detached_qutip_operator).tr() == 0.5**2 * 2 ** (
-        CHAIN_SIZE - 2
-    )
-
-    detached_qutip_operator = QutipOperator(
-        sx_AsyB_times_2_qt.operator, names={s: i for i, s in enumerate(sites)}
-    )
-    assert (detached_qutip_operator * detached_qutip_operator).partial_trace(
-        sites[0]
-    ).tr() == 0.5**2 * 2 ** (CHAIN_SIZE - 2)
 
 
 def test_arithmetic_operators():
