@@ -110,7 +110,11 @@ class SumOperator(Operator):
         changed = False
         for term in self.terms:
             if isinstance(term, SumOperator):
-                terms.extend(term.flat().terms)
+                term_flat = term.flat()
+                if hasattr(term_flat, "terms"):
+                    terms.extend(term_flat.terms)
+                else:
+                    terms.append(term_flat)
                 changed = True
             else:
                 new_term = term.flat()
