@@ -26,30 +26,41 @@ if int(qutip_version[0]) < 5:
         """
         return data.dtype
 
-    def data_is_diag(data) -> bool:
+    def data_is_diagonal(data) -> bool:
         """
         Check if data is diagonal
         """
-        return all(a == b for a, b in zip(data.nonzero()))
+        if data.nnz == 0 or all(a == b for a, b in zip(*data.nonzero())):
+            return True
+        return all(val == 0 for val, a, b in zip(data.data, *data.nonzero()) if a != b)
 
     def data_is_scalar(data) -> bool:
         """
         Check if data is a multiple of the identity matrix.
         """
-        dim1, dim2 = data.shape
         if data.nnz == 0:
             return True
-        elems = data.data
-        if len(elems) < dim1 or not all(a == b for a, b in zip(data.nonzero())):
+        if all(a == b for a, b in zip(*data.nonzero())):
+            dim1, dim2 = data.shape
+            elems = data.data
+            if len(elems) < dim1:
+                return False
+            val = elems[0]
+            return all(val == elem for elem in elems)
+
+        if any(val for val, a, b in zip(data.data, *data.nonzero()) if a != b):
             return False
-        val = elems[0]
-        return all(val == elem for elem in elems)
+        vals = [val for val, a, b in zip(data.data, *data.nonzero()) if a == b]
+        val = vals[0]
+        return all(elem == val for val in vals)
 
     def data_is_zero(data) -> bool:
         """
         check if the matrix is empty
         """
-        return data.nnz == 0
+        if data.nnz == 0:
+            return True
+        return not any(data.data)
 
 else:
 
@@ -110,17 +121,7 @@ else:
             return data.as_scipy().dtype
         return data.as_ndarray().dtype
 
-    def data_is_zero(data) -> bool:
-        """
-        check if the matrix is empty
-        """
-        if hasattr(data, "num_diag"):
-            return data.num_diag == 0
-        if hasattr(data, "as_scipy"):
-            return data.as_scipy().nnz == 0
-        return bool(data.as_ndarray().any())
-
-    def data_is_diag(data) -> bool:
+    def data_is_diagonal(data) -> bool:
         """
         Check if data is diagonal
         """
@@ -174,18 +175,31 @@ else:
             scalar = data[0]
             return len(data) == dim and all(value == scalar for value in data)
 
+        print("must be dense")
         data = data.as_ndarray()
         dim_i, dim_j = data.shape
-        if not any(
+        if any(
             data[i_idx, j_idx]
             for i_idx in range(dim_i)
             for j_idx in range(dim_j)
             if i_idx != j_idx
         ):
+            print("non null elements out of the diagonal")
             return False
         scalar = data[0, 0]
+        print(scalar)
+        print([data[i, i] for i in range(data.shape[0])])
         return all(scalar == data[i, i] for i in range(data.shape[0]))
 
+    def data_is_zero(data) -> bool:
+        """
+        check if the matrix is empty
+        """
+        if hasattr(data, "num_diag"):
+            return data.num_diag == 0
+        if hasattr(data, "as_scipy"):
+            return data.as_scipy().nnz == 0
+        return not bool(data.as_ndarray().any())
 
 
 def is_scalar_op(op: Qobj) -> bool:

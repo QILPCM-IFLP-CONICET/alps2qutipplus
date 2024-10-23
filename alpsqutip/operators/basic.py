@@ -12,7 +12,7 @@ import qutip
 from qutip import Qobj
 
 from alpsqutip.model import SystemDescriptor
-from alpsqutip.qutip_tools.tools import data_is_zero, data_is_diag, data_is_scalar
+from alpsqutip.qutip_tools.tools import data_is_diagonal, data_is_scalar, data_is_zero
 
 
 def check_multiplication(a, b, result, func=None) -> bool:
@@ -50,7 +50,11 @@ def empty_op(op: Qobj) -> bool:
             return op.prefactor == 0
         if hasattr(op, "operator"):
             return empty_op(op.operator)
-        raise ValueError(f"Operator of type {type(op)} is not allowed.")    
+        if hasattr(op, "sites_op"):
+            if op.prefactor == 0:
+                return True
+            return any(empty_op(op_l) for op_l in sites_op.values())
+        raise ValueError(f"Operator of type {type(op)} is not allowed.")
     return data_is_zero(op.data)
 
 
@@ -61,8 +65,12 @@ def is_diagonal_op(op: Qobj) -> bool:
             return True
         if hasattr(op, "operator"):
             return is_diagonal_op(op.operator)
-        raise ValueError(f"Operator of type {type(op)} is not allowed.")    
-    return data_is_diag(op.data)
+        if hasattr(op, "sites_op"):
+            if op.prefactor == 0:
+                return True
+            return all(is_diagonal_op(op_l) for op_l in sites_op.values())
+        raise ValueError(f"Operator of type {type(op)} is not allowed.")
+    return data_is_diagonal(op.data)
 
 
 def is_scalar_op(op: Qobj) -> bool:
@@ -75,6 +83,8 @@ def is_scalar_op(op: Qobj) -> bool:
             return True
         if hasattr(op, "operator"):
             return is_scalar_op(op.operator)
+        if hasattr(op, "sites_op"):
+            return all(is_scalar_op(site_op) for site_op in op.sites_op.values())
         raise ValueError(f"Operator of type {type(op)} is not allowed.")
     return data_is_scalar(op.data)
 
