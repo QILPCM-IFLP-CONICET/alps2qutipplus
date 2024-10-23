@@ -30,32 +30,29 @@ if int(qutip_version[0]) < 5:
         """
         Check if data is diagonal
         """
-        if (data.nnz == 0 or
-            all(a == b for a, b in zip(*data.nonzero()))):
+        if data.nnz == 0 or all(a == b for a, b in zip(*data.nonzero())):
             return True
-        return all(val==0 for val, a, b in zip(data.data, *data.nonzero())   if a!=b)
-        
+        return all(val == 0 for val, a, b in zip(data.data, *data.nonzero()) if a != b)
 
     def data_is_scalar(data) -> bool:
         """
         Check if data is a multiple of the identity matrix.
         """
-        if data.nnz==0:
+        if data.nnz == 0:
             return True
         if all(a == b for a, b in zip(*data.nonzero())):
             dim1, dim2 = data.shape
             elems = data.data
-            if len(elems)<dim1:
+            if len(elems) < dim1:
                 return False
             val = elems[0]
             return all(val == elem for elem in elems)
 
-        if any(val for val, a, b in zip(data.data, *data.nonzero())  if a!=b ):
+        if any(val for val, a, b in zip(data.data, *data.nonzero()) if a != b):
             return False
-        vals = [val for val, a, b in zip(data.data, *data.nonzero())  if a==b]
+        vals = [val for val, a, b in zip(data.data, *data.nonzero()) if a == b]
         val = vals[0]
-        return all(elem==val for val in vals)
-
+        return all(elem == val for val in vals)
 
     def data_is_zero(data) -> bool:
         """
@@ -203,8 +200,6 @@ else:
         if hasattr(data, "as_scipy"):
             return data.as_scipy().nnz == 0
         return not bool(data.as_ndarray().any())
-
-
 
 
 def is_scalar_op(op: Qobj) -> bool:

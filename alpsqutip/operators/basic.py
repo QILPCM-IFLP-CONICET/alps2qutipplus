@@ -12,7 +12,8 @@ import qutip
 from qutip import Qobj
 
 from alpsqutip.model import SystemDescriptor
-from alpsqutip.qutip_tools.tools import data_is_scalar
+from alpsqutip.qutip_tools.tools import data_is_diagonal, data_is_scalar, data_is_zero
+
 
 def check_multiplication(a, b, result, func=None) -> bool:
     if isinstance(a, Qobj) and isinstance(b, Qobj):
@@ -49,15 +50,12 @@ def empty_op(op: Qobj) -> bool:
             return op.prefactor == 0
         if hasattr(op, "operator"):
             return empty_op(op.operator)
+        if hasattr(op, "sites_op"):
+            if op.prefactor == 0:
+                return True
+            return any(empty_op(op_l) for op_l in sites_op.values())
         raise ValueError(f"Operator of type {type(op)} is not allowed.")
-    data = op.data
-    if hasattr(data, "count_nonzero"):
-        return data.count_nonzero() == 0
-    if hasattr(data, "as_scipy"):
-        return data.as_scipy().count_nonzero() == 0
-    if hasattr(data, "as_ndarray"):
-        return not data.as_ndarray().any()
-    return False
+    return data_is_zero(op.data)
 
 
 def is_diagonal_op(op: Qobj) -> bool:
@@ -67,29 +65,12 @@ def is_diagonal_op(op: Qobj) -> bool:
             return True
         if hasattr(op, "operator"):
             return is_diagonal_op(op.operator)
+        if hasattr(op, "sites_op"):
+            if op.prefactor == 0:
+                return True
+            return all(is_diagonal_op(op_l) for op_l in sites_op.values())
         raise ValueError(f"Operator of type {type(op)} is not allowed.")
-    data = op.data
-    # Qutip 5
-    if not hasattr(data, "nonzero"):
-        # If sparse, convert it to the scipy form
-        if hasattr(data, "as_scipy"):
-            data = data.as_scipy()
-        # If the matrix is dense, look element by element.
-        elif hasattr(data, "as_ndarray"):
-            dim = data.shape[0]
-            data = data.as_ndarray()
-            return all(
-                data[i, j] == 0 for i in range(dim) for j in range(dim) if i != j
-            )
-        else:
-            logging.warning(
-                "offdiagonal elements cannot be determined. Assuming False."
-            )
-            return False
-
-    # Now, we can work with a scipy sparse array
-    ies, jeys = data.nonzero()
-    return all(i == j for i, j in zip(ies, jeys))
+    return data_is_diagonal(op.data)
 
 
 def is_scalar_op(op: Qobj) -> bool:

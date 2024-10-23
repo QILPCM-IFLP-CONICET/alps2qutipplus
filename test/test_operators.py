@@ -310,8 +310,6 @@ def test_product_operator():
     assert (opglobal_qt * opglobal_qt).tr() == 2 ** (CHAIN_SIZE - 2) * 2
 
 
-
-
 def test_arithmetic_operators():
     """
     Test consistency of arithmetic expressions

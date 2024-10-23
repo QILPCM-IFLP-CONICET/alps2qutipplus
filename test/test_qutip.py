@@ -6,7 +6,13 @@ import numpy as np
 from qutip import jmat, qeye, tensor
 
 from alpsqutip.operators import ProductOperator, QutipOperator
-from alpsqutip.qutip_tools.tools import data_get_type, data_is_diagonal, data_is_scalar, data_is_zero, factorize_qutip_operator
+from alpsqutip.qutip_tools.tools import (
+    data_get_type,
+    data_is_diagonal,
+    data_is_scalar,
+    data_is_zero,
+    factorize_qutip_operator,
+)
 
 from .helper import (
     CHAIN_SIZE,
@@ -31,112 +37,109 @@ opglobal = sz_C + sx_AsyB_times_2
 
 id_2 = qeye(2)
 id_3 = qeye(3)
-sx, sy, sz = jmat(.5)
-lx, ly, lz = jmat(1.)
+sx, sy, sz = jmat(0.5)
+lx, ly, lz = jmat(1.0)
 
 QUTIP_TEST_CASES = {
     "product_scalar": {
-        "operator":3*tensor(id_2,id_3),
+        "operator": 3 * tensor(id_2, id_3),
         "diagonal": True,
         "scalar": True,
         "zero": False,
         "type": np.dtype("complex128"),
     },
     "product_diagonal": {
-        "operator":tensor(sz, lz),
+        "operator": tensor(sz, lz),
         "diagonal": True,
         "scalar": False,
         "zero": False,
         "type": np.dtype("complex128"),
     },
     "product_non_diagonal": {
-        "operator":tensor(sx, lx),
+        "operator": tensor(sx, lx),
         "diagonal": False,
         "scalar": False,
         "zero": False,
         "type": np.dtype("complex128"),
     },
-    "product_zero":{
-        "operator":0*tensor(id_2,id_3),
+    "product_zero": {
+        "operator": 0 * tensor(id_2, id_3),
         "diagonal": True,
         "scalar": True,
         "zero": True,
         "type": np.dtype("complex128"),
-    },            
+    },
     "scalar": {
-        "operator":3*id_2,
-        "diagonal":True,
+        "operator": 3 * id_2,
+        "diagonal": True,
         "scalar": True,
         "zero": False,
         "type": np.dtype("complex128"),
-    },                        
+    },
     "diagonal": {
-        "operator":sz+.5*id_2,
+        "operator": sz + 0.5 * id_2,
         "diagonal": True,
         "scalar": False,
         "zero": False,
         "type": np.dtype("complex128"),
-    },            
+    },
     "non_diagonal": {
-        "operator":lx,
+        "operator": lx,
         "diagonal": False,
         "scalar": False,
         "zero": False,
         "type": np.dtype("complex128"),
-    },                        
+    },
     "zero": {
-        "operator":0*id_2,
+        "operator": 0 * id_2,
         "diagonal": True,
         "scalar": True,
         "zero": True,
         "type": np.dtype("complex128"),
     },
     "complex": {
-        "operator":sy,
+        "operator": sy,
         "diagonal": False,
         "scalar": False,
         "zero": False,
         "type": np.dtype("complex128"),
     },
     "dense": {
-        "operator":sx.expm(),
+        "operator": sx.expm(),
         "diagonal": False,
         "scalar": False,
         "zero": False,
         "type": np.dtype("complex128"),
     },
     "diagonal dense": {
-        "operator":sz.expm(),
+        "operator": sz.expm(),
         "diagonal": True,
         "scalar": False,
         "zero": False,
         "type": np.dtype("complex128"),
-    },  
+    },
     "tensor dense": {
-        "operator":tensor(sx,lx).expm(),
+        "operator": tensor(sx, lx).expm(),
         "diagonal": False,
         "scalar": False,
         "zero": False,
         "type": np.dtype("complex128"),
     },
     "tensor diagonal dense": {
-        "operator":tensor(sz, sz).expm(),
+        "operator": tensor(sz, sz).expm(),
         "diagonal": True,
         "scalar": False,
         "zero": False,
         "type": np.dtype("complex128"),
-    },  
+    },
     "diagonal dense zero": {
-        "operator":(-10000*(id_2+sz)).expm(),
+        "operator": (-10000 * (id_2 + sz)).expm(),
         "diagonal": True,
         "scalar": True,
         "zero": True,
         "type": np.dtype("complex128"),
-    },  
-
+    },
 }
-    
-
 
 
 def test_qutip_properties():
@@ -148,10 +151,6 @@ def test_qutip_properties():
         assert data["scalar"] == data_is_scalar(operator_data)
         assert data["zero"] == data_is_zero(operator_data)
         assert data["type"] is data_get_type(operator_data)
-        
-        
-        
-
 
 
 def test_factorize_qutip_operators():
