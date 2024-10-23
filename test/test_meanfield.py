@@ -12,6 +12,7 @@ from alpsqutip.operators import (
 from alpsqutip.operators.states.meanfield import (  # self_consistent_meanfield,
     one_body_from_qutip_operator,
     project_meanfield,
+    project_to_n_body_operator,
 )
 
 from .helper import (  # alert,; check_equality,; expect_from_qutip,;; hamiltonian,; observable_cases,; subsystems,; sz_total,
@@ -68,6 +69,20 @@ EXPECTED_PROJECTIONS["sx_A*sx_B"] = {
     name: ScalarOperator(0, system) for name in TEST_STATES if name != "x semipolarized"
 }
 EXPECTED_PROJECTIONS["sx_A*sx_B"]["x semipolarized"] = -0.0625 + 0.25 * (sx_A + sx_B)
+
+
+def no_test_nbody_projection():
+    """Test the mean field projection over different states"""
+
+    for op_name, op_test in TEST_OPERATORS.items():
+        print("testing the consistency of projection in", op_name)
+        op_sq = op_test * op_test
+        proj_sq_3 = project_to_n_body_operator(op_sq, 3)
+        proj_sq_2 = project_to_n_body_operator(op_sq, 2)
+        proj_sq_3_2 = project_to_n_body_operator(proj_sq_3, 2)
+        assert check_operator_equality(
+            proj_sq_2, proj_sq_3_2
+        ), "Projections do not match."
 
 
 def test_meanfield_projection():

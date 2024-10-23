@@ -134,8 +134,8 @@ class QutipOperator(Operator):
                 names=new_site_names,
                 prefactor=self.prefactor,
             )
-        else:
-            return ScalarOperator(self.prefactor * op_ptrace, subsystem)
+
+        return ScalarOperator(self.prefactor * op_ptrace, subsystem)
 
     def tidyup(self, atol=None):
         """Removes small elements from the quantum object."""

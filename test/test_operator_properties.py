@@ -5,16 +5,14 @@ Basic unit test.
 import numpy as np
 import qutip
 
-from alpsqutip.operators import LocalOperator, ProductOperator, ScalarOperator
+from alpsqutip.operators import ProductOperator
 from alpsqutip.operators.basic import empty_op, is_diagonal_op, is_scalar_op
 
 from .helper import (
     full_test_cases,
     observable_cases,
-    operator_type_cases,
     sx_A as local_sx_A,
     sy_B,
-    system,
     sz_C,
     sz_total,
 )

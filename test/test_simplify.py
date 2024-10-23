@@ -2,8 +2,6 @@
 Basic unit test.
 """
 
-import numpy as np
-
 from alpsqutip.operators import (
     LocalOperator,
     Operator,
@@ -75,7 +73,8 @@ def test_simplify():
                 print("        checking the consistency of sum operators")
                 if len(simplify1.terms) != len(simplify2.terms):
                     print(
-                        "  number of terms do not match with the first simplification",
+                        "  number of terms do not match with the",
+                        "first simplification",
                         len(simplify1.terms),
                         "!=",
                         len(simplify2.terms),
@@ -99,11 +98,12 @@ def test_simplify():
             print("        checking fixed point")
             if simplify1 is not simplify2:
                 passed = False
-                print(f"simplify should reach a fix point. {simplify1}->{simplify2}")
+                print("simplify should reach a fix point.", f"{simplify1}->{simplify2}")
                 continue
 
             print("        checking properties")
-            # assert op_test.isherm == simplify1.isherm, "hermiticity should be preserved"
+            # assert op_test.isherm == simplify1.isherm,
+            # "hermiticity should be preserved"
             if not (simplify1.isdiagonal or not op_test.isdiagonal):
                 print("      diagonality should be preserved")
                 passed = False
@@ -116,7 +116,8 @@ def test_simplify():
                     print("                - final size of the operator:", final_size)
                     if not (initial_size >= final_size):
                         print(
-                            f"we should get less terms, not more ({initial_size} < {final_size})."
+                            "we should get less terms, not more ",
+                            f"({initial_size} < {final_size}).",
                         )
                         passed = False
                         continue
@@ -131,7 +132,7 @@ def test_simplify():
                             QutipOperator,
                         ),
                     ):
-                        print(f"   resunting type is not valid ({type(simplify1)})")
+                        print("   resunting type is not valid ", f"({type(simplify1)})")
                         passed = False
                         continue
     assert not passed, "there were errors in simplificacion."

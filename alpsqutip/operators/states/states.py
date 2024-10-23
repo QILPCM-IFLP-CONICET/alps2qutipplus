@@ -330,7 +330,7 @@ class ProductDensityOperator(DensityOperatorMixin, ProductOperator):
     def to_qutip(self):
         prefactor = self.prefactor
         if prefactor == 0 or len(self.system.dimensions) == 0:
-            return ScalarOperator(prefactor, self.system)
+            return np.exp(-sum(np.log(dim) for dim in self.system.dimensions.values()))
         ops = self.sites_op
         return qutip_tensor(
             [
