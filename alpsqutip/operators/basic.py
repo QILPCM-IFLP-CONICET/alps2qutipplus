@@ -630,12 +630,12 @@ class ProductOperator(Operator):
     def simplify(self) -> Operator:
         """
         Simplifies a product operator
-        * first, collect all the scalar factors and
-          absorbe them in the prefactor.
-        * If the prefactor vanishes, or all the factors are scalars,
-          return a ScalarOperator.
-        * If there is just one nontrivial factor, return a LocalOperator.
-        * If no reduction is possible, return self.
+           - first, collect all the scalar factors and
+             absorbe them in the prefactor.
+           - If the prefactor vanishes, or all the factors are scalars,
+             return a ScalarOperator.
+           - If there is just one nontrivial factor, return a LocalOperator.
+           - If no reduction is possible, return self.
         """
         # Remove multiples of the identity
         nontrivial_factors = {}
