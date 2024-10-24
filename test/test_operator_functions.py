@@ -5,14 +5,14 @@ Basic unit test for operator functions.
 import numpy as np
 import qutip
 
-from alpsqutip.operator_functions import (
+from alpsqutip.operators import SumOperator
+from alpsqutip.operators.functions import (
     eigenvalues,
     hermitian_and_antihermitian_parts,
     log_op,
     relative_entropy,
     simplify_sum_operator,
 )
-from alpsqutip.operators import SumOperator
 from alpsqutip.utils import operator_to_wolfram
 
 from .helper import (

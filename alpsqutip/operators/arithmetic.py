@@ -36,10 +36,9 @@ class SumOperator(Operator):
         isherm: Optional[bool] = None,
         isdiag: Optional[bool] = None,
     ):
+        assert system is not None
         assert isinstance(term_tuple, tuple)
-        assert system is not None
         self.terms = term_tuple
-        assert system is not None
         if system is None and term_tuple:
             for term in term_tuple:
                 if system is None:
@@ -47,6 +46,8 @@ class SumOperator(Operator):
                 else:
                     system = system.union(term.system)
 
+        # sites=tuple(system.dimensions.keys())
+        # assert all(sites==tuple(t.system.dimensions.keys()) for t in term_tuple if t.system), f"{system.dimensions.keys()} and {tuple((tuple(t.system.dimensions.keys()) for t in term_tuple if t.system))}"
         self.system = system
         self._isherm = isherm
         self._isdiagonal = isdiag
@@ -121,7 +122,9 @@ class SumOperator(Operator):
                 terms.append(new_term)
                 if term is not new_term:
                     changed = True
-        return sum(terms) if changed else self
+        if changed:
+            return SumOperator(tuple(terms), self.system)
+        return self
 
     @property
     def isherm(self) -> bool:
@@ -129,7 +132,7 @@ class SumOperator(Operator):
 
         def aggresive_hermitician_test():
             # pylint: disable=import-outside-toplevel
-            from alpsqutip.operator_functions import (
+            from alpsqutip.operators.functions import (
                 hermitian_and_antihermitian_parts,
                 simplify_sum_operator,
             )
@@ -164,7 +167,8 @@ class SumOperator(Operator):
         return self._isdiagonal
 
     def partial_trace(self, sites: list):
-        return sum(term.partial_trace(sites) * term.prefactor for term in self.terms)
+        new_terms = (term.partial_trace(sites) * term.prefactor for term in self.terms)
+        return sum(new_terms)
 
     def simplify(self):
         """Simplify the operator"""
@@ -172,7 +176,7 @@ class SumOperator(Operator):
         general_terms = []
         isherm = self._isherm
         # First, shallow the list of terms:
-        for term in (t.simplify() for t in self.terms):
+        for term in (t.flat() for t in self.terms):
             if isinstance(term, SumOperator):
                 general_terms.extend(term.terms)
             else:
@@ -238,6 +242,7 @@ class SumOperator(Operator):
         """Produce a qutip compatible object"""
         if len(self.terms) == 0:
             return ScalarOperator(0, self.system).to_qutip()
+
         return sum(t.to_qutip() for t in self.terms)
 
     def tr(self):
@@ -304,7 +309,7 @@ class OneBodyOperator(SumOperator):
     def expm(self):
         # Import here to avoid circular dependency
         # pylint: disable=import-outside-toplevel
-        from alpsqutip.operator_functions import eigenvalues
+        from alpsqutip.operators.functions import eigenvalues
 
         sites_op = {}
         ln_prefactor = 0

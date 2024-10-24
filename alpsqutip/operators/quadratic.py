@@ -121,7 +121,7 @@ class QuadraticFormOperator(Operator):
                 system,
                 offset,
             )
-        standard_repr = self.to_sum_operator().simplify()
+        standard_repr = self.to_sum_operator(False).simplify()
         return standard_repr * other
 
     def __neg__(self):
@@ -144,6 +144,9 @@ class QuadraticFormOperator(Operator):
                 return None
             result = result.union(term_acts_over)
         return result
+
+    def flat(self):
+        return self
 
     @property
     def isdiagonal(self):
@@ -168,6 +171,11 @@ class QuadraticFormOperator(Operator):
         return all(abs(np.imag(weight)) < 1e-10 for weight in self.weights)
 
     def partial_trace(self, sites):
+        if len(self.basis) == 0:
+            if offset:
+                return offset.partial_trace(sites)
+            return ScalarOperator(0, system.subsystem(sites))
+
         terms = tuple(
             w * (op_term * op_term).partial_trace(sites)
             for w, op_term in zip(self.weights, self.basis)
@@ -177,7 +185,7 @@ class QuadraticFormOperator(Operator):
             terms = terms + (offset.partial_trace(sites),)
         return SumOperator(
             terms,
-            self.system,
+            terms[0].system,
         ).simplify()
 
     def simplify(self):
