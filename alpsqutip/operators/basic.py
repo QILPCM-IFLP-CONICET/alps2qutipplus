@@ -415,7 +415,9 @@ class LocalOperator(Operator):
         system = self.system
         assert system is not None
         dimensions = system.dimensions
-        subsystem = sites if isinstance(sites, SystemDescriptor) else system.subsystem(sites)
+        subsystem = (
+            sites if isinstance(sites, SystemDescriptor) else system.subsystem(sites)
+        )
         local_sites = subsystem.sites
         site = self.site
         prefactors = [
@@ -608,18 +610,17 @@ class ProductOperator(Operator):
         full_system_sites = self.system.sites
         dimensions = self.dimensions
         if isinstance(sites, SystemDescriptor):
-            sites_in = tuple(s for s in sites.sites if s in full_system_sites)
             subsystem = sites
+            sites = tuple(sites.sites.keys())
         else:
-            sites_in = tuple(s for s in sites if s in full_system_sites)
-            subsystem = self.system.subsystem(sites_in)
-            
-        sites_out = tuple(s for s in full_system_sites if s not in sites_in)
+            subsystem = self.system.subsystem(sites)
+
+        sites_out = tuple(s for s in full_system_sites if s not in sites)
         sites_op = self.sites_op
         prefactors = [
             sites_op[s].tr() if s in sites_op else dimensions[s] for s in sites_out
         ]
-        sites_op = {s: o for s, o in sites_op.items() if s in sites_in}
+        sites_op = {s: o for s, o in sites_op.items() if s in sites}
         prefactor = self.prefactor
         for factor in prefactors:
             if factor == 0:

@@ -170,7 +170,7 @@ class QuadraticFormOperator(Operator):
 
         return all(abs(np.imag(weight)) < 1e-10 for weight in self.weights)
 
-    def partial_trace(self, sites:Union[list, SystemDescriptor]):
+    def partial_trace(self, sites: Union[list, SystemDescriptor]):
         if not isinstance(sites, SystemDescriptor):
             sites = self.system.subsystem(sites)
 
