@@ -10,10 +10,6 @@ import numpy as np
 from qutip import Qobj, qeye as qutip_qeye, tensor as qutip_tensor
 
 from alpsqutip.model import SystemDescriptor
-<<<<<<< HEAD
-from alpsqutip.operator_functions import eigenvalues
-=======
->>>>>>> fix_quadratic
 from alpsqutip.operators.arithmetic import OneBodyOperator, SumOperator
 from alpsqutip.operators.basic import (
     LocalOperator,
@@ -23,10 +19,7 @@ from alpsqutip.operators.basic import (
     check_multiplication,
     is_diagonal_op,
 )
-<<<<<<< HEAD
-=======
 from alpsqutip.operators.functions import eigenvalues
->>>>>>> fix_quadratic
 from alpsqutip.operators.qutip import QutipOperator
 from alpsqutip.utils import operator_to_wolfram
 
