@@ -5,7 +5,7 @@ Different representations for operators
 import logging
 from functools import reduce
 from numbers import Number
-from typing import Callable, Dict, Optional, Tuple
+from typing import Callable, Dict, Optional, Tuple, Union
 
 import numpy as np
 import qutip
@@ -294,7 +294,7 @@ class Operator:
         """Logarithm of the operator"""
         return self.to_qutip_operator().logm()
 
-    def partial_trace(self, sites: list):
+    def partial_trace(self, sites: Union[list, SystemDescriptor]):
         """Partial trace over sites not listed in `sites`"""
         raise NotImplementedError
 
@@ -411,11 +411,11 @@ class LocalOperator(Operator):
 
         return LocalOperator(self.site, log_qutip(self.operator), self.system)
 
-    def partial_trace(self, sites: list):
+    def partial_trace(self, sites: Union[list, SystemDescriptor]):
         system = self.system
         assert system is not None
         dimensions = system.dimensions
-        subsystem = system.subsystem(sites)
+        subsystem = sites if isinstance(sites, SystemDescriptor) else system.subsystem(sites)
         local_sites = subsystem.sites
         site = self.site
         prefactors = [
@@ -604,12 +604,17 @@ class ProductOperator(Operator):
         result = result + ScalarOperator(np.log(self.prefactor), system)
         return result
 
-    def partial_trace(self, sites: list):
+    def partial_trace(self, sites: Union[list, SystemDescriptor]):
         full_system_sites = self.system.sites
         dimensions = self.dimensions
-        sites_in = tuple(s for s in sites if s in full_system_sites)
+        if isinstance(sites, SystemDescriptor):
+            sites_in = tuple(s for s in sites.sites if s in full_system_sites)
+            subsystem = sites
+        else:
+            sites_in = tuple(s for s in sites if s in full_system_sites)
+            subsystem = self.system.subsystem(sites_in)
+            
         sites_out = tuple(s for s in full_system_sites if s not in sites_in)
-        subsystem = self.system.subsystem(sites_in)
         sites_op = self.sites_op
         prefactors = [
             sites_op[s].tr() if s in sites_op else dimensions[s] for s in sites_out
