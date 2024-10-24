@@ -10,7 +10,6 @@ import numpy as np
 from qutip import Qobj, qeye as qutip_qeye, tensor as qutip_tensor
 
 from alpsqutip.model import SystemDescriptor
-from alpsqutip.operator_functions import eigenvalues
 from alpsqutip.operators.arithmetic import OneBodyOperator, SumOperator
 from alpsqutip.operators.basic import (
     LocalOperator,
@@ -20,6 +19,7 @@ from alpsqutip.operators.basic import (
     check_multiplication,
     is_diagonal_op,
 )
+from alpsqutip.operators.functions import eigenvalues
 from alpsqutip.operators.qutip import QutipOperator
 from alpsqutip.utils import operator_to_wolfram
 
@@ -402,9 +402,9 @@ class MixtureDensityOperator(DensityOperatorMixin, SumOperator):
         return sum(np.array(term[0]) * term[1] for term in av_terms)
 
     def partial_trace(self, sites: list):
-        return MixtureDensityOperator(
-            tuple(t.partial_trace(sites) for t in self.terms), self.system
-        )
+        new_terms = tuple(t.partial_trace(sites) for t in self.terms)
+        subsystem = new_terms[0].system
+        return MixtureDensityOperator(new_terms, subsystem)
 
     def to_qutip(self):
         """Produce a qutip compatible object"""

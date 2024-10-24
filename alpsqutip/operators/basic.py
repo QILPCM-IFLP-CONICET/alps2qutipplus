@@ -274,7 +274,7 @@ class Operator:
         # pylint: disable=import-outside-toplevel
         from scipy.sparse.linalg import ArpackError
 
-        from alpsqutip.operator_functions import eigenvalues
+        from alpsqutip.operators.functions import eigenvalues
         from alpsqutip.operators.qutip import QutipOperator
 
         op_qutip = self.to_qutip()
@@ -413,11 +413,7 @@ class LocalOperator(Operator):
 
     def partial_trace(self, sites: list):
         system = self.system
-        if system is None:
-            if self.site in sites:
-                return self
-            return ProductOperator({}, self.operator.tr())
-
+        assert system is not None
         dimensions = system.dimensions
         subsystem = system.subsystem(sites)
         local_sites = subsystem.sites
@@ -434,7 +430,6 @@ class LocalOperator(Operator):
         local_op = self.operator
         if site not in local_sites:
             return ScalarOperator(local_op.tr() * prefactor, subsystem)
-
         return LocalOperator(site, local_op * prefactor, subsystem)
 
     def simplify(self):
@@ -448,15 +443,17 @@ class LocalOperator(Operator):
     def to_qutip(self):
         """Convert to a Qutip object"""
         site = self.site
-        dimensions = self.system.dimensions
+        system = self.system
+        dimensions = system.dimensions
         operator = self.operator
         if isinstance(operator, (int, float, complex)):
             return qutip.qeye(dimensions[site]) * operator
         if isinstance(operator, Operator):
             operator = operator.to_qutip()
-        return qutip.tensor(
-            [operator if s == site else qutip.qeye(d) for s, d in dimensions.items()]
-        )
+        factors_dict = {
+            s: operator if s == site else qutip.qeye(d) for s, d in dimensions.items()
+        }
+        return qutip.tensor(*(factors_dict[site] for site in sorted(dimensions)))
 
     def tr(self):
         result = self.partial_trace([])
@@ -519,7 +516,8 @@ class ProductOperator(Operator):
     def __repr__(self):
         result = "  " + str(self.prefactor) + " * (\n  "
         result += "  (x)\n  ".join(
-            f"({item[1].full()} <-  {item[0]})" for item in self.sites_op.items()
+            f"({item[1].full()} <-  {item[0]})"
+            for item in sorted(self.sites_op.items(), key=lambda x: x[0])
         )
         result += "\n   )"
         return result
@@ -663,15 +661,21 @@ class ProductOperator(Operator):
     def to_qutip(self):
         ops = self.sites_op
         system = self.system
+        dimensions = system.dimensions
         if system:
-            factors = [
-                ops.get(site, None) if site in ops else qutip.qeye(dim)
-                for site, dim in self.system.dimensions.items()
-            ]
+            factors = {
+                site: ops.get(site, None) if site in ops else qutip.qeye(dim)
+                for site, dim in dimensions.items()
+            }
             if len(factors) == 0:
-                return ScalarOperator(self.prefactor, system)
-
-            return self.prefactor * qutip.tensor(factors)
+                return ScalarOperator(
+                    self.prefactor * reduce(lambda x, y: x * y, dimensions.keys()),
+                    system,
+                )
+            result = self.prefactor * qutip.tensor(
+                *(factors[site] for site in sorted(dimensions.keys()))
+            )
+            return result
         return self.prefactor * qutip.tensor(ops.values())
 
     def tr(self):
