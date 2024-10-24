@@ -52,6 +52,8 @@ def one_body_from_qutip_operator(
     """
 
     system = sigma0.system if sigma0 is not None else None
+    if system is None:
+        system = operator.system if isinstance(operator, Operator) else None
 
     if isinstance(operator, Qobj):
         operator = QutipOperator(operator, system)
