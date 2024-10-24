@@ -4,7 +4,7 @@ Define SystemDescriptors and different kind of operators
 
 # from numbers import Number
 from time import time
-from typing import Callable
+from typing import Callable, List, Union
 
 import numpy as np
 from numpy.linalg import eigh, svd
@@ -170,11 +170,14 @@ class QuadraticFormOperator(Operator):
 
         return all(abs(np.imag(weight)) < 1e-10 for weight in self.weights)
 
-    def partial_trace(self, sites):
+    def partial_trace(self, sites: Union[list, SystemDescriptor]):
+        if not isinstance(sites, SystemDescriptor):
+            sites = self.system.subsystem(sites)
+
         if len(self.basis) == 0:
             if offset:
                 return offset.partial_trace(sites)
-            return ScalarOperator(0, system.subsystem(sites))
+            return ScalarOperator(0, sites)
 
         terms = tuple(
             w * (op_term * op_term).partial_trace(sites)
@@ -185,7 +188,7 @@ class QuadraticFormOperator(Operator):
             terms = terms + (offset.partial_trace(sites),)
         return SumOperator(
             terms,
-            terms[0].system,
+            sites,
         ).simplify()
 
     def simplify(self):

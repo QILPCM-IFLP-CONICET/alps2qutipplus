@@ -4,7 +4,7 @@ Density operator classes.
 
 from functools import reduce
 from numbers import Number
-from typing import Dict, Iterable, Optional, Union
+from typing import Dict, Iterable, List, Optional, Union
 
 import numpy as np
 from qutip import Qobj, qeye as qutip_qeye, tensor as qutip_tensor
@@ -318,11 +318,17 @@ class ProductDensityOperator(DensityOperatorMixin, ProductOperator):
             return OneBodyOperator(terms, system, False) + ScalarOperator(norm, system)
         return OneBodyOperator(terms, system, False)
 
-    def partial_trace(self, sites: list):
+    def partial_trace(self, sites: Union[list, SystemDescriptor]):
         sites_op = self.sites_op
+        if isinstance(sites, SystemDescriptor):
+            subsystem = sites
+            sites = tuple(sites.sites.keys())
+        else:
+            subsystem = self.system.subsystem(sites)
+
         sites_in = [site for site in sites if site in sites_op]
-        local_states = {site: sites_op[site] for site in sites_in}
-        subsystem = self.system.subsystem(sites)
+        local_states = {site: sites_op[site] for site in sites}
+
         return ProductDensityOperator(
             local_states, self.prefactor, subsystem, normalize=False
         )
@@ -401,7 +407,7 @@ class MixtureDensityOperator(DensityOperatorMixin, SumOperator):
             return sum(np.array(term[0]) * term[1] for term in av_terms)[0]
         return sum(np.array(term[0]) * term[1] for term in av_terms)
 
-    def partial_trace(self, sites: list):
+    def partial_trace(self, sites: Union[list, SystemDescriptor]):
         new_terms = tuple(t.partial_trace(sites) for t in self.terms)
         subsystem = new_terms[0].system
         return MixtureDensityOperator(new_terms, subsystem)
@@ -501,7 +507,7 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
             self.free_energy = -log_prefactor
             self.normalized = True
 
-    def partial_trace(self, sites):
+    def partial_trace(self, sites: Union[List, SystemDescriptor]):
         return self.to_qutip_operator().partial_trace(sites)
 
     def to_qutip(self):
