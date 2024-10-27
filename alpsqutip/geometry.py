@@ -438,3 +438,23 @@ class GraphDescriptor:
         subgraph = GraphDescriptor(name, nodes, edges)
         self.subgraphs[node_tuple] = subgraph
         return subgraph
+
+    def __add__(self, other):
+        return self.union(other)
+
+    def union(self, other):
+        if self is other or other is None:
+            return self
+        other_nodes = other.nodes
+        nodes = self.nodes.copy()
+        intersection = [site for site in nodes if site in other.nodes]
+        assert all(
+            nodes[site] == other_nodes[site] for site in intersection
+        ), "nodes in the intersection should be equal"
+        nodes.update(other_nodes)
+        edges = self.edges.copy()
+        edges.update(other.edges)
+        result = GraphDescriptor(f"{self.name}+{other.name}", nodes, edges)
+        result.subgraphs[tuple(sorted(self.nodes))] = self
+        result.subgraphs[tuple(sorted(other.nodes))] = other
+        return result

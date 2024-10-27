@@ -904,7 +904,7 @@ def _(y_op: ScalarOperator, x_op: LocalOperator):
     )
 )
 def _(x_op: ProductOperator, y_op: ProductOperator):
-    system = x_op.system or y_op.system
+    system = x_op.system * y_op.system if x_op.system else y_op.system
     site_op = x_op.sites_op.copy()
     site_op_y = y_op.sites_op
     for site, op_local in site_op_y.items():
@@ -981,7 +981,7 @@ def _(y_op: ScalarOperator, x_op: ProductOperator):
 def _(x_op: ProductOperator, y_op: LocalOperator):
     site = y_op.site
     op_local = y_op.operator
-    system = x_op.system or y_op.system
+    system = x_op.system * y_op.system if x_op.system else y_op.system
     site_op = x_op.sites_op.copy()
     if site in site_op:
         op_local = site_op[site] * op_local
@@ -1003,7 +1003,7 @@ def _(x_op: ProductOperator, y_op: LocalOperator):
 def _(y_op: LocalOperator, x_op: ProductOperator):
     site = y_op.site
     op_local = y_op.operator
-    system = x_op.system or y_op.system
+    system = x_op.system * y_op.system if x_op.system else y_op.system
     site_op = x_op.sites_op.copy()
     if site in site_op:
         op_local = op_local * site_op[site]

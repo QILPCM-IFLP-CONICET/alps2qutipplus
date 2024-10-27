@@ -806,7 +806,7 @@ def _(x_op, y_op):
 # ProductDensityOperator times ProductDensityOperator
 @Operator.register_mul_handler((ProductDensityOperator, ProductDensityOperator))
 def _(x_op: ProductDensityOperator, y_op: ProductDensityOperator):
-    system = y_op.system or x_op.system
+    system = x_op.system * y_op.system if x_op.system else y_op.system
     sites_op = x_op.sites_op.copy()
     for site, factor in y_op.sites_op.items():
         if site in sites_op:
@@ -823,14 +823,14 @@ def _(x_op: ProductDensityOperator, y_op: ProductDensityOperator):
 
 @Operator.register_mul_handler((ScalarOperator, ProductDensityOperator))
 def _(x_op: ScalarOperator, y_op: ProductDensityOperator):
-    system = y_op.system or x_op.system
+    system = x_op.system * y_op.system if x_op.system else y_op.system
     result = ProductOperator(y_op.sites_op, x_op.prefactor, system)
     return result
 
 
 @Operator.register_mul_handler((ProductDensityOperator, ScalarOperator))
 def _(x_op: ProductDensityOperator, y_op: ScalarOperator):
-    system = x_op.system or y_op.system
+    system = x_op.system * y_op.system if x_op.system else y_op.system
     prefactor = y_op.prefactor
     # prefactor = prefactor * np.exp(sum(x_op.local_fs.values()))
     return ProductOperator(x_op.sites_op, y_op.prefactor, system)
@@ -841,7 +841,7 @@ def _(x_op: ProductDensityOperator, y_op: ScalarOperator):
 
 @Operator.register_mul_handler((LocalOperator, ProductDensityOperator))
 def _(x_op: LocalOperator, y_op: ProductDensityOperator):
-    system = y_op.system or x_op.system
+    system = x_op.system * y_op.system if x_op.system else y_op.system
     prefactor = x_op.prefactor
     sites_op = y_op.sites_op.copy()
     site = x_op.site
@@ -855,7 +855,7 @@ def _(x_op: LocalOperator, y_op: ProductDensityOperator):
 
 @Operator.register_mul_handler((ProductDensityOperator, LocalOperator))
 def _(x_op: ProductDensityOperator, y_op: LocalOperator):
-    system = y_op.system or x_op.system
+    system = x_op.system * y_op.system if x_op.system else y_op.system
     sites_op = x_op.sites_op.copy()
     site = y_op.site
     if site in sites_op:
@@ -870,7 +870,7 @@ def _(x_op: ProductDensityOperator, y_op: LocalOperator):
 
 @Operator.register_mul_handler((ProductOperator, ProductDensityOperator))
 def _(x_op: ProductOperator, y_op: ProductDensityOperator):
-    system = y_op.system or x_op.system
+    system = x_op.system * y_op.system if x_op.system else y_op.system
     prefactor = x_op.prefactor
     sites_op = x_op.sites_op.copy()
     for site, factor in y_op.sites_op.items():
@@ -884,7 +884,7 @@ def _(x_op: ProductOperator, y_op: ProductDensityOperator):
 
 @Operator.register_mul_handler((ProductDensityOperator, ProductOperator))
 def _(x_op: ProductDensityOperator, y_op: ProductDensityOperator):
-    system = y_op.system or x_op.system
+    system = x_op.system * y_op.system if x_op.system else y_op.system
     sites_op = x_op.sites_op.copy()
     for site, factor in y_op.sites_op.items():
         if site in sites_op:
@@ -911,9 +911,10 @@ def _(x_op: ProductDensityOperator, y_op: ProductDensityOperator):
     )
 )
 def _(x_op: ProductDensityOperator, y_op: SumOperator):
+    system = x_op.system * y_op.system if x_op.system else y_op.system
     return SumOperator(
         tuple(x_op * term for term in y_op.terms),
-        x_op.system,
+        system,
     )
 
 
@@ -930,10 +931,11 @@ def _(x_op: ProductDensityOperator, y_op: SumOperator):
     )
 )
 def _(x_op: SumOperator, y_op: ProductDensityOperator):
+    system = x_op.system * y_op.system if x_op.system else y_op.system
     terms = tuple(term * y_op for term in x_op.terms)
     return SumOperator(
         terms,
-        y_op.system,
+        system,
     )
 
 
@@ -971,8 +973,9 @@ def _(x_op: SumOperator, y_op: ProductDensityOperator):
 @Operator.register_mul_handler((GibbsProductDensityOperator, MixtureDensityOperator))
 @Operator.register_mul_handler((QutipOperator, MixtureDensityOperator))
 def _(x_op: Operator, y_op: MixtureDensityOperator):
+    system = x_op.system * y_op.system if x_op.system else y_op.system
     terms = tuple((x_op * term) * term.prefactor for term in y_op.terms)
-    result = SumOperator(terms, y_op.system or x_op.system)
+    result = SumOperator(terms, system)
     return result
 
 
@@ -987,6 +990,7 @@ def _(
     x_op: MixtureDensityOperator,
     y_op: Operator,
 ):
+    system = x_op.system * y_op.system if x_op.system else y_op.system
     terms = []
     for term in x_op.terms:
         prefactor = term.prefactor
@@ -995,7 +999,7 @@ def _(
         new_term = (term * y_op) * prefactor
         terms.append(new_term)
 
-    return SumOperator(tuple(terms), x_op.system or y_op.system)
+    return SumOperator(tuple(terms), system)
 
 
 # MixtureDensityOperator times SumOperators
@@ -1009,6 +1013,7 @@ def _(
     x_op: MixtureDensityOperator,
     y_op: Operator,
 ):
+    system = x_op.system * y_op.system if x_op.system else y_op.system
     terms = []
     for term in x_op.terms:
         prefactor = term.prefactor
@@ -1018,7 +1023,7 @@ def _(
         new_term = new_term * prefactor
         terms.append(new_term)
 
-    result = SumOperator(tuple(terms), x_op.system or y_op.system)
+    result = SumOperator(tuple(terms), system)
     return result
 
 
