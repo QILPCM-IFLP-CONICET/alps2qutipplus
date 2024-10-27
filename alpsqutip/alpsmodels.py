@@ -360,7 +360,7 @@ class ModelDescriptor:
         bond_op_descr: Optional[dict] = None,
         global_op_descr: Optional[dict] = None,
         parms: Optional[dict] = None,
-        name:Optional[str] = ""
+        name: Optional[str] = "",
     ):
         self.site_basis = site_basis
         self.constraints = constraints or {}

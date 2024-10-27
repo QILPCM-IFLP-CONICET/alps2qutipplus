@@ -123,14 +123,15 @@ class SystemDescriptor:
             return system
 
         model = self.spec["model"]
-        assert model is system.spec["model"], "Join systems with different base models is not supported."
+        assert (
+            model is system.spec["model"]
+        ), "Join systems with different base models is not supported."
         parms = self.spec["parms"].copy()
         union_graph = self.spec["graph"] + system.spec["graph"]
         sites = self.sites.copy()
         sites.update(system.sites)
         # raise NotImplementedError("Union of disjoint systems are not implemented.")
-        return SystemDescriptor(union_graph, model, parms, sites)        
-        
+        return SystemDescriptor(union_graph, model, parms, sites)
 
     def site_operator(self, name: str, site: str = ""):  # -> "Operator"
         """
