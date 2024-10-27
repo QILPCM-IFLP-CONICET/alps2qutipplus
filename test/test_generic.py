@@ -32,45 +32,6 @@ def test_eval_expr():
         )
 
 
-def test_load_and_plot_graph():
-    for name in list_graph_in_alps_xml(LATTICE_LIB_FILE):
-        try:
-            g = graph_from_alps_xml(
-                LATTICE_LIB_FILE,
-                name,
-                parms={"L": 3, "W": 3, "a": 1, "b": 1, "c": 1},
-            )
-        except Exception as e:
-            assert False, f"geometry {name} could not be loaded due to {e}"
-
-        alert(1, g)
-        fig = plt.figure()
-        if g.lattice and g.lattice["dimension"] > 2:
-            ax = fig.add_subplot(projection="3d")
-            ax.set_proj_type("persp")
-        else:
-            ax = fig.add_subplot()
-        ax.set_title(name)
-        g.draw(ax)
-        plt.savefig(FIGURES_DIR + f"/{name}.png")
-    alert(1, "models:")
-
-    for modelname in list_operators_in_alps_xml(MODEL_LIB_FILE):
-        alert(1, "\n       ", modelname)
-        alert(1, 40 * "*")
-        try:
-            model = model_from_alps_xml(
-                MODEL_LIB_FILE, modelname, parms={"Nmax": 3, "local_S": 0.5}
-            )
-            alert(
-                1,
-                "site types:",
-                {name: lb["name"] for name, lb in model.site_basis.items()},
-            )
-        except Exception as e:
-            assert False, f"{model} could not be loaded due to {e}"
-
-
 def test_load_all_models_and_lattices():
     """Try to load each model and lattice."""
     models = list_operators_in_alps_xml(MODEL_LIB_FILE)

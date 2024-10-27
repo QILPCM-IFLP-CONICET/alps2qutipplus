@@ -140,7 +140,7 @@ def test_one_body_from_qutip_operator():
             assert abs((remainder.to_qutip() * state.to_qutip()).tr()) < 1.0e-9
         # Check the consistency
         assert check_operator_equality(
-            qutip_op, result
+            qutip_op.to_qutip(), result.to_qutip()
         ), f"decomposition failed {state_name} for {operator_name}"
 
     for operator_name, test_operator in TEST_OPERATORS.items():

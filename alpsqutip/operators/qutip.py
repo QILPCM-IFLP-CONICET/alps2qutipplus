@@ -217,11 +217,12 @@ def sum_qutip_operator_plus_number(x_op: QutipOperator, y_val: Union[Number, Qob
 )
 def mul_qutip_operator_qutip_operator(x_op: QutipOperator, y_op: QutipOperator):
     """Product of two qutip operators"""
+    system = x_op.system * y_op.system if x_op.system else y_op.system
     names = x_op.site_names.copy()
     names.update(y_op.site_names)
     return QutipOperator(
         x_op.operator * y_op.operator,
-        x_op.system or y_op.system,
+        system,
         names=names,
         prefactor=x_op.prefactor * y_op.prefactor,
     )
@@ -235,8 +236,12 @@ def mul_qutip_operator_qutip_operator(x_op: QutipOperator, y_op: QutipOperator):
 )
 def mul_scalarop_with_qutipop(x_op: ScalarOperator, y_op: QutipOperator):
     """Sum a Scalar operator to a Qutip Operator"""
+    system = x_op.system * y_op.system if x_op.system else y_op.system
     return QutipOperator(
-        y_op.operator, names=y_op.site_names, prefactor=x_op.prefactor * y_op.prefactor
+        y_op.operator,
+        names=y_op.site_names,
+        prefactor=x_op.prefactor * y_op.prefactor,
+        system=system,
     )
 
 
@@ -248,8 +253,12 @@ def mul_scalarop_with_qutipop(x_op: ScalarOperator, y_op: QutipOperator):
 )
 def mul_qutipop_with_scalarop(y_op: QutipOperator, x_op: ScalarOperator):
     """Sum a Scalar operator to a Qutip Operator"""
+    system = x_op.system * y_op.system if x_op.system else y_op.system
     return QutipOperator(
-        y_op.operator, names=y_op.site_names, prefactor=x_op.prefactor * y_op.prefactor
+        y_op.operator,
+        names=y_op.site_names,
+        prefactor=x_op.prefactor * y_op.prefactor,
+        system=system,
     )
 
 
@@ -333,9 +342,10 @@ def mul_qutip_operator_times_qobj(x_op: QutipOperator, y_op: Qobj):
 )
 def mul_qutip_obj_times_qutip_operator(y_op: Qobj, x_op: QutipOperator):
     """product of a Qobj and a QutipOperator."""
+    system = x_op.system
     return QutipOperator(
         y_op * x_op.operator,
-        x_op.system,
+        system,
         names=x_op.site_names,
         prefactor=x_op.prefactor,
     )

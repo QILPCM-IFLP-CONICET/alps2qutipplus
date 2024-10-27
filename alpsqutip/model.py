@@ -35,7 +35,7 @@ class SystemDescriptor:
             parms = model_parms
 
         self.spec = {"graph": graph, "model": model, "parms": parms}
-
+        self.name = f"{self.spec['model'].name} on {self.spec['graph'].name}"
         site_basis = model.site_basis
         if sites:
             self.sites = sites
@@ -108,6 +108,11 @@ class SystemDescriptor:
         for gop in names:
             self.global_operator(gop)
 
+    def __mul__(self, system):
+        if system is None or system is self:
+            return self
+        return self.union(system)
+
     def union(self, system):
         """Return a SystemDescritor containing system and self"""
         if system is None or system is self:
@@ -116,7 +121,17 @@ class SystemDescriptor:
             return self
         if all(site in system.sites for site in self.sites):
             return system
-        raise NotImplementedError("Union of disjoint systems are not implemented.")
+
+        model = self.spec["model"]
+        assert (
+            model is system.spec["model"]
+        ), "Join systems with different base models is not supported."
+        parms = self.spec["parms"].copy()
+        union_graph = self.spec["graph"] + system.spec["graph"]
+        sites = self.sites.copy()
+        sites.update(system.sites)
+        # raise NotImplementedError("Union of disjoint systems are not implemented.")
+        return SystemDescriptor(union_graph, model, parms, sites)
 
     def site_operator(self, name: str, site: str = ""):  # -> "Operator"
         """
