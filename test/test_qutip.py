@@ -171,6 +171,8 @@ def test_factorize_qutip_operators():
         ), "reconstruction does not match with the original."
 
 
+
+        
 def test_qutip_operators():
     """Test for the qutip representation"""
 
