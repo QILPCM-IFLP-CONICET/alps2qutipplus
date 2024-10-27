@@ -169,7 +169,7 @@ class SumOperator(Operator):
     def partial_trace(self, sites: Union[list, SystemDescriptor]):
         if not isinstance(sites, SystemDescriptor):
             sites = self.system.subsystem(sites)
-        new_terms = (term.partial_trace(sites) * term.prefactor for term in self.terms)
+        new_terms = (term.partial_trace(sites) for term in self.terms)
         return sum(new_terms)
 
     def simplify(self):
