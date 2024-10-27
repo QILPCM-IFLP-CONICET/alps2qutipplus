@@ -5,7 +5,7 @@ Different representations for operators
 import logging
 from functools import reduce
 from numbers import Number
-from typing import Callable, Dict, Optional, Tuple
+from typing import Callable, Dict, Optional, Tuple, Union
 
 import numpy as np
 import qutip
@@ -294,7 +294,7 @@ class Operator:
         """Logarithm of the operator"""
         return self.to_qutip_operator().logm()
 
-    def partial_trace(self, sites: list):
+    def partial_trace(self, sites: Union[list, SystemDescriptor]):
         """Partial trace over sites not listed in `sites`"""
         raise NotImplementedError
 
@@ -411,11 +411,13 @@ class LocalOperator(Operator):
 
         return LocalOperator(self.site, log_qutip(self.operator), self.system)
 
-    def partial_trace(self, sites: list):
+    def partial_trace(self, sites: Union[list, SystemDescriptor]):
         system = self.system
         assert system is not None
         dimensions = system.dimensions
-        subsystem = system.subsystem(sites)
+        subsystem = (
+            sites if isinstance(sites, SystemDescriptor) else system.subsystem(sites)
+        )
         local_sites = subsystem.sites
         site = self.site
         prefactors = [
@@ -604,17 +606,21 @@ class ProductOperator(Operator):
         result = result + ScalarOperator(np.log(self.prefactor), system)
         return result
 
-    def partial_trace(self, sites: list):
+    def partial_trace(self, sites: Union[list, SystemDescriptor]):
         full_system_sites = self.system.sites
         dimensions = self.dimensions
-        sites_in = tuple(s for s in sites if s in full_system_sites)
-        sites_out = tuple(s for s in full_system_sites if s not in sites_in)
-        subsystem = self.system.subsystem(sites_in)
+        if isinstance(sites, SystemDescriptor):
+            subsystem = sites
+            sites = tuple(sites.sites.keys())
+        else:
+            subsystem = self.system.subsystem(sites)
+
+        sites_out = tuple(s for s in full_system_sites if s not in sites)
         sites_op = self.sites_op
         prefactors = [
             sites_op[s].tr() if s in sites_op else dimensions[s] for s in sites_out
         ]
-        sites_op = {s: o for s, o in sites_op.items() if s in sites_in}
+        sites_op = {s: o for s, o in sites_op.items() if s in sites}
         prefactor = self.prefactor
         for factor in prefactors:
             if factor == 0:
@@ -898,7 +904,7 @@ def _(y_op: ScalarOperator, x_op: LocalOperator):
     )
 )
 def _(x_op: ProductOperator, y_op: ProductOperator):
-    system = x_op.system or y_op.system
+    system = x_op.system * y_op.system if x_op.system else y_op.system
     site_op = x_op.sites_op.copy()
     site_op_y = y_op.sites_op
     for site, op_local in site_op_y.items():
@@ -975,7 +981,7 @@ def _(y_op: ScalarOperator, x_op: ProductOperator):
 def _(x_op: ProductOperator, y_op: LocalOperator):
     site = y_op.site
     op_local = y_op.operator
-    system = x_op.system or y_op.system
+    system = x_op.system * y_op.system if x_op.system else y_op.system
     site_op = x_op.sites_op.copy()
     if site in site_op:
         op_local = site_op[site] * op_local
@@ -997,7 +1003,7 @@ def _(x_op: ProductOperator, y_op: LocalOperator):
 def _(y_op: LocalOperator, x_op: ProductOperator):
     site = y_op.site
     op_local = y_op.operator
-    system = x_op.system or y_op.system
+    system = x_op.system * y_op.system if x_op.system else y_op.system
     site_op = x_op.sites_op.copy()
     if site in site_op:
         op_local = op_local * site_op[site]

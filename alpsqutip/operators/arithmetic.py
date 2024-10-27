@@ -166,7 +166,9 @@ class SumOperator(Operator):
             self._isdiagonal = all(term.isdiagonal for term in simplified.terms)
         return self._isdiagonal
 
-    def partial_trace(self, sites: list):
+    def partial_trace(self, sites: Union[list, SystemDescriptor]):
+        if not isinstance(sites, SystemDescriptor):
+            sites = self.system.subsystem(sites)
         new_terms = (term.partial_trace(sites) * term.prefactor for term in self.terms)
         return sum(new_terms)
 
@@ -494,7 +496,7 @@ def _(y_op: ScalarOperator, x_op: SumOperator):
     )
 )
 def _(y_op: LocalOperator, x_op: SumOperator):
-    system = x_op.system or y_op.system()
+    system = x_op.system * y_op.system if x_op.system else y_op.system
 
     terms_it = (y_op * term for term in x_op.terms)
     terms = tuple(term for term in terms_it if bool(term))
@@ -513,7 +515,7 @@ def _(y_op: LocalOperator, x_op: SumOperator):
     )
 )
 def _(x_op: SumOperator, y_op: LocalOperator):
-    system = x_op.system or y_op.system()
+    system = x_op.system * y_op.system if x_op.system else y_op.system
 
     terms_it = (term * y_op for term in x_op.terms)
     terms = tuple(term for term in terms_it if bool(term))
@@ -570,7 +572,7 @@ def _(x_op: SumOperator, y_op: SumOperator):
     )
 )
 def _(x_op: SumOperator, y_op: SumOperator):
-    system = x_op.system or y_op.system
+    system = x_op.system * y_op.system if x_op.system else y_op.system
     terms = tuple(
         factor_x * factor_y for factor_x in x_op.terms for factor_y in y_op.terms
     )
@@ -600,7 +602,7 @@ def _(x_op: SumOperator, y_op: SumOperator):
     )
 )
 def _(x_op: SumOperator, y_op: Union[Operator, Qobj]):
-    system = x_op.system or y_op.system
+    system = x_op.system * y_op.system if x_op.system else y_op.system
     terms = tuple(factor_x * y_op for factor_x in x_op.terms)
     if len(terms) == 0:
         return ScalarOperator(0, system)
@@ -622,7 +624,7 @@ def _(x_op: SumOperator, y_op: Union[Operator, Qobj]):
     )
 )
 def _(y_op: Union[Operator, Qobj], x_op: SumOperator):
-    system = x_op.system or y_op.system
+    system = x_op.system * y_op.system if x_op.system else y_op.system
     terms = tuple(y_op * factor_x for factor_x in x_op.terms)
     if len(terms) == 0:
         return ScalarOperator(0, system)
@@ -691,7 +693,7 @@ def _(x_op: OneBodyOperator, y_op: ScalarOperator):
     )
 )
 def _(x_op: OneBodyOperator, y_op: LocalOperator):
-    system = x_op.system or y_op.system
+    system = x_op.system * y_op.system if x_op.system else y_op.system
     terms = x_op.terms + (y_op,)
     if len(terms) == 1:
         return terms[0]
@@ -967,7 +969,7 @@ def _(x_op: QutipOperator, y_op: Operator):
     )
 )
 def _(x_op: QutipOperator, y_op: ScalarOperator):
-    system = x_op.system or y_op.system
+    system = x_op.system * y_op.system if x_op.system else y_op.system
     return QutipOperator(
         x_op.operator, system, x_op.site_names, x_op.prefactor * y_op.prefactor
     )
@@ -980,7 +982,7 @@ def _(x_op: QutipOperator, y_op: ScalarOperator):
     )
 )
 def _(y_op: ScalarOperator, x_op: QutipOperator):
-    system = x_op.system or y_op.system
+    system = x_op.system * y_op.system if x_op.system else y_op.system
     return QutipOperator(
         x_op.operator, system, x_op.site_names, x_op.prefactor * y_op.prefactor
     )
