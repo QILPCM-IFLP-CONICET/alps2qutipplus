@@ -70,12 +70,12 @@ hamiltonian: SumOperator = system.global_operator("Hamiltonian")
 assert (sminus_A * sminus_B) is not None
 
 subsystems = [
-    [sites[0]],
-    [sites[1]],
-    [sites[2]],
-    [sites[0], sites[1]],
-    [sites[0], sites[2]],
-    [sites[2], sites[3]],
+    (sites[0],),
+    (sites[1],),
+    (sites[2],),
+    (sites[0], sites[1],),
+    (sites[0], sites[2],),
+    (sites[2], sites[3],),
 ]
 
 

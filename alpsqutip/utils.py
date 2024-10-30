@@ -6,7 +6,7 @@ ALPS specification files.
 import logging
 
 import numpy as np
-import qutip
+import qutip  # type: ignore[import-untyped]
 from numpy.random import rand
 
 default_parms = {
@@ -144,7 +144,7 @@ def operator_to_wolfram(operator) -> str:
         prefix = f"({prefactor}) * " + prefix
 
     if isinstance(operator, LocalOperator):
-        local_site
+        local_site = operator.site
         factors = [
             operator.operator if site == local_site else get_site_identity(site)
             for site in sorted(dimensions)

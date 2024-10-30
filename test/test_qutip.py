@@ -162,7 +162,7 @@ def test_factorize_qutip_operators():
         print("decomposing ", name)
         acts_over = operator_case.acts_over()
         if acts_over:
-            operator_case = operator_case.partial_trace(acts_over)
+            operator_case = operator_case.partial_trace(tuple(acts_over))
         qutip_operator = operator_case.to_qutip()
         terms = factorize_qutip_operator(qutip_operator)
         reconstructed = sum(tensor(*t) for t in terms)
@@ -184,10 +184,10 @@ def test_qutip_operators():
     opglobal_qt = szC_qt + sx_AsyB_times_2_qt
 
     subsystems = [
-        [sites[0]],
-        [sites[1]],
-        [sites[0], [sites[1]]],
-        [sites[1], [sites[2]]],
+        (sites[0],),
+        (sites[1],),
+        (sites[0], sites[1],),
+        (sites[1], sites[2],),
     ]
 
     for subsystem in subsystems:
@@ -229,5 +229,5 @@ def test_qutip_operators():
         sx_AsyB_times_2_qt.operator, names={s: i for i, s in enumerate(sites)}
     )
     assert (detached_qutip_operator * detached_qutip_operator).partial_trace(
-        sites[0]
+        (sites[0],)
     ).tr() == 0.5**2 * 2 ** (CHAIN_SIZE - 2)

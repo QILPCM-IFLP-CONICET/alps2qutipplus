@@ -22,6 +22,11 @@ jobs:
         run: black --diff .
       - name: Run black --check 
         run: black --check .
+      # - name: mypy
+      #  run: |
+      #	  pip install mypy==1.13
+      #   pip install -e .
+      #   mypy --install-types --non-interactive alpsqutip
       # - name: If needed, commit black changes to the pull request
       #   if: failure()
       #   run: |

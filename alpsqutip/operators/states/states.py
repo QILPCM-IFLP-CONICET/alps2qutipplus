@@ -4,10 +4,14 @@ Density operator classes.
 
 from functools import reduce
 from numbers import Number
-from typing import Dict, Iterable, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
-from qutip import Qobj, qeye as qutip_qeye, tensor as qutip_tensor
+from qutip import (  # type: ignore[import-untyped]
+    Qobj,
+    qeye as qutip_qeye,
+    tensor as qutip_tensor,
+)
 
 from alpsqutip.model import SystemDescriptor
 from alpsqutip.operators.arithmetic import OneBodyOperator, SumOperator
@@ -87,6 +91,13 @@ class DensityOperatorMixin:
 
 
     """
+
+    system: SystemDescriptor
+
+    def eigenstates(self) -> list:
+        if isinstance(self, Operator):
+            return super().eigenstates()  # type:ignore[misc]
+        raise NotImplementedError
 
     def expect(self, obs: Union[Operator, Iterable]) -> Union[np.ndarray, dict, Number]:
         """Compute the expectation value of an observable"""
@@ -217,7 +228,7 @@ class ProductDensityOperator(DensityOperatorMixin, ProductOperator):
         else:
             sites = tuple(system.sites.keys())
             dimensions = system.dimensions
-            local_identities = {}
+            local_identities: dict = {}
             for site, dimension in dimensions.items():
                 if site not in local_states:
                     local_id = local_identities.get(dimension, None)
@@ -318,7 +329,7 @@ class ProductDensityOperator(DensityOperatorMixin, ProductOperator):
             return OneBodyOperator(terms, system, False) + ScalarOperator(norm, system)
         return OneBodyOperator(terms, system, False)
 
-    def partial_trace(self, sites: Union[list, SystemDescriptor]):
+    def partial_trace(self, sites: Union[tuple, SystemDescriptor]):
         sites_op = self.sites_op
         if isinstance(sites, SystemDescriptor):
             subsystem = sites
@@ -350,6 +361,8 @@ class MixtureDensityOperator(DensityOperatorMixin, SumOperator):
     """
     A mixture of density operators
     """
+
+    terms: Tuple[DensityOperatorMixin]
 
     def __init__(self, terms: tuple, system: SystemDescriptor = None):
         super().__init__(terms, system, True)
@@ -385,7 +398,7 @@ class MixtureDensityOperator(DensityOperatorMixin, SumOperator):
         Return a set with the name of the
         sites where the operator nontrivially acts
         """
-        sites = set()
+        sites: set = set()
         for term in self.terms:
             sites.update(term.acts_over())
         return sites
@@ -407,7 +420,7 @@ class MixtureDensityOperator(DensityOperatorMixin, SumOperator):
             return sum(np.array(term[0]) * term[1] for term in av_terms)[0]
         return sum(np.array(term[0]) * term[1] for term in av_terms)
 
-    def partial_trace(self, sites: Union[list, SystemDescriptor]):
+    def partial_trace(self, sites: Union[tuple, SystemDescriptor]):
         new_terms = tuple(t.partial_trace(sites) for t in self.terms)
         subsystem = new_terms[0].system
         return MixtureDensityOperator(new_terms, subsystem)
@@ -435,7 +448,7 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
     def __init__(
         self,
         k: Operator,
-        system: SystemDescriptor = None,
+        system: Optional[SystemDescriptor] = None,
         prefactor=1.0,
         normalized=False,
     ):
@@ -506,8 +519,9 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
             self.k = self.k + log_prefactor
             self.free_energy = -log_prefactor
             self.normalized = True
+        return self
 
-    def partial_trace(self, sites: Union[List, SystemDescriptor]):
+    def partial_trace(self, sites: Union[tuple, SystemDescriptor]):
         return self.to_qutip_operator().partial_trace(sites)
 
     def to_qutip(self):
@@ -528,17 +542,16 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
 
     """
 
-    k_by_site: list
+    k_by_site: dict[str, Operator]
     prefactor: float
     free_energies: Dict[str, float]
-
     isherm: bool = True
 
     def __init__(
         self,
         k: Union[Operator, dict],
         prefactor: float = 1,
-        system: SystemDescriptor = None,
+        system: Optional[SystemDescriptor] = None,
         normalized: bool = False,
     ):
         assert prefactor > 0.0
@@ -640,9 +653,16 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
         )
         return OneBodyOperator(terms, self.system, False)
 
-    def partial_trace(self, sites):
-        sites = [site for site in sites if site in self.system.dimensions]
-        subsystem = self.system.subsystem(sites)
+    def partial_trace(self, sites: Union[tuple, SystemDescriptor]):
+
+        if isinstance(sites, SystemDescriptor):
+            subsystem = sites
+            sites = tuple(
+                (site for site in subsystem.sites if site in self.system.dimensions)
+            )
+        else:
+            subsystem = self.system.subsystem(sites)
+
         k_by_site = self.k_by_site
         return GibbsProductDensityOperator(
             OneBodyOperator(
@@ -1061,7 +1081,7 @@ def _(x_op: ScalarOperator, y_op: GibbsDensityOperator):
 @Operator.register_mul_handler((GibbsDensityOperator, ScalarOperator))
 def _(x_op: GibbsDensityOperator, y_op: ScalarOperator):
     x_qutip = x_op.to_qutip()
-    result = QutipOperator(y_op.prefactor * y_qutip, x_op.system or y_op.system)
+    result = QutipOperator(y_op.prefactor * x_op.to_qutip(), x_op.system or y_op.system)
     return result
 
 

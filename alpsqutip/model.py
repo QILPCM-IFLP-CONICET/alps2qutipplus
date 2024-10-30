@@ -6,6 +6,7 @@ import logging
 import re
 from typing import Optional
 
+from alpsqutip.alpsmodels import ModelDescriptor
 from alpsqutip.geometry import GraphDescriptor
 from alpsqutip.settings import VERBOSITY_LEVEL
 from alpsqutip.utils import eval_expr
@@ -20,10 +21,16 @@ class SystemDescriptor:
     a set of parameters defining a Hamiltonian operator.
     """
 
+    dimensions: dict
+    name: str
+    sites: dict
+    spec: dict
+    operators: dict
+
     def __init__(
         self,
         graph: GraphDescriptor,
-        model: dict,
+        model: ModelDescriptor,
         parms: Optional[dict] = None,
         sites=None,
     ):
@@ -66,14 +73,14 @@ class SystemDescriptor:
         )
         return result
 
-    def subsystem(self, sites: list):
+    def subsystem(self, sites: tuple):
         """
         Build a subsystem including the sites listed
         in sites
         """
         parms = self.spec["parms"].copy()
         model = self.spec["model"]
-        graph = self.spec["graph"].subgraph(tuple(sites))
+        graph = self.spec["graph"].subgraph(sites)
         return SystemDescriptor(graph, model, parms)
 
     def _load_site_operators(self):
@@ -233,7 +240,15 @@ class SystemDescriptor:
 
         result = eval_expr(bond_op_descriptor, parms_and_ops)
         if not (result is None or isinstance(result, str)):
-            self.operators["bond_operators"][tuple(name, src, dst)] = result
+            self.operators["bond_operators"][
+                tuple(
+                    (
+                        name,
+                        src,
+                        dst,
+                    )
+                )
+            ] = result
             return result
 
         # Finally, try to load other operators

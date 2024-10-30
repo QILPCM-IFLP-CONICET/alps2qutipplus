@@ -4,7 +4,7 @@ Define SystemDescriptors and different kind of operators
 
 # from numbers import Number
 from time import time
-from typing import Callable, List, Union
+from typing import Callable, List, Optional, Tuple, Union
 
 import numpy as np
 from numpy.linalg import eigh, svd
@@ -38,6 +38,7 @@ class QuadraticFormOperator(Operator):
     system: SystemDescriptor
     terms: list
     weights: list
+    offset: Optional[Operator]
 
     def __init__(self, basis, weights, system=None, offset=None):
         # If the system is not given, infer it from the terms
@@ -170,7 +171,8 @@ class QuadraticFormOperator(Operator):
 
         return all(abs(np.imag(weight)) < 1e-10 for weight in self.weights)
 
-    def partial_trace(self, sites: Union[list, SystemDescriptor]):
+    def partial_trace(self, sites: Union[tuple, SystemDescriptor]):
+        offset = self.offset
         if not isinstance(sites, SystemDescriptor):
             sites = self.system.subsystem(sites)
 
@@ -183,7 +185,6 @@ class QuadraticFormOperator(Operator):
             w * (op_term * op_term).partial_trace(sites)
             for w, op_term in zip(self.weights, self.basis)
         )
-        offset = self.offset
         if offset:
             terms = terms + (offset.partial_trace(sites),)
         return SumOperator(
@@ -246,7 +247,9 @@ class QuadraticFormOperator(Operator):
         return result
 
 
-def build_quadratic_form_from_operator(operator, isherm=None, simplify=True):
+def build_quadratic_form_from_operator(
+    operator, isherm=None, simplify=True
+) -> QuadraticFormOperator:
     """
     Simplify the operator and try to decompose it
     as a Quadratic Form.
@@ -335,7 +338,7 @@ def build_quadratic_form_from_operator(operator, isherm=None, simplify=True):
     # Decomposing two-body terms
     basis: list = []
     weights: list = []
-    basis_h: list = []
+    basis_h: Optional[list] = []
     weights_h: list = []
     other_terms: list = []
 
@@ -478,8 +481,8 @@ def selfconsistent_meanfield_from_quadratic_form(
 
     phi = [(2.0 * random() - 1.0)]
 
-    evolution = []
-    timestamps = []
+    evolution: list = []
+    timestamps: list = []
 
     if isinstance(logdict, dict):
         logdict["states"] = evolution
@@ -569,8 +572,12 @@ def one_body_operator_hermitician_hs_sp(x_op: OneBodyOperator, y_op: OneBodyOper
     Hilbert Schmidt scalar product optimized for OneBodyOperators
     """
     result = 0
-    terms_x = x_op.terms if isinstance(x_op, OneBodyOperator) else (x_op,)
-    terms_y = y_op.terms if isinstance(y_op, OneBodyOperator) else (y_op,)
+    terms_x: Tuple[LocalOperator] = (
+        x_op.terms if isinstance(x_op, OneBodyOperator) else (x_op,)
+    )
+    terms_y: Tuple[LocalOperator] = (
+        y_op.terms if isinstance(y_op, OneBodyOperator) else (y_op,)
+    )
 
     for t_1 in terms_x:
         for t_2 in terms_y:

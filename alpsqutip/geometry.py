@@ -20,13 +20,13 @@ def list_graph_in_alps_xml(filename="lattices.xml") -> Tuple[str]:
     lattices = xmltree.getroot()
 
     for graph in lattices.findall("./GRAPH"):
-        name = graph.attrib.get("name", None)
+        name = graph.attrib.get("name", "")
         if name:
             result.append(name)
 
     # Otherwise, try with a lattice
     for lat in lattices.findall("./LATTICEGRAPH"):
-        name = lat.attrib.get("name", None)
+        name = lat.attrib.get("name", "")
         if name:
             result.append(name)
     return tuple(result)
@@ -312,6 +312,7 @@ class GraphDescriptor:
     nodes: dict
     edges: dict
     parms: dict
+    subgraphs: dict
 
     def __init__(
         self,

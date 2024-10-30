@@ -65,7 +65,7 @@ def test_acts_over():
         "x semipolarized": full_chain,
         "first full polarized": full_chain,
         "gibbs_sz_as_product": full_chain,
-        "qutip operator": None,
+        "qutip operator": full_chain,
         "gibbs_sz": full_chain,
         "gibbs_sz_bar": full_chain,
         "gibbs_H": full_chain,

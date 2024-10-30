@@ -6,10 +6,10 @@ Classes and functions for operator arithmetic.
 
 import logging
 from numbers import Number
-from typing import List, Optional, Union
+from typing import Optional, Tuple, Union
 
 import numpy as np
-from qutip import Qobj
+from qutip import Qobj  # type: ignore[import-untyped]
 
 from alpsqutip.model import SystemDescriptor
 from alpsqutip.operators.basic import (
@@ -26,8 +26,7 @@ class SumOperator(Operator):
     Represents a linear combination of operators
     """
 
-    terms: List[Operator]
-    system: Optional[SystemDescriptor]
+    terms: Tuple[Operator]
 
     def __init__(
         self,
@@ -157,7 +156,7 @@ class SumOperator(Operator):
                 self._isherm = True
                 return True
             return aggresive_hermitician_test()
-        return self._isherm
+        return bool(self._isherm)
 
     @property
     def isdiagonal(self) -> bool:
@@ -166,7 +165,7 @@ class SumOperator(Operator):
             self._isdiagonal = all(term.isdiagonal for term in simplified.terms)
         return self._isdiagonal
 
-    def partial_trace(self, sites: Union[list, SystemDescriptor]):
+    def partial_trace(self, sites: Union[tuple, SystemDescriptor]):
         if not isinstance(sites, SystemDescriptor):
             sites = self.system.subsystem(sites)
         new_terms = (term.partial_trace(sites) for term in self.terms)
@@ -459,7 +458,7 @@ def _(y_value: Number, x_op: SumOperator):
     )
 )
 def _(x_op: SumOperator, y_op: ScalarOperator):
-    system = x_op.system or y_op.system()
+    system = x_op.system or y_op.system
     y_value = y_op.prefactor
     if y_value == 0:
         return ScalarOperator(0, system)
@@ -476,7 +475,7 @@ def _(x_op: SumOperator, y_op: ScalarOperator):
     )
 )
 def _(y_op: ScalarOperator, x_op: SumOperator):
-    system = x_op.system or y_op.system()
+    system = x_op.system or y_op.system
     y_value = y_op.prefactor
     if y_value == 0:
         return ScalarOperator(0, system)

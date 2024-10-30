@@ -8,7 +8,7 @@ from numbers import Number
 from typing import Callable, Dict, Optional, Tuple, Union
 
 import numpy as np
-import qutip
+import qutip  # type: ignore[import-untyped]
 from qutip import Qobj
 
 from alpsqutip.model import SystemDescriptor
@@ -40,60 +40,11 @@ def check_multiplication(a, b, result, func=None) -> bool:
     return True
 
 
-def empty_op(op: Qobj) -> bool:
-    """
-    Check if op is an sparse operator without
-    non-zero elements.
-    """
-    if not hasattr(op, "data"):
-        if isinstance(op, ScalarOperator):
-            return op.prefactor == 0
-        if hasattr(op, "operator"):
-            return empty_op(op.operator)
-        if hasattr(op, "sites_op"):
-            if op.prefactor == 0:
-                return True
-            return any(empty_op(op_l) for op_l in sites_op.values())
-        raise ValueError(f"Operator of type {type(op)} is not allowed.")
-    return data_is_zero(op.data)
-
-
-def is_diagonal_op(op: Qobj) -> bool:
-    """Check if op is a diagonal operator"""
-    if not hasattr(op, "data"):
-        if isinstance(op, ScalarOperator):
-            return True
-        if hasattr(op, "operator"):
-            return is_diagonal_op(op.operator)
-        if hasattr(op, "sites_op"):
-            if op.prefactor == 0:
-                return True
-            return all(is_diagonal_op(op_l) for op_l in sites_op.values())
-        raise ValueError(f"Operator of type {type(op)} is not allowed.")
-    return data_is_diagonal(op.data)
-
-
-def is_scalar_op(op: Qobj) -> bool:
-    """
-    Check if the operator is a
-    multiple of the identity
-    """
-    if not hasattr(op, "data"):
-        if isinstance(op, ScalarOperator):
-            return True
-        if hasattr(op, "operator"):
-            return is_scalar_op(op.operator)
-        if hasattr(op, "sites_op"):
-            return all(is_scalar_op(site_op) for site_op in op.sites_op.values())
-        raise ValueError(f"Operator of type {type(op)} is not allowed.")
-    return data_is_scalar(op.data)
-
-
 class Operator:
     """Base class for operators"""
 
     system: SystemDescriptor
-    prefactor: float = 1.0
+    prefactor: complex = 1.0
 
     # def __add__(self, term):
     #    # pylint: disable=import-outside-toplevel
@@ -267,12 +218,15 @@ class Operator:
         """Check if the operator is diagonal"""
         return False
 
+    def eigenstates(self):
+        return self.to_qutip_operator().eigenstates()
+
     def expm(self):
         """Compute the exponential of the Qutip representation of the operator"""
 
         # Import here to avoid circular dependency
         # pylint: disable=import-outside-toplevel
-        from scipy.sparse.linalg import ArpackError
+        from scipy.sparse.linalg import ArpackError  # type: ignore[import-untyped]
 
         from alpsqutip.operators.functions import eigenvalues
         from alpsqutip.operators.qutip import QutipOperator
@@ -294,7 +248,7 @@ class Operator:
         """Logarithm of the operator"""
         return self.to_qutip_operator().logm()
 
-    def partial_trace(self, sites: Union[list, SystemDescriptor]):
+    def partial_trace(self, sites: Union[tuple, SystemDescriptor]):
         """Partial trace over sites not listed in `sites`"""
         raise NotImplementedError
 
@@ -318,7 +272,7 @@ class Operator:
     # pylint: disable=invalid-name
     def tr(self):
         """The trace of the operator"""
-        return self.partial_trace([]).prefactor
+        return self.partial_trace(tuple()).prefactor
 
     def tidyup(self, atol=None):
         """remove tiny elements of the operator"""
@@ -411,7 +365,7 @@ class LocalOperator(Operator):
 
         return LocalOperator(self.site, log_qutip(self.operator), self.system)
 
-    def partial_trace(self, sites: Union[list, SystemDescriptor]):
+    def partial_trace(self, sites: Union[tuple, SystemDescriptor]):
         system = self.system
         assert system is not None
         dimensions = system.dimensions
@@ -458,7 +412,7 @@ class LocalOperator(Operator):
         return qutip.tensor(*(factors_dict[site] for site in sorted(dimensions)))
 
     def tr(self):
-        result = self.partial_trace([])
+        result = self.partial_trace(tuple())
         return result.prefactor
 
     def tidyup(self, atol=None):
@@ -472,7 +426,7 @@ class ProductOperator(Operator):
     def __init__(
         self,
         sites_operators: dict,
-        prefactor=1.0,
+        prefactor: complex = 1.0,
         system: Optional[SystemDescriptor] = None,
     ):
         assert system is not None
@@ -606,7 +560,7 @@ class ProductOperator(Operator):
         result = result + ScalarOperator(np.log(self.prefactor), system)
         return result
 
-    def partial_trace(self, sites: Union[list, SystemDescriptor]):
+    def partial_trace(self, sites: Union[tuple, SystemDescriptor]):
         full_system_sites = self.system.sites
         dimensions = self.dimensions
         if isinstance(sites, SystemDescriptor):
@@ -685,7 +639,7 @@ class ProductOperator(Operator):
         return self.prefactor * qutip.tensor(ops.values())
 
     def tr(self):
-        result = self.partial_trace([])
+        result = self.partial_trace(tuple())
         return result.prefactor
 
     def tidyup(self, atol=None):
@@ -1014,3 +968,52 @@ def _(y_op: LocalOperator, x_op: ProductOperator):
         site, op_local = next(iter(site_op.items()))
         return LocalOperator(site, op_local * x_op.prefactor, system)
     return ProductOperator(site_op, x_op.prefactor, system)
+
+
+def empty_op(op: Union[Qobj, Operator]) -> bool:
+    """
+    Check if op is an sparse operator without
+    non-zero elements.
+    """
+    if not hasattr(op, "data"):
+        if isinstance(op, ScalarOperator):
+            return op.prefactor == 0
+        if hasattr(op, "operator"):
+            return empty_op(op.operator)
+        if hasattr(op, "sites_op"):
+            if op.prefactor == 0:
+                return True
+            return any(empty_op(op_l) for op_l in op.sites_op.values())
+        raise ValueError(f"Operator of type {type(op)} is not allowed.")
+    return data_is_zero(op.data)
+
+
+def is_diagonal_op(op: Union[Qobj, Operator]) -> bool:
+    """Check if op is a diagonal operator"""
+    if not hasattr(op, "data"):
+        if isinstance(op, ScalarOperator):
+            return True
+        if hasattr(op, "operator"):
+            return is_diagonal_op(op.operator)
+        if hasattr(op, "sites_op"):
+            if op.prefactor == 0:
+                return True
+            return all(is_diagonal_op(op_l) for op_l in op.sites_op.values())
+        raise ValueError(f"Operator of type {type(op)} is not allowed.")
+    return data_is_diagonal(op.data)
+
+
+def is_scalar_op(op: Qobj) -> bool:
+    """
+    Check if the operator is a
+    multiple of the identity
+    """
+    if not hasattr(op, "data"):
+        if isinstance(op, ScalarOperator):
+            return True
+        if hasattr(op, "operator"):
+            return is_scalar_op(op.operator)
+        if hasattr(op, "sites_op"):
+            return all(is_scalar_op(site_op) for site_op in op.sites_op.values())
+        raise ValueError(f"Operator of type {type(op)} is not allowed.")
+    return data_is_scalar(op.data)
