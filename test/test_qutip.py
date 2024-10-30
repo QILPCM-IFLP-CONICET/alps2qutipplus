@@ -186,8 +186,14 @@ def test_qutip_operators():
     subsystems = [
         (sites[0],),
         (sites[1],),
-        (sites[0], sites[1],),
-        (sites[1], sites[2],),
+        (
+            sites[0],
+            sites[1],
+        ),
+        (
+            sites[1],
+            sites[2],
+        ),
     ]
 
     for subsystem in subsystems:

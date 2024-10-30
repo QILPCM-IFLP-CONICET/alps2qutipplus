@@ -73,9 +73,18 @@ subsystems = [
     (sites[0],),
     (sites[1],),
     (sites[2],),
-    (sites[0], sites[1],),
-    (sites[0], sites[2],),
-    (sites[2], sites[3],),
+    (
+        sites[0],
+        sites[1],
+    ),
+    (
+        sites[0],
+        sites[2],
+    ),
+    (
+        sites[2],
+        sites[3],
+    ),
 ]
 
 
