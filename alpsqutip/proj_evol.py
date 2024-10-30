@@ -4,11 +4,17 @@ from typing import Callable
 import numpy as np
 
 # from alpsqutip.operators import safe_expm_and_normalize
-from qutip import entropy_vn, fidelity, jmat, qeye, tensor
-from qutip.core.qobj import Qobj
+from qutip import (  # type: ignore[import-untyped]
+    entropy_vn,
+    fidelity,
+    jmat,
+    qeye,
+    tensor,
+)
+from qutip.core.qobj import Qobj  # type: ignore[import-untyped]
 
+from alpsqutip.operators.states import safe_exp_and_normalize
 from alpsqutip.scalarprod import gram_matrix, orthogonalize_basis, project_op
-from alpsqutip.states import safe_exp_and_normalize
 
 
 def project_K_to_sep(K, maxit=200):
@@ -127,7 +133,7 @@ class ProjectedEvolver:
         of each observable.
         """
         op_basis = self.op_basis
-        result = {key: [] for key in op_basis}
+        result: dict = {key: [] for key in op_basis}
         result["entropy"] = []
         phi_t = self.evol_K_orth_components(K0, ts)
         # Expensive step.

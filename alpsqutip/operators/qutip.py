@@ -3,11 +3,12 @@
 Qutip representation of an operator.
 """
 
+from functools import reduce
 from numbers import Number
-from typing import Optional, Union
+from typing import Dict, Optional, Union
 
-from numpy import log as np_log
-from qutip import Qobj
+from numpy import imag, log as np_log
+from qutip import Qobj  # type: ignore[import-untyped]
 
 from alpsqutip.alpsmodels import qutip_model_from_dims
 from alpsqutip.geometry import GraphDescriptor
@@ -18,11 +19,15 @@ from alpsqutip.operators.basic import Operator, ScalarOperator, is_diagonal_op
 class QutipOperator(Operator):
     """Represents a Qutip operator associated with a system"""
 
+    system: SystemDescriptor
+    operator: Qobj
+    site_names: dict
+
     def __init__(
         self,
         qoperator: Qobj,
         system: Optional[SystemDescriptor] = None,
-        names=None,
+        names: Optional[Dict[str, int]] = None,
         prefactor=1,
     ):
         assert isinstance(qoperator, Qobj), "qoperator should be a Qutip Operator"
@@ -72,6 +77,9 @@ class QutipOperator(Operator):
     def __repr__(self) -> str:
         return "qutip interface operator for\n" + repr(self.operator)
 
+    def acts_over(self) -> set:
+        return set(self.site_names.keys())
+
     def dag(self):
         prefactor = self.prefactor
         operator = self.operator
@@ -81,6 +89,9 @@ class QutipOperator(Operator):
             if operator.isherm:
                 return self
         return QutipOperator(operator.dag(), self.system, self.site_names, prefactor)
+
+    def eigenstates(self):
+        return self.operator.eigenstates()
 
     def inv(self):
         """the inverse of the operator"""
@@ -94,7 +105,7 @@ class QutipOperator(Operator):
 
     @property
     def isherm(self) -> bool:
-        return self.operator.isherm
+        return self.operator.isherm and imag(self.prefactor) == 0.0
 
     @property
     def isdiagonal(self) -> bool:
@@ -113,29 +124,42 @@ class QutipOperator(Operator):
         )
         return QutipOperator(log_op, self.system, self.site_names)
 
-    def partial_trace(self, sites: list):
-        site_names = self.site_names
-        sites = sorted(
-            [s for s in self.site_names if s in sites],
-            key=lambda s: site_names[s],
-        )
-        subsystem = self.system.subsystem(sites)
-        site_indxs = [site_names[s] for s in sites]
-        new_site_names = {s: i for i, s in enumerate(sites)}
-        if site_indxs:
-            op_ptrace = self.operator.ptrace(site_indxs)
+    def partial_trace(self, sites: Union[tuple, SystemDescriptor]):
+        if isinstance(sites, SystemDescriptor):
+            subsystem = sites
+            sites = tuple(sorted(site for site in subsystem.sites))
         else:
-            op_ptrace = self.operator.tr()
+            subsystem = self.system.subsystem(sites)
+            sites = tuple(sorted(sites))
 
-        if isinstance(op_ptrace, Qobj):
-            return QutipOperator(
-                op_ptrace,
-                subsystem,
-                names=new_site_names,
-                prefactor=self.prefactor,
+        if len(sites) == 0:
+            return ScalarOperator(self.tr(), subsystem)
+
+        system = self.system
+        site_names = self.site_names
+        partial_site_names = {
+            site: pos for site, pos in site_names.items() if site in sites
+        }
+        new_qutip_op = self.operator.ptrace(partial_site_names.values())
+        new_site_names = {
+            site: i
+            for i, site in enumerate(
+                sorted(partial_site_names, key=lambda x: partial_site_names[x])
             )
+        }
+        other_dims = (
+            dim
+            for site, dim in system.dimensions.items()
+            if (site not in sites and site not in site_names)
+        )
+        new_prefactor = reduce(lambda x, y: x * y, other_dims, self.prefactor)
 
-        return ScalarOperator(self.prefactor * op_ptrace, subsystem)
+        return QutipOperator(
+            new_qutip_op,
+            subsystem,
+            names=new_site_names,
+            prefactor=new_prefactor,
+        )
 
     def tidyup(self, atol=None):
         """Removes small elements from the quantum object."""
@@ -145,7 +169,16 @@ class QutipOperator(Operator):
         return self.operator * self.prefactor
 
     def tr(self):
-        return self.operator.tr() * self.prefactor
+        if len(self.site_names) < len(self.system.dimensions):
+            system = self.system
+            names = set(self.site_names)
+            dims_others = (
+                dim for site, dim in system.dimensions.items() if site not in names
+            )
+            prefactor = reduce(lambda x, y: x * y, dims_other, self.prefactor)
+        else:
+            prefactor = self.prefactor
+        return self.operator.tr() * prefactor
 
 
 # #################################
@@ -203,7 +236,7 @@ def sum_qutip_operator_plus_number(x_op: QutipOperator, y_val: Union[Number, Qob
     """Sum an operator and a number  or a Qobj"""
     return QutipOperator(
         x_op.operator + y_val,
-        x_op.system or y_val.system,
+        x_op.system,
         names=x_op.site_names,
         prefactor=x_op.prefactor,
     )
@@ -284,7 +317,7 @@ def mul_qutip_operator_times_number(x_op: QutipOperator, y_val: Number):
     """product of a QutipOperator and a number."""
     return QutipOperator(
         x_op.operator,
-        x_op.system or y_val.system,
+        x_op.system,
         names=x_op.site_names,
         prefactor=x_op.prefactor * y_val,
     )
@@ -312,7 +345,7 @@ def mul_number_and_qutipoperator(y_val: Number, x_op: QutipOperator):
     """product of a number and a QutipOperator."""
     return QutipOperator(
         x_op.operator,
-        x_op.system or y_val.system,
+        x_op.system,
         names=x_op.site_names,
         prefactor=x_op.prefactor * y_val,
     )

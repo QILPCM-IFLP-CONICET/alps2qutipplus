@@ -3,9 +3,10 @@ Routines to compute generalized scalar products over the algebra of operators.
 """
 
 # from datetime import datetime
-from typing import Callable
+from typing import Callable, Optional
 
 import numpy as np
+from numpy import real
 
 from alpsqutip.operators import Operator
 
@@ -25,7 +26,7 @@ def fetch_kubo_scalar_product(sigma: Operator, threshold=0):
         if w < threshold or p <= 0:
             evals_evecs = evals_evecs[: i + 1]
             break
-    stored = {}
+    stored: dict = {}
 
     def ksp(op1, op2):
         result = sum(
@@ -84,7 +85,7 @@ def fetch_corr_scalar_product(sigma: Operator):
         op2_herm = op2.isherm
         if op1_herm:
             if op2_herm:
-                return sigma.expect(op1 * op2).real
+                return real(sigma.expect(op1 * op2))
             op1_dag = op1
         else:
             op1_dag = op1.dag()
@@ -130,7 +131,7 @@ def gram_matrix(basis: list, sp: Callable):
     return result
 
 
-def orthogonalize_basis(basis: list, sp: Callable, idop: Operator = None):
+def orthogonalize_basis(basis: list, sp: Callable, idop: Optional[Operator] = None):
     """
     Orthogonalize a `basis` of operators regarding
     the scalar product `sp`, by looking at the eigenvalues

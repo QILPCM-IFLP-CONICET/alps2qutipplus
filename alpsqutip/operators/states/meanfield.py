@@ -64,7 +64,7 @@ def one_body_from_qutip_operator(
         system = sigma0.system
 
     local_states = {
-        name: sigma0.partial_trace([name]).to_qutip() for name in system.dimensions
+        name: sigma0.partial_trace((name,)).to_qutip() for name in system.dimensions
     }
 
     local_terms = []
@@ -88,7 +88,7 @@ def one_body_from_qutip_operator(
             sigma_compl_factors,
             system=system,
         )
-        local_term = (sigma_compl * operator).partial_trace([name])
+        local_term = (sigma_compl * operator).partial_trace((name,))
         # Split the zero-average part from the average
         local_average = (local_term * local_states[name]).tr()
         averages += local_average
@@ -212,7 +212,7 @@ def project_meanfield(operator, sigma0=None, **kwargs):
         key = (name, id(op_l))
         result = meanvalues.get(key, None)
         if result is None:
-            sigma_local = sigma0.partial_trace([name]).to_qutip()
+            sigma_local = sigma0.partial_trace((name,)).to_qutip()
             result = (op_l * sigma_local).tr()
             meanvalues[key] = result
         return result

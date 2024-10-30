@@ -1,8 +1,8 @@
 from typing import Iterator, List, Tuple
 
 from numpy import ndarray, zeros as np_zeros
-from qutip import Qobj, __version__ as qutip_version
-from scipy.linalg import svd
+from qutip import Qobj, __version__ as qutip_version  # type: ignore[import-untyped]
+from scipy.linalg import svd  # type: ignore[import-untyped]
 
 if int(qutip_version[0]) < 5:
 
@@ -51,7 +51,7 @@ if int(qutip_version[0]) < 5:
         if any(val for val, a, b in zip(data.data, *data.nonzero()) if a != b):
             return False
         vals = [val for val, a, b in zip(data.data, *data.nonzero()) if a == b]
-        val = vals[0]
+        elem = vals[0]
         return all(elem == val for val in vals)
 
     def data_is_zero(data) -> bool:
@@ -219,7 +219,7 @@ def reshape_qutip_data(data, dims) -> ndarray:
 
     dim_1 = dims[0]
     dim_2 = int(data.shape[0] / dim_1)
-    new_data = np_zeros(
+    new_data: ndarray = np_zeros(
         (
             dim_1**2,
             dim_2**2,

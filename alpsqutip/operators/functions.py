@@ -7,7 +7,7 @@ Functions for operators.
 from numbers import Number
 from typing import Tuple
 
-from numpy import array as np_array, imag, real
+from numpy import array as np_array, imag, ndarray, real
 
 from alpsqutip.operators.arithmetic import OneBodyOperator, SumOperator
 from alpsqutip.operators.basic import (
@@ -67,7 +67,7 @@ def eigenvalues(
     eigvals: int = 0,
     tol: float = 0.0,
     maxiter: int = 100000,
-) -> np_array:
+) -> ndarray:
     """Compute the eigenvalues of operator"""
 
     qutip_op = operator.to_qutip() if isinstance(operator, Operator) else operator
@@ -78,7 +78,7 @@ def eigenvalues(
     return qutip_op.eigenenergies(sparse, sort, eigvals, tol, maxiter)
 
 
-def hermitian_and_antihermitian_parts(operator) -> Tuple[Operator]:
+def hermitian_and_antihermitian_parts(operator: Operator) -> Tuple[Operator, Operator]:
     """Decompose an operator Q as A + i B with
     A and B self-adjoint operators
     """
@@ -263,9 +263,9 @@ def spectral_norm(operator: Operator) -> float:
         return max(operator.operator.eigenenergies() ** 2) ** 0.5
     if isinstance(operator, ProductOperator):
         result = operator.prefactor
-        for loc_op in operator.sites_ops.values():
+        for loc_op in operator.sites_op.values():
             result *= max(loc_op.eigenenergies() ** 2) ** 0.5
-        return result
+        return real(result)
 
     return max(eigenvalues(operator) ** 2) ** 0.5
 

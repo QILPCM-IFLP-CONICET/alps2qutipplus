@@ -6,7 +6,7 @@ import logging
 import xml.etree.ElementTree as ET
 from typing import Optional
 
-import qutip
+import qutip  # type: ignore[import-untyped]
 
 from alpsqutip.utils import eval_expr, find_ref
 
@@ -42,7 +42,7 @@ def build_local_basis_from_qn_descriptors(
     `qns` is a dict that maps the name of the quantum numbers to the position
     in the tuples in `basis`.
     """
-    local_basis = [{}]
+    local_basis: list = [{}]
     parms = parms.copy() if parms is not None else {}
     while True:
         # The new basis to be built over the previous basis
@@ -77,7 +77,7 @@ def build_local_basis_from_qn_descriptors(
 
     if len(local_basis) == 1 and len(local_basis[0]) == 0:
         logging.warning("empty basis!")
-        return None
+        return {"qns": {}, "basis": []}
     qn_indx = {qn: i for i, qn in enumerate(local_basis[0].keys())}
     basis_vectors = [tuple(state[qn] for qn in qn_indx) for state in local_basis]
     return {"qns": qn_indx, "basis": basis_vectors}
