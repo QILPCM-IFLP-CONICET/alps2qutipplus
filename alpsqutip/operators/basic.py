@@ -2,7 +2,6 @@
 Different representations for operators
 """
 
-import logging
 from functools import reduce
 from numbers import Number
 from typing import Callable, Dict, Optional, Tuple, Union
@@ -16,6 +15,9 @@ from alpsqutip.qutip_tools.tools import data_is_diagonal, data_is_scalar, data_i
 
 
 def check_multiplication(a, b, result, func=None) -> bool:
+    """
+    Check the result of the multiplication
+    """
     if isinstance(a, Qobj) and isinstance(b, Qobj):
         return True
     if isinstance(a, Operator):
@@ -27,16 +29,17 @@ def check_multiplication(a, b, result, func=None) -> bool:
     else:
         b_qutip = b
     q_trace = (a_qutip * b_qutip).tr()
-    tr = result.tr()
+    tr_val = result.tr()
     if func is None:
         where = ""
     elif isinstance(func, str):
         where = func
     else:
         where = f"{func}@{func.__module__}:{func.__code__.co_firstlineno}"
-    assert (
-        abs(q_trace - tr) < 1e-8
-    ), f"{type(a)}*{type(b)}->{type(result)} ({where}) failed: traces are different  {tr}!={q_trace}"
+    assert abs(q_trace - tr_val) < 1e-8, (
+        f"{type(a)}*{type(b)}->{type(result)} ({where}) "
+        "failed: traces are different  {tr}!={q_trace}"
+    )
     return True
 
 
@@ -58,6 +61,8 @@ class Operator:
 
     @staticmethod
     def register_add_handler(key: Tuple):
+        """Register a function to implement add"""
+
         def register_func(func):
             Operator.__add__dispatch__[key] = func
             return func
@@ -66,6 +71,8 @@ class Operator:
 
     @staticmethod
     def register_mul_handler(key: Tuple):
+        """Register a function to implement mul"""
+
         def register_func(func):
             Operator.__mul__dispatch__[key] = func
             return func
@@ -219,10 +226,13 @@ class Operator:
         return False
 
     def eigenstates(self):
+        """List of eigenstates of the operator"""
         return self.to_qutip_operator().eigenstates()
 
     def expm(self):
-        """Compute the exponential of the Qutip representation of the operator"""
+        """
+        Compute the exponential of the Qutip representation of the operator
+        """
 
         # Import here to avoid circular dependency
         # pylint: disable=import-outside-toplevel
@@ -256,7 +266,7 @@ class Operator:
         """Returns a more efficient representation"""
         return self
 
-    def to_qutip(self):
+    def to_qutip(self, block: Optional[Tuple[str]] = None):
         """Convert to a Qutip object"""
         raise NotImplementedError
 
@@ -264,9 +274,11 @@ class Operator:
         """Produce a Qutip representation of the operator"""
         from alpsqutip.operators.qutip import QutipOperator
 
-        qobj = self.to_qutip()
+        block = tuple(sorted(self.acts_over()))
+        site_names = {site: i for i, site in enumerate(block)}
+        qobj = self.to_qutip(block)
         if isinstance(qobj, qutip.Qobj):
-            return QutipOperator(qobj, self.system)
+            return QutipOperator(qobj, self.system, site_names)
         return ScalarOperator(qobj, self.system)
 
     # pylint: disable=invalid-name
@@ -396,20 +408,26 @@ class LocalOperator(Operator):
         value = operator[0, 0] * self.prefactor
         return ScalarOperator(value, self.system)
 
-    def to_qutip(self):
+    def to_qutip(self, block: Optional[tuple] = None):
         """Convert to a Qutip object"""
         site = self.site
         system = self.system
+        sites = system.sites
         dimensions = system.dimensions
         operator = self.operator
+        # Ensure that block at least contains site
+        if block is None:
+            block = (site,)
+        elif site not in block:
+            block = block + (site,)
+        # Ensure that operator is a qutip operator
         if isinstance(operator, (int, float, complex)):
-            return qutip.qeye(dimensions[site]) * operator
-        if isinstance(operator, Operator):
-            operator = operator.to_qutip()
-        factors_dict = {
-            s: operator if s == site else qutip.qeye(d) for s, d in dimensions.items()
-        }
-        return qutip.tensor(*(factors_dict[site] for site in sorted(dimensions)))
+            operator = qutip.qeye(dimensions[site]) * operator
+        elif isinstance(operator, Operator):
+            operator = operator.to_qutip((site,))
+        # Build factors
+        factors_dict = (operator if s == site else sites[s]["identity"] for s in block)
+        return qutip.tensor(*factors_dict)
 
     def tr(self):
         result = self.partial_trace(tuple())
@@ -618,25 +636,27 @@ class ProductOperator(Operator):
             return ProductOperator(nontrivial_factors, prefactor, self.system)
         return self
 
-    def to_qutip(self):
-        ops = self.sites_op
+    def to_qutip(self, block: Optional[Tuple[str]] = None):
+        sites_op = self.sites_op
         system = self.system
-        dimensions = system.dimensions
-        if system:
-            factors = {
-                site: ops.get(site, None) if site in ops else qutip.qeye(dim)
-                for site, dim in dimensions.items()
-            }
-            if len(factors) == 0:
-                return ScalarOperator(
-                    self.prefactor * reduce(lambda x, y: x * y, dimensions.keys()),
-                    system,
-                )
-            result = self.prefactor * qutip.tensor(
-                *(factors[site] for site in sorted(dimensions.keys()))
+        # Ensure that block has the sites in the operator.
+        if block is None or system is None:
+            block = sorted(sites_op)
+            factors = (sites_op[site] for site in block)
+        else:
+            sites = system.sites
+            block = tuple((site for site in block if site in sites)) + tuple(
+                sorted(site for site in sites_op if site not in block)
             )
-            return result
-        return self.prefactor * qutip.tensor(ops.values())
+            factors = (
+                (
+                    sites_op.get(site, None)
+                    if site in sites_op
+                    else sites[site]["identity"]
+                )
+                for site in block
+            )
+        return self.prefactor * qutip.tensor(*factors)
 
     def tr(self):
         result = self.partial_trace(tuple())
@@ -690,6 +710,16 @@ class ScalarOperator(ProductOperator):
     def simplify(self):
         """simplify a scalar operator"""
         return self
+
+    def to_qutip(self, block: Optional[Tuple[str]] = None):
+        system = self.system
+        if block is None or len(block) == 0:
+            # first_identity = next(iter(system.sites.values()))["identity"]
+            first_identity = qutip.qeye(1)
+            return first_identity * self.prefactor
+        sites = system.sites
+        factors = (sites[site]["identity"] for site in block)
+        return self.prefactor * qutip.tensor(*factors)
 
 
 # ##########################################

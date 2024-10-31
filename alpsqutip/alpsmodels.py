@@ -19,13 +19,13 @@ def list_operators_in_alps_xml(filename="models.xml"):
     xmltree = ET.parse(filename)
     models = xmltree.getroot()
 
-    for h in models.findall("./HAMILTONIAN"):
-        name = h.attrib.get("name", None)
+    for ham in models.findall("./HAMILTONIAN"):
+        name = ham.attrib.get("name", None)
         if name:
             result.add(name)
 
-    for h in models.findall("./BASIS"):
-        name = h.attrib.get("name", None)
+    for ham in models.findall("./BASIS"):
+        name = ham.attrib.get("name", None)
         if name:
             result.add(name)
 
@@ -264,7 +264,8 @@ def model_from_alps_xml(filename="lattices.xml", name="spin", parms=None):
         parms_qn = parms.copy()
         dim = len(local_basis)
 
-        operators["identity"] = qutip.qeye(dim)
+        identity = qutip.qeye(dim)
+        operators["identity"] = identity
         for name, od in operators_descr.items():
             terms = []
             for qns, src in local_basis_pos.items():
@@ -282,7 +283,7 @@ def model_from_alps_xml(filename="lattices.xml", name="spin", parms=None):
                     terms.append((dst, src, coeff, fermionic))
 
             if any(t[-1] for t in terms) and not all(t[-1] for t in terms):
-                logging.warning("wrong fermionic parity", name, ":", terms)
+                logging.warning(f"wrong fermionic parity {name}: {terms} ")
                 continue
             operators[name] = sum(
                 coeff * qutip.projection(dim, src, dst)
@@ -297,6 +298,7 @@ def model_from_alps_xml(filename="lattices.xml", name="spin", parms=None):
             "name": basis_name,
             "qn": quantumnumbers,
             "dimension": dim,
+            "identity": identity,
             "operators": operators,
             "parms": parms,
             "localstates": local_basis,
@@ -377,21 +379,28 @@ def qutip_model_from_dims(dims, local_ops=None, global_ops=None, model_name="qut
     """
     Produce a basic model descriptor from the dimensions
     """
+    site_basis_cache = {}
     site_basis = {}
     for i, d in enumerate(dims):
         name = f"qutip_{i}"
-        site_basis[name] = {
-            "name": name,
-            "qn": {"n"},
-            "dimension": d,
-            "operators": {
-                "identity": qutip.qeye(d),
-                "n": qutip.num(d),
-                "GS": qutip.projection(d, 0, 0),
-                "raise": qutip.create(d),
-                "lower": qutip.destroy(d),
-            },
-            "parms": {},
-            "localstates": [{"n": i} for i in range(d)],
-        }
+        curr_site_basis = site_basis_cache.get(d, None)
+        if curr_site_basis is None:
+            identity_operator = qutip.qeye(d)
+            curr_site_basis = {
+                "name": name,
+                "qn": {"n"},
+                "dimension": d,
+                "identity": identity_operator,
+                "operators": {
+                    "identity": identity_operator,
+                    "n": qutip.num(d),
+                    "GS": qutip.projection(d, 0, 0),
+                    "raise": qutip.create(d),
+                    "lower": qutip.destroy(d),
+                },
+                "parms": {},
+                "localstates": [{"n": i} for i in range(d)],
+            }
+        site_basis[name] = curr_site_basis
+
     return ModelDescriptor(site_basis, name=model_name)

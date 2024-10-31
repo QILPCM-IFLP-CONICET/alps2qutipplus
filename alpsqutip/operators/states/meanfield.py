@@ -117,7 +117,8 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None):
 
     ``operator`` can be a SumOperator or a Product Operator.
     """
-    mul_func = lambda x, y: x * y
+    def mul_func(x, y):
+        return x * y
 
     if isinstance(operator, SumOperator):
         terms = operator.simplify().flat().terms

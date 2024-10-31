@@ -444,6 +444,9 @@ class GraphDescriptor:
         return self.union(other)
 
     def union(self, other):
+        """
+        Join two graphics
+        """
         if self is other or other is None:
             return self
         other_nodes = other.nodes

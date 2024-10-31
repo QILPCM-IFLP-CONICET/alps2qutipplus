@@ -94,8 +94,6 @@ class SumOperator(Operator):
         result = set()
         for term in self.terms:
             term_acts_over = term.acts_over()
-            if term_acts_over is None:
-                return None
             result = result.union(term_acts_over)
         return result
 
@@ -239,12 +237,22 @@ class SumOperator(Operator):
             return OneBodyOperator(tuple(terms), system, isherm)
         return SumOperator(tuple(terms), system, isherm)
 
-    def to_qutip(self):
+    def to_qutip(self, block: Optional[Tuple[str]] = None):
         """Produce a qutip compatible object"""
+        terms = self.terms
         if len(self.terms) == 0:
-            return ScalarOperator(0, self.system).to_qutip()
+            return ScalarOperator(0, self.system).to_qutip(block)
 
-        return sum(t.to_qutip() for t in self.terms)
+        if block is None:
+            block = tuple(sorted(self.acts_over()))
+        else:
+            block = block + tuple(
+                sorted(site for site in self.acts_over() if site not in block)
+            )
+
+        qutip_terms = (t.to_qutip(block) for t in terms)
+        result = sum(qutip_terms)
+        return result
 
     def tr(self):
         return sum(t.tr() for t in self.terms)

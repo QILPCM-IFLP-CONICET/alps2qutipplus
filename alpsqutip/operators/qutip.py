@@ -5,10 +5,10 @@ Qutip representation of an operator.
 
 from functools import reduce
 from numbers import Number
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from numpy import imag, log as np_log
-from qutip import Qobj  # type: ignore[import-untyped]
+from qutip import Qobj, tensor  # type: ignore[import-untyped]
 
 from alpsqutip.alpsmodels import qutip_model_from_dims
 from alpsqutip.geometry import GraphDescriptor
@@ -140,7 +140,8 @@ class QutipOperator(Operator):
         partial_site_names = {
             site: pos for site, pos in site_names.items() if site in sites
         }
-        new_qutip_op = self.operator.ptrace(partial_site_names.values())
+        keep = tuple(partial_site_names.values())
+        new_qutip_op = self.operator.ptrace(keep)
         new_site_names = {
             site: i
             for i, site in enumerate(
@@ -165,14 +166,35 @@ class QutipOperator(Operator):
         """Removes small elements from the quantum object."""
         return QutipOperator(self.operator.tidyup(atol), self.system, self.prefactor)
 
-    def to_qutip(self):
-        return self.operator * self.prefactor
+    def to_qutip(self, block: Optional[Tuple[str]] = None):
+        operator_qutip: Qobj = self.operator * self.prefactor
+        if block is None:
+            return operator_qutip
+        system = self.system
+        sites = system.sites
+        site_names = self.site_names
+        out_sites = tuple(
+            (site for site in block if site not in site_names and site in sites)
+        )
+        if out_sites:
+            next_index: int = len(site_names)
+            site_names = site_names.copy()
+            site_names.update(
+                {site: next_index + i for i, site in enumerate(out_sites)}
+            )
+            extra_identities = (sites[site]["identity"] for site in out_sites)
+            operator_qutip = tensor(operator_qutip, *extra_identities)
+            block = block + out_sites
+        shufle: List[int] = list(site_names[site] for site in block)
+        if shufle == sorted(shufle):
+            return operator_qutip
+        return operator_qutip.permute(shufle)
 
     def tr(self):
         if len(self.site_names) < len(self.system.dimensions):
             system = self.system
             names = set(self.site_names)
-            dims_others = (
+            dims_other = (
                 dim for site, dim in system.dimensions.items() if site not in names
             )
             prefactor = reduce(lambda x, y: x * y, dims_other, self.prefactor)
@@ -195,12 +217,24 @@ class QutipOperator(Operator):
 )
 def sum_qutip_operator_plus_operator(x_op: QutipOperator, y_op: QutipOperator):
     """Sum two qutip operators"""
-    names = x_op.site_names.copy()
-    names.update(y_op.site_names)
+    system = x_op.system or y_op.system
+    x_site_names = x_op.site_names
+    y_site_names = y_op.site_names
+    if x_site_names == y_site_names:
+        return QutipOperator(
+            x_op.operator * x_op.prefactor + y_op.operator * y_op.prefactor,
+            system,
+            names=x_site_names,
+            prefactor=1,
+        )
+    block_set = set(x_site_names)
+    block_set.update(y_site_names)
+    block = sorted(block_set)
+    qutip_sum_operator = x_op.to_qutip(tuple(block)) + y_op.to_qutip(tuple(block))
     return QutipOperator(
-        x_op.operator * x_op.prefactor + y_op.operator * y_op.prefactor,
-        x_op.system or y_op.system,
-        names=names,
+        qutip_sum_operator,
+        system,
+        names={site: i for i, site in enumerate(block)},
         prefactor=1,
     )
 
@@ -213,8 +247,10 @@ def sum_qutip_operator_plus_operator(x_op: QutipOperator, y_op: QutipOperator):
 )
 def sum_scalarop_with_qutipop(x_op: ScalarOperator, y_op: QutipOperator):
     """Sum a Scalar operator to a Qutip Operator"""
+    system = y_op.system or x_op.system
     return QutipOperator(
         y_op.operator * y_op.prefactor + x_op.prefactor,
+        system=system,
         names=y_op.site_names,
         prefactor=1,
     )
@@ -251,13 +287,24 @@ def sum_qutip_operator_plus_number(x_op: QutipOperator, y_val: Union[Number, Qob
 def mul_qutip_operator_qutip_operator(x_op: QutipOperator, y_op: QutipOperator):
     """Product of two qutip operators"""
     system = x_op.system * y_op.system if x_op.system else y_op.system
-    names = x_op.site_names.copy()
-    names.update(y_op.site_names)
+    x_names = x_op.site_names
+    y_names = y_op.site_names
+    if x_names == y_names:
+        return QutipOperator(
+            x_op.operator * y_op.operator,
+            system,
+            names=x_names,
+            prefactor=x_op.prefactor * y_op.prefactor,
+        )
+    names_set = set(x_names)
+    names_set.update(y_names)
+    block = sorted(names_set)
+    operator_qutip = x_op.to_qutip(tuple(block)) * y_op.to_qutip(tuple(block))
     return QutipOperator(
-        x_op.operator * y_op.operator,
+        operator_qutip,
         system,
-        names=names,
-        prefactor=x_op.prefactor * y_op.prefactor,
+        names={site: i for i, site in enumerate(block)},
+        prefactor=1,
     )
 
 

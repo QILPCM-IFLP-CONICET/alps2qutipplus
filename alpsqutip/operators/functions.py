@@ -7,7 +7,7 @@ Functions for operators.
 from numbers import Number
 from typing import Tuple
 
-from numpy import array as np_array, imag, ndarray, real
+from numpy import imag, ndarray, real
 
 from alpsqutip.operators.arithmetic import OneBodyOperator, SumOperator
 from alpsqutip.operators.basic import (
@@ -18,7 +18,6 @@ from alpsqutip.operators.basic import (
 )
 from alpsqutip.operators.qutip import QutipOperator
 from alpsqutip.scalarprod import orthogonalize_basis
-from alpsqutip.utils import matrix_to_wolfram, operator_to_wolfram
 
 
 def commutator(op_1: Operator, op_2: Operator) -> Operator:
@@ -198,9 +197,10 @@ def simplify_sum_operator(operator):
         assert not isinstance(
             term, SumOperator
         ), f"{type(term)} should not be here. Check simplify."
-        assert not isinstance(
-            term, Number
-        ), f"In a sum, numbers should be represented by ScalarOperator's, but {type(term)} was found."
+        assert not isinstance(term, Number), (
+            "In a sum, numbers should be represented by "
+            f"ScalarOperator's, but {type(term)} was found."
+        )
 
     for term in operator_terms:
         if isinstance(term, LocalOperator):
@@ -215,7 +215,7 @@ def simplify_sum_operator(operator):
     # Simplify the scalars:
     if len(scalar_terms) > 1:
         assert all(isinstance(t, ScalarOperator) for t in scalar_terms)
-        value = sum(value for value in scalar_terms.prefactor)
+        value = sum(value.prefactor for value in scalar_terms)
         scalar_terms = [ScalarOperator(value, system)] if value else []
     elif len(scalar_terms) == 1:
         if scalar_terms[0].prefactor == 0:

@@ -160,15 +160,14 @@ def test_factorize_qutip_operators():
     """
     for name, operator_case in operator_type_cases.items():
         print("decomposing ", name)
-        acts_over = operator_case.acts_over()
+        acts_over = tuple(sorted(operator_case.acts_over()))
         if acts_over:
-            operator_case = operator_case.partial_trace(tuple(acts_over))
-        qutip_operator = operator_case.to_qutip()
-        terms = factorize_qutip_operator(qutip_operator)
-        reconstructed = sum(tensor(*t) for t in terms)
-        assert check_operator_equality(
-            qutip_operator, reconstructed
-        ), "reconstruction does not match with the original."
+            qutip_operator = operator_case.to_qutip(acts_over)
+            terms = factorize_qutip_operator(qutip_operator)
+            reconstructed = sum(tensor(*t) for t in terms)
+            assert check_operator_equality(
+                qutip_operator, reconstructed
+            ), "reconstruction does not match with the original."
 
 
 def test_qutip_operators():
@@ -197,6 +196,7 @@ def test_qutip_operators():
     ]
 
     for subsystem in subsystems:
+        print("subsystem", subsystem)
         assert (sx_A_qt).partial_trace(subsystem).tr() == 0.0
         expect_value = 0.5 * 2 ** (CHAIN_SIZE - 1)
         assert (sx_A2_qt).partial_trace(subsystem).tr() == expect_value

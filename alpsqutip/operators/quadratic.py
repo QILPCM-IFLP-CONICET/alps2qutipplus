@@ -4,7 +4,7 @@ Define SystemDescriptors and different kind of operators
 
 # from numbers import Number
 from time import time
-from typing import Callable, List, Optional, Tuple, Union
+from typing import Callable, Optional, Tuple, Union
 
 import numpy as np
 from numpy.linalg import eigh, svd
@@ -209,14 +209,20 @@ class QuadraticFormOperator(Operator):
             return self
         return result
 
-    def to_qutip(self):
+    def to_qutip(self, block: Optional[Tuple[str]] = None):
+        acts_over = self.acts_over()
+        if block is None:
+            block = tuple(sorted(acts_over))
+        else:
+            block = block + tuple((site for site in acts_over if site not in block))
+
         result = sum(
-            (w * op_term.dag() * op_term).to_qutip()
+            (w * op_term.dag() * op_term).to_qutip(block)
             for w, op_term in zip(self.weights, self.basis)
         )
         offset = self.offset
         if offset:
-            result += offset.to_qutip()
+            result += offset.to_qutip(block)
         return result
 
     def to_sum_operator(self, simplify: bool = True) -> SumOperator:

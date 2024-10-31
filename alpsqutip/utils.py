@@ -54,7 +54,7 @@ def eval_expr(expr: str, parms: dict):
             return expr
 
     # Reduce the parameters
-    p_vars = [k for k in parms]
+    p_vars = list(parms)
     while True:
         changed = False
         for k in p_vars:
@@ -69,6 +69,7 @@ def eval_expr(expr: str, parms: dict):
                 if val != result:
                     changed = True
             except RecursionError:
+                logging.warning(f"A recursion error happens evaluating `{val}`.")
                 raise
         if not changed:
             break
@@ -79,12 +80,29 @@ def eval_expr(expr: str, parms: dict):
     except NameError:
         pass
     except TypeError as exc:
-        logging.warning("Type Error. Undefined variables in ", expr, exc)
+        logging.warning(f"Type Error. Undefined variables in [{exc}] in {expr}.")
         return None
     return expr
 
 
 def find_ref(node, root):
+    """
+    Find a node in the root
+
+    Parameters
+    ----------
+    node : TYPE
+        the key of the node.
+    root : dict
+        a nested tree structure of
+        dicts
+
+    Returns
+    -------
+    dict
+        the node corresponding to `node`.
+
+    """
     node_items = dict(node.items())
     if "ref" in node_items:
         name_ref = node_items["ref"]

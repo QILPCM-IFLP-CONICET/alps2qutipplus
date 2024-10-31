@@ -140,6 +140,13 @@ class SystemDescriptor:
         # raise NotImplementedError("Union of disjoint systems are not implemented.")
         return SystemDescriptor(union_graph, model, parms, sites)
 
+    def site_identity(self, site: str):  # -> Qobj
+        """
+        Returns the internal representation of the identity associated
+        to `site`
+        """
+        return self.sites[site]["identity"]
+
     def site_operator(self, name: str, site: str = ""):  # -> "Operator"
         """
         Return a global operator representing an operator `name`

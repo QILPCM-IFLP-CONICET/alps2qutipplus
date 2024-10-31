@@ -1,3 +1,7 @@
+"""
+Functions for basic interface with qutip objects.
+"""
+
 from typing import Iterator, List, Tuple
 
 from numpy import ndarray, zeros as np_zeros
