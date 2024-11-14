@@ -3,6 +3,8 @@
 Qutip representation of an operator.
 """
 
+import logging
+
 from functools import reduce
 from numbers import Number
 from typing import Dict, List, Optional, Tuple, Union
@@ -135,12 +137,28 @@ class QutipOperator(Operator):
         if len(sites) == 0:
             return ScalarOperator(self.tr(), subsystem)
 
+        prefactor = self.prefactor
         system = self.system
+        dimensions = system.dimensions
         site_names = self.site_names
         partial_site_names = {
             site: pos for site, pos in site_names.items() if site in sites
         }
         keep = tuple(partial_site_names.values())
+        if len(keep) == 0:
+            # compute the trace of the block,
+            # and multiply by the prefactor
+            prefactor *= self.operator.tr()
+            # Now, multiply by the dimensions not included in
+            # sites or site_names
+            dims_other = (
+                dim
+                for site, dim in dimensions.items()
+                if site not in site_names and site not in sites
+            )
+            prefactor = reduce(lambda x, y: x * y, dims_other, prefactor)
+            return ScalarOperator(prefactor, subsystem)
+
         new_qutip_op = self.operator.ptrace(keep)
         new_site_names = {
             site: i
@@ -150,11 +168,10 @@ class QutipOperator(Operator):
         }
         other_dims = (
             dim
-            for site, dim in system.dimensions.items()
+            for site, dim in dimensions.items()
             if (site not in sites and site not in site_names)
         )
         new_prefactor = reduce(lambda x, y: x * y, other_dims, self.prefactor)
-
         return QutipOperator(
             new_qutip_op,
             subsystem,
@@ -167,16 +184,41 @@ class QutipOperator(Operator):
         return QutipOperator(self.operator.tidyup(atol), self.system, self.prefactor)
 
     def to_qutip(self, block: Optional[Tuple[str]] = None):
-        operator_qutip: Qobj = self.operator * self.prefactor
-        if block is None:
-            return operator_qutip
+        """
+        return a qutip operator representing the action over
+        sites in block.
+        By default (`block`=`None`), returns an operator
+        acting over the full system, with sites sorted in
+        lexicographical order.
+        """
+
+        site_names = self.site_names
         system = self.system
         sites = system.sites
-        site_names = self.site_names
+
+        operator_qutip: Qobj = self.operator * self.prefactor
+        if block is None:
+            if len(sites)>8:
+                logging.warn("to_qutip does not received a block. Return an operator over the full system")
+            block = tuple(sorted(self.system.sites.keys()))
+
+        def same_block(block):
+            if len(block)!=len(site_names):
+                return False
+            for pos, site in enumerate(block):
+                if pos != site_names.get(site, -1):
+                    return False
+            return True
+
+        if same_block(block):
+            return operator_qutip
+
+        # Look for sites in block that are not in site_names
         out_sites = tuple(
             (site for site in block if site not in site_names and site in sites)
         )
         if out_sites:
+            in_sites: tuple = tuple(site for site in block if site not in out_sites)
             next_index: int = len(site_names)
             site_names = site_names.copy()
             site_names.update(
@@ -184,23 +226,34 @@ class QutipOperator(Operator):
             )
             extra_identities = (sites[site]["identity"] for site in out_sites)
             operator_qutip = tensor(operator_qutip, *extra_identities)
-            block = block + out_sites
+
+        # Add sites which are in site_names, but not in block
+        block = block + tuple((site for site in site_names if site not in block))
         shufle: List[int] = list(site_names[site] for site in block)
         if shufle == sorted(shufle):
             return operator_qutip
         return operator_qutip.permute(shufle)
 
     def tr(self):
-        if len(self.site_names) < len(self.system.dimensions):
-            system = self.system
-            names = set(self.site_names)
-            dims_other = (
-                dim for site, dim in system.dimensions.items() if site not in names
-            )
+        prefactor = self.prefactor
+        if prefactor == 0:
+            return prefactor
+
+        site_names: Dict[str, int] = self.site_names
+        op_tr = self.operator.tr() if site_names else 0.0
+        if op_tr == 0.0:
+            return op_tr
+
+        system: SystemDescriptor = self.system
+        dimensions: Dict[str, int] = system.dimensions
+        if len(site_names) < len(dimensions):
+            names = set(site_names)
+            dims_other = (dim for site, dim in dimensions.items() if site not in names)
             prefactor = reduce(lambda x, y: x * y, dims_other, self.prefactor)
         else:
             prefactor = self.prefactor
-        return self.operator.tr() * prefactor
+        result = op_tr * prefactor
+        return result
 
 
 # #################################
@@ -262,12 +315,12 @@ def sum_scalarop_with_qutipop(x_op: ScalarOperator, y_op: QutipOperator):
         Number,
     )
 )
-@Operator.register_add_handler(
-    (
-        QutipOperator,
-        Qobj,
-    )
-)
+# @Operator.register_add_handler(
+#    (
+#        QutipOperator,
+#        Qobj,
+#    )
+#)
 def sum_qutip_operator_plus_number(x_op: QutipOperator, y_val: Union[Number, Qobj]):
     """Sum an operator and a number  or a Qobj"""
     return QutipOperator(
@@ -398,33 +451,33 @@ def mul_number_and_qutipoperator(y_val: Number, x_op: QutipOperator):
     )
 
 
-@Operator.register_mul_handler(
-    (
-        QutipOperator,
-        Qobj,
-    )
-)
+# @Operator.register_mul_handler(
+#    (
+#        QutipOperator,
+#        Qobj,
+#    )
+# )
 def mul_qutip_operator_times_qobj(x_op: QutipOperator, y_op: Qobj):
     """product of a QutipOperator and a Qobj."""
     return QutipOperator(
-        x_op.operator * y_op,
+        x_op.to_qutip() * y_op,
         x_op.system,
         names=x_op.site_names,
         prefactor=x_op.prefactor,
     )
 
 
-@Operator.register_mul_handler(
-    (
-        Qobj,
-        QutipOperator,
-    )
-)
+# @Operator.register_mul_handler(
+#    (
+#        Qobj,
+#        QutipOperator,
+#    )
+# )
 def mul_qutip_obj_times_qutip_operator(y_op: Qobj, x_op: QutipOperator):
     """product of a Qobj and a QutipOperator."""
     system = x_op.system
     return QutipOperator(
-        y_op * x_op.operator,
+        y_op * x_op.to_qutip(),
         system,
         names=x_op.site_names,
         prefactor=x_op.prefactor,

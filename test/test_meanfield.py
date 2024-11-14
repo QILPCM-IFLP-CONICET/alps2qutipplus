@@ -133,22 +133,25 @@ def test_one_body_from_qutip_operator():
         # Check that the remainder and the one body terms have
         # zero mean:
         if state is None:
-            assert abs(one_body.to_qutip().tr()) < 1.0e-9
-            assert abs((remainder.to_qutip()).tr()) < 1.0e-9
+            assert abs(one_body.to_qutip(full_sites).tr()) < 1.0e-9
+            assert abs((remainder.to_qutip(full_sites)).tr()) < 1.0e-9
         else:
-            assert abs((one_body.to_qutip() * state.to_qutip()).tr()) < 1.0e-9
-            assert abs((remainder.to_qutip() * state.to_qutip()).tr()) < 1.0e-9
+            assert abs((one_body.to_qutip(full_sites) * state.to_qutip(full_sites)).tr()) < 1.0e-9
+            assert abs((remainder.to_qutip(full_sites) * state.to_qutip(full_sites)).tr()) < 1.0e-9
         # Check the consistency
         assert check_operator_equality(
-            qutip_op.to_qutip(), result.to_qutip()
+            qutip_op.to_qutip(full_sites), result.to_qutip(full_sites)
         ), f"decomposition failed {state_name} for {operator_name}"
 
     for operator_name, test_operator in TEST_OPERATORS.items():
+        full_sites = tuple(test_operator.system.sites)
+        print("operator name", operator_name)
+        print("    full sites", full_sites)
         qutip_op = test_operator.to_qutip_operator()
         for state_name, state in TEST_STATES.items():
             print(f"testing {operator_name} on state {state_name}")
             result = one_body_from_qutip_operator(qutip_op, state)
             check_result(qutip_op, result)
             print(f"   now testing {operator_name} as a Qobj, on state {state_name}")
-            result = one_body_from_qutip_operator(qutip_op.to_qutip(), state)
+            result = one_body_from_qutip_operator(qutip_op.to_qutip(full_sites), state)
             check_result(qutip_op, result)

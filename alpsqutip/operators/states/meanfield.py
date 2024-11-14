@@ -64,7 +64,7 @@ def one_body_from_qutip_operator(
         system = sigma0.system
 
     local_states = {
-        name: sigma0.partial_trace((name,)).to_qutip() for name in system.dimensions
+        name: sigma0.partial_trace((name,)).to_qutip() for name in operator.site_names
     }
 
     local_terms = []
@@ -78,7 +78,7 @@ def one_body_from_qutip_operator(
         # Tr_{/i}[q_i  Sigma_compl] = q_i
         # Tr_{/i}[q_j  Sigma_compl] = 0
         # Tr_{/i}[q_i q_j Sigma_compl] = 0
-
+        block: Tuple[str] = (name,)
         sigma_compl_factors = {
             name_loc: s_loc
             for name_loc, s_loc in local_states.items()
@@ -88,12 +88,17 @@ def one_body_from_qutip_operator(
             sigma_compl_factors,
             system=system,
         )
-        local_term = (sigma_compl * operator).partial_trace((name,))
+        local_term = (sigma_compl * operator).partial_trace(block)
         # Split the zero-average part from the average
-        local_average = (local_term * local_states[name]).tr()
-        averages += local_average
-        local_term = local_term - local_average
-        local_terms.append(LocalOperator(name, local_term.to_qutip(), system))
+
+        if isinstance(local_term, ScalarOperator):
+            averages += local_term.prefactor
+        else:
+            local_term_qutip = local_term.to_qutip(block)
+            local_average = (local_term_qutip * local_states[name]).tr()
+            averages += local_average
+            local_term_qutip = local_term_qutip - local_average
+            local_terms.append(LocalOperator(name, local_term_qutip, system))
 
     average_term = ScalarOperator(averages / len(local_terms), system)
     one_body_term = OneBodyOperator(tuple(local_terms), system=system)
@@ -117,6 +122,7 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None):
 
     ``operator`` can be a SumOperator or a Product Operator.
     """
+
     def mul_func(x, y):
         return x * y
 

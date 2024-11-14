@@ -240,15 +240,16 @@ class SumOperator(Operator):
     def to_qutip(self, block: Optional[Tuple[str]] = None):
         """Produce a qutip compatible object"""
         terms = self.terms
-        if len(self.terms) == 0:
-            return ScalarOperator(0, self.system).to_qutip(block)
-
+        system = self.system        
         if block is None:
-            block = tuple(sorted(self.acts_over()))
+            block = tuple(sorted(self.acts_over() if system is None else system.sites))
         else:
             block = block + tuple(
                 sorted(site for site in self.acts_over() if site not in block)
             )
+
+        if len(self.terms) == 0:
+            return ScalarOperator(0, self.system).to_qutip(block)
 
         qutip_terms = (t.to_qutip(block) for t in terms)
         result = sum(qutip_terms)
@@ -1014,7 +1015,7 @@ def _(y_op: ScalarOperator, x_op: QutipOperator):
     )
 )
 def _(x_op: QutipOperator, y_op: Operator):
-    return x_op * y_op.to_qutip()
+    return x_op * y_op.to_qutip_operator()
 
 
 @Operator.register_mul_handler(
@@ -1036,4 +1037,4 @@ def _(x_op: QutipOperator, y_op: Operator):
     )
 )
 def _(y_op: Operator, x_op: QutipOperator):
-    return y_op.to_qutip() * x_op
+    return y_op.to_qutip_operator() * x_op

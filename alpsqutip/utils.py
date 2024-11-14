@@ -119,7 +119,7 @@ def operator_to_wolfram(operator) -> str:
     """
     from alpsqutip.operators.arithmetic import SumOperator
     from alpsqutip.operators.basic import LocalOperator, Operator, ProductOperator
-    from alpsqutip.operators.qutip import Qobj, QutipOperator
+    from alpsqutip.operators.qutip import Qobj
 
     def get_site_identity(site_name):
         site_spec = sites[site_name]
@@ -152,7 +152,7 @@ def operator_to_wolfram(operator) -> str:
         return "(" + " + ".join(terms) + ")"
 
     sites = operator.system.sites
-    dimensions = operator.dimensions
+    dimensions = operator.system.dimensions
     prefactor = operator.prefactor
     if prefactor == 0:
         return "0"

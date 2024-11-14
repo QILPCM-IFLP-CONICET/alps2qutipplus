@@ -417,7 +417,9 @@ class LocalOperator(Operator):
         operator = self.operator
         # Ensure that block at least contains site
         if block is None:
-            block = (site,)
+            block = tuple(sorted(sites))
+            if len(block)>8:
+                logging.warn("Asking for a qutip representation of an operator over the full system")                
         elif site not in block:
             block = block + (site,)
         # Ensure that operator is a qutip operator
@@ -637,18 +639,26 @@ class ProductOperator(Operator):
         return self
 
     def to_qutip(self, block: Optional[Tuple[str]] = None):
+        """
+        return a qutip object acting over the sites listed in
+        `block`.
+        By default (`block=None`) returns a qutip object
+        acting over all the sites, in lexicographical order.
+        """
         sites_op = self.sites_op
         system = self.system
+        sites = system.sites if system else {}
         # Ensure that block has the sites in the operator.
-        if block is None or system is None:
-            block = sorted(sites_op)
-            factors = (sites_op[site] for site in block)
+        if block is None:
+            block = sorted(tuple(sites) if system else self.acts_over())
+            if len(block)>8:
+                logging.warn("Asking for a qutip representation of an operator over the full system")
+        
         else:
-            sites = system.sites
             block = tuple((site for site in block if site in sites)) + tuple(
                 sorted(site for site in sites_op if site not in block)
             )
-            factors = (
+        factors = (
                 (
                     sites_op.get(site, None)
                     if site in sites_op
@@ -712,12 +722,21 @@ class ScalarOperator(ProductOperator):
         return self
 
     def to_qutip(self, block: Optional[Tuple[str]] = None):
+        """
+        return a qutip object acting over the sites listed in
+        `block`.
+        By default (`block=None`) returns a qutip object
+        acting over all the sites, in lexicographical order.
+        """
         system = self.system
-        if block is None or len(block) == 0:
+        sites = system.sites
+        if block is None:
+            block = sorted(sites)
+        elif len(block) == 0:
             # first_identity = next(iter(system.sites.values()))["identity"]
             first_identity = qutip.qeye(1)
             return first_identity * self.prefactor
-        sites = system.sites
+
         factors = (sites[site]["identity"] for site in block)
         return self.prefactor * qutip.tensor(*factors)
 

@@ -210,11 +210,18 @@ class QuadraticFormOperator(Operator):
         return result
 
     def to_qutip(self, block: Optional[Tuple[str]] = None):
-        acts_over = self.acts_over()
+        """
+        return a qutip object acting over the sites listed in
+        `block`.
+        By default (`block=None`) returns a qutip object
+        acting over all the sites, in lexicographical order.
+        """
+        system = self.system
+        sites = self.system.sites
         if block is None:
-            block = tuple(sorted(acts_over))
+            block = tuple(sorted(sites))
         else:
-            block = block + tuple((site for site in acts_over if site not in block))
+            block = block + tuple((site for site in self.acts_over() if site not in block))
 
         result = sum(
             (w * op_term.dag() * op_term).to_qutip(block)
