@@ -71,6 +71,10 @@ class QuadraticFormOperator(Operator):
         return len(self.weights) > 0 and any(self.weights) and any(self.basis)
 
     def __add__(self, other):
+
+        # TODO: remove me and fix the sums
+        if other == 0:
+            return self
         assert isinstance(other, Operator), "other must be an operator."
         system = self.system or other.system
         if isinstance(other, QuadraticFormOperator):
@@ -751,6 +755,12 @@ def _(op1: Operator, op2: QuadraticFormOperator):
 @Operator.register_mul_handler(
     (
         ScalarOperator,
+        QuadraticFormOperator,
+    )
+)
+@Operator.register_mul_handler(
+    (
+        float,
         QuadraticFormOperator,
     )
 )
