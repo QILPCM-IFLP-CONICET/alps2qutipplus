@@ -55,20 +55,49 @@ def one_body_from_qutip_operator(
     if system is None:
         system = operator.system if isinstance(operator, Operator) else None
 
-    if isinstance(operator, Qobj):
-        operator = QutipOperator(operator, system)
+    if system is None:
+        if isinstance(operator, Qobj):
+            operator = QutipOperator(operator)
+        else:
+            operator = QutipOperator(operator.to_qutip())
+        system = operator.system
+        site_names_dict = operator.site_names
+        site_names = sorted(site_names_dict, key=lambda x: site_names_dict[x])
+        subsystem = system
+    else:
+        if isinstance(operator, Qobj):
+            operator = QutipOperator(operator, system)
+            site_names_dict = operator.site_names
+            site_names = sorted(site_names_dict, key=lambda x: site_names_dict[x])
+            subsystem = operator.system
+        else:
+            site_names_dict = operator.site_names
+            site_names = sorted(site_names_dict, key=lambda x: site_names_dict[x])
+            subsystem = system.subsystem(tuple(site_names))
+            operator = QutipOperator(
+                operator.to_qutip(site_names), subsystem, site_names_dict
+            )
 
-    if sigma0 is None:
-        sigma0 = ProductDensityOperator({}, system=operator.system)
-        sigma0 = sigma0 / sigma0.tr()
-        system = sigma0.system
+    # Reduce the state to the subsystem
+    if sigma0:
+        sigma0 = sigma0.partial_trace(subsystem)
+    else:
+        sigma0 = ProductDensityOperator({}, system=subsystem)
 
+    scalar_term_value = (operator * sigma0).tr()
+    # Scalar term
+    scalar_term = ScalarOperator(scalar_term_value, system)
+    if scalar_term_value != 0:
+        operator = operator - scalar_term_value
+
+    assert abs((operator * sigma0).tr()) < 1e-6, f"trace is {(operator*sigma0).tr()}"
+
+    # One-body terms
     local_states = {
-        name: sigma0.partial_trace((name,)).to_qutip() for name in operator.site_names
+        name: sigma0.partial_trace((name,)).to_qutip() for name in site_names
     }
 
     local_terms = []
-    averages = 0
     for name in local_states:
         # Build a product operator Sigma_compl
         # s.t. Tr_{i}Sigma_i =Tr_i sigma0
@@ -92,21 +121,30 @@ def one_body_from_qutip_operator(
         # Split the zero-average part from the average
 
         if isinstance(local_term, ScalarOperator):
-            averages += local_term.prefactor
+            assert (
+                abs(local_term.prefactor) < 1e-6
+            ), f"{abs(local_average)} shoudl be 0."
         else:
             local_term_qutip = local_term.to_qutip(block)
             local_average = (local_term_qutip * local_states[name]).tr()
-            averages += local_average
-            local_term_qutip = local_term_qutip - local_average
+            assert abs(local_average) < 1e-6, f"{abs(local_average)} shoudl be 0."
+            local_term_qutip = local_term_qutip
             local_terms.append(LocalOperator(name, local_term_qutip, system))
 
-    average_term = ScalarOperator(averages / len(local_terms), system)
     one_body_term = OneBodyOperator(tuple(local_terms), system=system)
-    remaining = (operator - one_body_term - average_term).to_qutip_operator()
+    # Comunte the remainder of the opertator
+    remaining_qutip = operator.to_qutip(tuple(site_names)) - one_body_term.to_qutip(
+        tuple(site_names)
+    )
+    remaining = QutipOperator(
+        remaining_qutip,
+        system=system,
+        names={name: pos for pos, name in enumerate(site_names)},
+    )
     return SumOperator(
         tuple(
             (
-                average_term,
+                scalar_term,
                 one_body_term,
                 remaining,
             )
@@ -290,10 +328,8 @@ def self_consistent_quadratic_mfa(ham: Operator):
     )
 
     system = ham.system
-    print("Decomposing as simplified quadratic form")
     ham_qf = build_quadratic_form_from_operator(ham, isherm=True, simplify=True)
     # TODO: use random choice
-    print("Reduce the basis")
     basis = sorted(
         [(w, b) for w, b in zip(ham_qf.weights, ham_qf.basis) if w < 0],
         key=lambda x: x[0],
@@ -316,7 +352,6 @@ def self_consistent_quadratic_mfa(ham: Operator):
 
     res = minimize_scalar(try_function, (-0.2, 0.25), method="golden")
     # Now, run a self consistent loop
-    print("s=", res.x)
     h_fe = res.fun
     phis = [0 for b in basis]
     phis[0] = res.x
@@ -333,9 +368,7 @@ def self_consistent_quadratic_mfa(ham: Operator):
         kappa = kappa.simplify()
         state_mf = GibbsProductDensityOperator(kappa, system=system)
         new_h_fe = hartree_free_energy(state_mf, kappa)
-        print("checking if", new_h_fe, ">", h_fe)
         if new_h_fe > h_fe:
             break
         h_fe = new_h_fe
-        print("it:", it_int)
     return state_mf

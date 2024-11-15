@@ -418,8 +418,10 @@ class LocalOperator(Operator):
         # Ensure that block at least contains site
         if block is None:
             block = tuple(sorted(sites))
-            if len(block)>8:
-                logging.warn("Asking for a qutip representation of an operator over the full system")                
+            if len(block) > 8:
+                logging.warn(
+                    "Asking for a qutip representation of an operator over the full system"
+                )
         elif site not in block:
             block = block + (site,)
         # Ensure that operator is a qutip operator
@@ -651,21 +653,19 @@ class ProductOperator(Operator):
         # Ensure that block has the sites in the operator.
         if block is None:
             block = sorted(tuple(sites) if system else self.acts_over())
-            if len(block)>8:
-                logging.warn("Asking for a qutip representation of an operator over the full system")
-        
+            if len(block) > 8:
+                logging.warn(
+                    "Asking for a qutip representation of an operator over the full system"
+                )
+
         else:
             block = tuple((site for site in block if site in sites)) + tuple(
                 sorted(site for site in sites_op if site not in block)
             )
         factors = (
-                (
-                    sites_op.get(site, None)
-                    if site in sites_op
-                    else sites[site]["identity"]
-                )
-                for site in block
-            )
+            (sites_op.get(site, None) if site in sites_op else sites[site]["identity"])
+            for site in block
+        )
         return self.prefactor * qutip.tensor(*factors)
 
     def tr(self):

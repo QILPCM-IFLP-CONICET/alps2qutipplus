@@ -191,19 +191,19 @@ class QutipOperator(Operator):
         acting over the full system, with sites sorted in
         lexicographical order.
         """
-
         site_names = self.site_names
         system = self.system
         sites = system.sites
-
         operator_qutip: Qobj = self.operator * self.prefactor
         if block is None:
-            if len(sites)>8:
-                logging.warn("to_qutip does not received a block. Return an operator over the full system")
+            if len(sites) > 8:
+                logging.warn(
+                    "to_qutip does not received a block. Return an operator over the full system"
+                )
             block = tuple(sorted(self.system.sites.keys()))
 
         def same_block(block):
-            if len(block)!=len(site_names):
+            if len(block) != len(site_names):
                 return False
             for pos, site in enumerate(block):
                 if pos != site_names.get(site, -1):
@@ -217,6 +217,7 @@ class QutipOperator(Operator):
         out_sites = tuple(
             (site for site in block if site not in site_names and site in sites)
         )
+
         if out_sites:
             in_sites: tuple = tuple(site for site in block if site not in out_sites)
             next_index: int = len(site_names)
@@ -320,7 +321,7 @@ def sum_scalarop_with_qutipop(x_op: ScalarOperator, y_op: QutipOperator):
 #        QutipOperator,
 #        Qobj,
 #    )
-#)
+# )
 def sum_qutip_operator_plus_number(x_op: QutipOperator, y_val: Union[Number, Qobj]):
     """Sum an operator and a number  or a Qobj"""
     return QutipOperator(

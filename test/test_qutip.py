@@ -246,7 +246,7 @@ def test_factorize_qutip_operators():
             ">> global_qt * global",
             OP_GLOBAL_QT * OP_GLOBAL,
             (0.25 + 4 * 0.25**2) * (2**CHAIN_SIZE),
-        ),        
+        ),
     ],
 )
 def test_qutip_operators(case: str, op_case: Operator, expected_value: complex):

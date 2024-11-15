@@ -225,7 +225,9 @@ class QuadraticFormOperator(Operator):
         if block is None:
             block = tuple(sorted(sites))
         else:
-            block = block + tuple((site for site in self.acts_over() if site not in block))
+            block = block + tuple(
+                (site for site in self.acts_over() if site not in block)
+            )
 
         result = sum(
             (w * op_term.dag() * op_term).to_qutip(block)

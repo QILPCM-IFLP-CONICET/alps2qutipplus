@@ -31,9 +31,9 @@ def fetch_kubo_scalar_product(sigma: Operator, threshold=0):
     def ksp(op1, op2):
         result = sum(
             (
-                np.conj((v2.dag() * op1 * v1).tr()) *
-                ((v2.dag() * op2 * v1).tr()) *
-                (p1 if p1 == p2 else (p1 - p2) / np.log(p1 / p2))
+                np.conj((v2.dag() * op1 * v1).tr())
+                * ((v2.dag() * op2 * v1).tr())
+                * (p1 if p1 == p2 else (p1 - p2) / np.log(p1 / p2))
             )
             for p1, v1 in evals_evecs
             for p2, v2 in evals_evecs

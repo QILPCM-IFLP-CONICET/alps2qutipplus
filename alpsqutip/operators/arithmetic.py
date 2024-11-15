@@ -240,14 +240,14 @@ class SumOperator(Operator):
     def to_qutip(self, block: Optional[Tuple[str]] = None):
         """Produce a qutip compatible object"""
         terms = self.terms
-        system = self.system        
+        system = self.system
+        assert all(t.system is system for t in terms)
         if block is None:
             block = tuple(sorted(self.acts_over() if system is None else system.sites))
         else:
             block = block + tuple(
                 sorted(site for site in self.acts_over() if site not in block)
             )
-
         if len(self.terms) == 0:
             return ScalarOperator(0, self.system).to_qutip(block)
 

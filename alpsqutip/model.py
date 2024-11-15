@@ -21,6 +21,7 @@ class SystemDescriptor:
     a set of parameters defining a Hamiltonian operator.
     """
 
+    _subsystems_cache: dict
     dimensions: dict
     name: str
     sites: dict
@@ -57,6 +58,7 @@ class SystemDescriptor:
             "bond_operators": {},
             "global_operators": {},
         }
+        self._subsystems_cache = {}
         self._load_site_operators()
         self._load_global_ops()
 
@@ -78,10 +80,32 @@ class SystemDescriptor:
         Build a subsystem including the sites listed
         in sites
         """
+        # Try to find the subsystem in the cache
+
+        result = self._subsystems_cache.get(sites, None)
+        if result is not None:
+            return result
+
+        # To avoid circular references, the cache
+        # only stores proper subsystems
+        self_sites = self.sites
+        if len(self_sites) == len(sites):
+            if all(name in self_sites for name in sites):
+                return self
+
+        # if the subsystem is not in the cache, try other
+        # ordering
+        sites = tuple(sorted(sites))
+        result = self._subsystems_cache.get(sites, None)
+        if result is not None:
+            return result
+
+        # Build a new subsystem
         parms = self.spec["parms"].copy()
         model = self.spec["model"]
         graph = self.spec["graph"].subgraph(sites)
-        return SystemDescriptor(graph, model, parms)
+        result = SystemDescriptor(graph, model, parms)
+        return self._subsystems_cache.setdefault(sites, result)
 
     def _load_site_operators(self):
         for site_name, site in self.sites.items():
@@ -119,6 +143,9 @@ class SystemDescriptor:
         if system is None or system is self:
             return self
         return self.union(system)
+
+    def __len__(self):
+        return len(self.sites)
 
     def union(self, system):
         """Return a SystemDescritor containing system and self"""
