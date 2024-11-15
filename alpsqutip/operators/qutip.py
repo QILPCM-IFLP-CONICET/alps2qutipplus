@@ -4,7 +4,6 @@ Qutip representation of an operator.
 """
 
 import logging
-
 from functools import reduce
 from numbers import Number
 from typing import Dict, List, Optional, Tuple, Union
