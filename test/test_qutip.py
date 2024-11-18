@@ -14,7 +14,6 @@ from alpsqutip.qutip_tools.tools import (
     data_is_zero,
     factorize_qutip_operator,
 )
-from alpsqutip.utils import operator_to_wolfram
 
 from .helper import (
     CHAIN_SIZE,

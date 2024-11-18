@@ -2,6 +2,8 @@
 Different representations for operators
 """
 
+import logging
+
 from functools import reduce
 from numbers import Number
 from typing import Callable, Dict, Optional, Tuple, Union

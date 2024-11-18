@@ -4,7 +4,7 @@ Density operator classes.
 
 from functools import reduce
 from numbers import Number
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+from typing import Dict, Iterable, Optional, Tuple, Union
 
 import numpy as np
 from qutip import (  # type: ignore[import-untyped]
@@ -20,12 +20,10 @@ from alpsqutip.operators.basic import (
     Operator,
     ProductOperator,
     ScalarOperator,
-    check_multiplication,
     is_diagonal_op,
 )
 from alpsqutip.operators.functions import eigenvalues
 from alpsqutip.operators.qutip import QutipOperator
-from alpsqutip.utils import operator_to_wolfram
 
 
 def safe_exp_and_normalize(operator):

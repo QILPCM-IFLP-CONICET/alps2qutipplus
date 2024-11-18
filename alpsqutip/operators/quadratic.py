@@ -220,7 +220,6 @@ class QuadraticFormOperator(Operator):
         By default (`block=None`) returns a qutip object
         acting over all the sites, in lexicographical order.
         """
-        system = self.system
         sites = self.system.sites
         if block is None:
             block = tuple(sorted(sites))

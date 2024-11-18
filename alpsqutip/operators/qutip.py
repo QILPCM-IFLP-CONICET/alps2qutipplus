@@ -224,7 +224,6 @@ class QutipOperator(Operator):
 
         # Add identities and operators in block but not in site_names
         if out_sites:
-            in_sites: tuple = tuple(site for site in block if site not in out_sites)
             next_index: int = len(site_names)
             site_names_dict = site_names_dict.copy()
             site_names_dict.update(

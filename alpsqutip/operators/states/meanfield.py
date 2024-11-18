@@ -3,8 +3,8 @@ Module that implements a meanfield approximation of a Gibbsian state
 """
 
 from functools import reduce
-from itertools import combinations, permutations
-from typing import Optional, Union
+from itertools import combinations
+from typing import Optional, Union, Tuple
 
 import numpy as np
 from qutip import Qobj
@@ -123,7 +123,7 @@ def one_body_from_qutip_operator(
         if isinstance(local_term, ScalarOperator):
             assert (
                 abs(local_term.prefactor) < 1e-6
-            ), f"{abs(local_average)} shoudl be 0."
+            ), f"{abs(local_term.prefactor)} shoudl be 0."
         else:
             local_term_qutip = local_term.to_qutip(block)
             local_average = (local_term_qutip * local_states[name]).tr()
@@ -200,7 +200,7 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None):
         fluct_op = {site: l_op - averages[site] for site, l_op in sites_op.items()}
         # Now, we run a loop over
         for n_factors in range(nmax + 1):
-            subterms = terms_by_factors.setdefault(n_factors, [])
+            # subterms = terms_by_factors.setdefault(n_factors, [])
             for subcomb in combinations(sites_op, n_factors):
                 num_factors = (
                     val for site, val in averages.items() if site not in subcomb
@@ -324,7 +324,6 @@ def self_consistent_quadratic_mfa(ham: Operator):
 
     """
     from alpsqutip.operators.quadratic import (
-        QuadraticFormOperator,
         build_quadratic_form_from_operator,
     )
 

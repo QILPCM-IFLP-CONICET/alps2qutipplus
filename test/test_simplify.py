@@ -66,7 +66,7 @@ def test_simplify():
             type_operand = type(op_test)
             simplify1 = op_test.simplify()
             simplify2 = simplify1.simplify()
-            if not type(simplify1) is type(simplify2):
+            if type(simplify1) is not type(simplify2):
                 print(" types do not match")
                 passed = False
                 continue
