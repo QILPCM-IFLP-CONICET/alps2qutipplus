@@ -417,8 +417,9 @@ class GraphDescriptor:
                 # TODO: color by type t
                 ax_mpl.plot(*[[u, v] for u, v in zip(src, tgt)], **spec)
 
-    def subgraph(self, node_tuple: tuple, name: str = ""):
+    def subgraph(self, node_tuple: frozenset, name: str = ""):
         """A subgraph containing the specified nodes"""
+        assert isinstance(node_tuple, frozenset)
         subgraph = self.subgraphs.get(node_tuple, None)
         if subgraph is not None:
             return subgraph
@@ -444,6 +445,9 @@ class GraphDescriptor:
         return self.union(other)
 
     def union(self, other):
+        """
+        Join two graphics
+        """
         if self is other or other is None:
             return self
         other_nodes = other.nodes
@@ -456,6 +460,6 @@ class GraphDescriptor:
         edges = self.edges.copy()
         edges.update(other.edges)
         result = GraphDescriptor(f"{self.name}+{other.name}", nodes, edges)
-        result.subgraphs[tuple(sorted(self.nodes))] = self
-        result.subgraphs[tuple(sorted(other.nodes))] = other
+        result.subgraphs[frozenset(self.nodes)] = self
+        result.subgraphs[frozenset(other.nodes)] = other
         return result

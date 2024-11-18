@@ -3,8 +3,8 @@ Module that implements a meanfield approximation of a Gibbsian state
 """
 
 from functools import reduce
-from itertools import combinations, permutations
-from typing import Optional, Union
+from itertools import combinations
+from typing import Optional, Tuple, Union
 
 import numpy as np
 from qutip import Qobj
@@ -55,20 +55,49 @@ def one_body_from_qutip_operator(
     if system is None:
         system = operator.system if isinstance(operator, Operator) else None
 
-    if isinstance(operator, Qobj):
-        operator = QutipOperator(operator, system)
+    if system is None:
+        if isinstance(operator, Qobj):
+            operator = QutipOperator(operator)
+        else:
+            operator = QutipOperator(operator.to_qutip())
+        system = operator.system
+        site_names_dict = operator.site_names
+        site_names = sorted(site_names_dict, key=lambda x: site_names_dict[x])
+        subsystem = system
+    else:
+        if isinstance(operator, Qobj):
+            operator = QutipOperator(operator, system)
+            site_names_dict = operator.site_names
+            site_names = sorted(site_names_dict, key=lambda x: site_names_dict[x])
+            subsystem = operator.system
+        else:
+            site_names_dict = operator.site_names
+            site_names = sorted(site_names_dict, key=lambda x: site_names_dict[x])
+            subsystem = system.subsystem(frozenset(site_names))
+            operator = QutipOperator(
+                operator.to_qutip(site_names), subsystem, site_names_dict
+            )
 
-    if sigma0 is None:
-        sigma0 = ProductDensityOperator({}, system=operator.system)
-        sigma0 = sigma0 / sigma0.tr()
-        system = sigma0.system
+    # Reduce the state to the subsystem
+    if sigma0:
+        sigma0 = sigma0.partial_trace(subsystem)
+    else:
+        sigma0 = ProductDensityOperator({}, system=subsystem)
 
+    scalar_term_value = (operator * sigma0).tr()
+    # Scalar term
+    scalar_term = ScalarOperator(scalar_term_value, system)
+    if scalar_term_value != 0:
+        operator = operator - scalar_term_value
+
+    assert abs((operator * sigma0).tr()) < 1e-6, f"trace is {(operator*sigma0).tr()}"
+
+    # One-body terms
     local_states = {
-        name: sigma0.partial_trace((name,)).to_qutip() for name in system.dimensions
+        name: sigma0.partial_trace(frozenset((name,))).to_qutip() for name in site_names
     }
 
     local_terms = []
-    averages = 0
     for name in local_states:
         # Build a product operator Sigma_compl
         # s.t. Tr_{i}Sigma_i =Tr_i sigma0
@@ -78,7 +107,7 @@ def one_body_from_qutip_operator(
         # Tr_{/i}[q_i  Sigma_compl] = q_i
         # Tr_{/i}[q_j  Sigma_compl] = 0
         # Tr_{/i}[q_i q_j Sigma_compl] = 0
-
+        block: Tuple[str] = (name,)
         sigma_compl_factors = {
             name_loc: s_loc
             for name_loc, s_loc in local_states.items()
@@ -88,20 +117,34 @@ def one_body_from_qutip_operator(
             sigma_compl_factors,
             system=system,
         )
-        local_term = (sigma_compl * operator).partial_trace((name,))
+        local_term = (sigma_compl * operator).partial_trace(frozenset(block))
         # Split the zero-average part from the average
-        local_average = (local_term * local_states[name]).tr()
-        averages += local_average
-        local_term = local_term - local_average
-        local_terms.append(LocalOperator(name, local_term.to_qutip(), system))
 
-    average_term = ScalarOperator(averages / len(local_terms), system)
+        if isinstance(local_term, ScalarOperator):
+            assert (
+                abs(local_term.prefactor) < 1e-6
+            ), f"{abs(local_term.prefactor)} shoudl be 0."
+        else:
+            local_term_qutip = local_term.to_qutip(block)
+            local_average = (local_term_qutip * local_states[name]).tr()
+            assert abs(local_average) < 1e-6, f"{abs(local_average)} shoudl be 0."
+            local_term_qutip = local_term_qutip
+            local_terms.append(LocalOperator(name, local_term_qutip, system))
+
     one_body_term = OneBodyOperator(tuple(local_terms), system=system)
-    remaining = (operator - one_body_term - average_term).to_qutip_operator()
+    # Comunte the remainder of the opertator
+    remaining_qutip = operator.to_qutip(tuple(site_names)) - one_body_term.to_qutip(
+        tuple(site_names)
+    )
+    remaining = QutipOperator(
+        remaining_qutip,
+        system=system,
+        names={name: pos for pos, name in enumerate(site_names)},
+    )
     return SumOperator(
         tuple(
             (
-                average_term,
+                scalar_term,
                 one_body_term,
                 remaining,
             )
@@ -114,10 +157,13 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None):
     """
     Approximate `operator` by a sum of (up to) nmax-body
     terms, relative to the state sigma.
+    By default, `sigma` is the identity matrix.
 
     ``operator`` can be a SumOperator or a Product Operator.
     """
-    mul_func = lambda x, y: x * y
+
+    def mul_func(x, y):
+        return x * y
 
     if isinstance(operator, SumOperator):
         terms = operator.simplify().flat().terms
@@ -154,7 +200,7 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None):
         fluct_op = {site: l_op - averages[site] for site, l_op in sites_op.items()}
         # Now, we run a loop over
         for n_factors in range(nmax + 1):
-            subterms = terms_by_factors.setdefault(n_factors, [])
+            # subterms = terms_by_factors.setdefault(n_factors, [])
             for subcomb in combinations(sites_op, n_factors):
                 num_factors = (
                     val for site, val in averages.items() if site not in subcomb
@@ -212,7 +258,7 @@ def project_meanfield(operator, sigma0=None, **kwargs):
         key = (name, id(op_l))
         result = meanvalues.get(key, None)
         if result is None:
-            sigma_local = sigma0.partial_trace((name,)).to_qutip()
+            sigma_local = sigma0.partial_trace(frozenset((name,))).to_qutip()
             result = (op_l * sigma_local).tr()
             meanvalues[key] = result
         return result
@@ -277,16 +323,11 @@ def self_consistent_quadratic_mfa(ham: Operator):
     Starts by decomposing ham as a quadratic form
 
     """
-    from alpsqutip.operators.quadratic import (
-        QuadraticFormOperator,
-        build_quadratic_form_from_operator,
-    )
+    from alpsqutip.operators.quadratic import build_quadratic_form_from_operator
 
     system = ham.system
-    print("Decomposing as simplified quadratic form")
     ham_qf = build_quadratic_form_from_operator(ham, isherm=True, simplify=True)
     # TODO: use random choice
-    print("Reduce the basis")
     basis = sorted(
         [(w, b) for w, b in zip(ham_qf.weights, ham_qf.basis) if w < 0],
         key=lambda x: x[0],
@@ -309,7 +350,6 @@ def self_consistent_quadratic_mfa(ham: Operator):
 
     res = minimize_scalar(try_function, (-0.2, 0.25), method="golden")
     # Now, run a self consistent loop
-    print("s=", res.x)
     h_fe = res.fun
     phis = [0 for b in basis]
     phis[0] = res.x
@@ -326,9 +366,7 @@ def self_consistent_quadratic_mfa(ham: Operator):
         kappa = kappa.simplify()
         state_mf = GibbsProductDensityOperator(kappa, system=system)
         new_h_fe = hartree_free_energy(state_mf, kappa)
-        print("checking if", new_h_fe, ">", h_fe)
         if new_h_fe > h_fe:
             break
         h_fe = new_h_fe
-        print("it:", it_int)
     return state_mf

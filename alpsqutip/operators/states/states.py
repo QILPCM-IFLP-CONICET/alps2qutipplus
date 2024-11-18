@@ -4,7 +4,7 @@ Density operator classes.
 
 from functools import reduce
 from numbers import Number
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+from typing import Dict, Iterable, Optional, Tuple, Union
 
 import numpy as np
 from qutip import (  # type: ignore[import-untyped]
@@ -20,12 +20,10 @@ from alpsqutip.operators.basic import (
     Operator,
     ProductOperator,
     ScalarOperator,
-    check_multiplication,
     is_diagonal_op,
 )
 from alpsqutip.operators.functions import eigenvalues
 from alpsqutip.operators.qutip import QutipOperator
-from alpsqutip.utils import operator_to_wolfram
 
 
 def safe_exp_and_normalize(operator):
@@ -87,9 +85,6 @@ class DensityOperatorMixin:
     ```
     mix.expect(A)== (mix * A).tr()/sum([t.prefactor for t in A.terms])
     ```
-
-
-
     """
 
     system: SystemDescriptor
@@ -114,7 +109,8 @@ class DensityOperatorMixin:
         return True
 
     def to_qutip_operator(self):
-        rho_qutip = self.to_qutip()
+        block = tuple(sorted(self.acts_over()))
+        rho_qutip = self.to_qutip(block)
         return QutipDensityOperator(rho_qutip, self.system, prefactor=1)
 
     def tr(self):
@@ -142,7 +138,7 @@ class QutipDensityOperator(DensityOperatorMixin, QutipOperator):
                 self.operator * self.prefactor + operand,
                 self.system,
             )
-
+        # TODO: check me again
         op_qo = operand.to_qutip()
         if isinstance(operand, DensityOperatorMixin):
             op_qo = op_qo * self.prefactor
@@ -158,8 +154,13 @@ class QutipDensityOperator(DensityOperatorMixin, QutipOperator):
                 self.site_names,
                 self.prefactor * operand,
             )
-        op_qo = operand.to_qutip()
-        return QutipOperator(self.operator * op_qo, self.system or op_qo.system)
+        block = tuple(self.site_names)
+        block = block + tuple(
+            (site for site in operand.acts_over() if site not in block)
+        )
+        op_qo = operand.to_qutip(block)
+        rho_qo = self.to_qutip(block)
+        return QutipOperator(rho_qo * op_qo, self.system or op_qo.system)
 
     def __radd__(self, operand) -> Operator:
         if isinstance(operand, (int, float)):
@@ -184,8 +185,13 @@ class QutipDensityOperator(DensityOperatorMixin, QutipOperator):
                 self.site_names,
                 self.prefactor * operand,
             )
-        op_qo = operand.to_qutip()
-        return QutipOperator(op_qo * self.operator, self.system or op_qo.system)
+        block = tuple(self.site_names)
+        block = block + tuple(
+            (site for site in operand.acts_over() if site not in block)
+        )
+        op_qo = operand.to_qutip(block)
+        rho_qo = self.to_qutip(block)
+        return QutipOperator(op_qo * rho_qo, self.system or op_qo.system)
 
     def logm(self):
         operator = self.operator
@@ -329,11 +335,11 @@ class ProductDensityOperator(DensityOperatorMixin, ProductOperator):
             return OneBodyOperator(terms, system, False) + ScalarOperator(norm, system)
         return OneBodyOperator(terms, system, False)
 
-    def partial_trace(self, sites: Union[tuple, SystemDescriptor]):
+    def partial_trace(self, sites: Union[frozenset, SystemDescriptor]):
         sites_op = self.sites_op
         if isinstance(sites, SystemDescriptor):
             subsystem = sites
-            sites = tuple(sites.sites.keys())
+            sites = frozenset(sites.sites.keys())
         else:
             subsystem = self.system.subsystem(sites)
 
@@ -344,15 +350,28 @@ class ProductDensityOperator(DensityOperatorMixin, ProductOperator):
             local_states, self.prefactor, subsystem, normalize=False
         )
 
-    def to_qutip(self):
+    def to_qutip(self, block: Optional[Tuple[str]] = None):
         prefactor = self.prefactor
         if prefactor == 0 or len(self.system.dimensions) == 0:
             return np.exp(-sum(np.log(dim) for dim in self.system.dimensions.values()))
-        ops = self.sites_op
+
+        sites_op = self.sites_op
+        dimensions = self.system.dimensions
+        if block is None:
+            block = tuple(sorted(self.system.sites))
+        else:
+            block = block + tuple(
+                (site for site in sorted(sites_op) if site not in block)
+            )
+
         return qutip_tensor(
             [
-                ops[site] if site in ops else qutip_qeye(dim) / dim
-                for site, dim in self.system.dimensions.items()
+                (
+                    sites_op[site]
+                    if site in sites_op
+                    else qutip_qeye(dimensions[site]) / dimensions[site]
+                )
+                for site in block
             ]
         )
 
@@ -420,19 +439,26 @@ class MixtureDensityOperator(DensityOperatorMixin, SumOperator):
             return sum(np.array(term[0]) * term[1] for term in av_terms)[0]
         return sum(np.array(term[0]) * term[1] for term in av_terms)
 
-    def partial_trace(self, sites: Union[tuple, SystemDescriptor]):
+    def partial_trace(self, sites: Union[frozenset, SystemDescriptor]):
         new_terms = tuple(t.partial_trace(sites) for t in self.terms)
         subsystem = new_terms[0].system
         return MixtureDensityOperator(new_terms, subsystem)
 
-    def to_qutip(self):
+    def to_qutip(self, block: Optional[Tuple[str]] = None):
         """Produce a qutip compatible object"""
         if len(self.terms) == 0:
             return ScalarOperator(0, self.system).to_qutip()
 
+        if block is None:
+            block = tuple(sorted(self.system.sites))
+        else:
+            block = block + tuple(
+                (site for site in sorted(self.acts_over()) if site not in block)
+            )
+
         # TODO: find a more efficient way to avoid element-wise
         # multiplications
-        return sum(term.to_qutip() * term.prefactor for term in self.terms)
+        return sum(term.to_qutip(block) * term.prefactor for term in self.terms)
 
 
 class GibbsDensityOperator(DensityOperatorMixin, Operator):
@@ -521,17 +547,24 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
             self.normalized = True
         return self
 
-    def partial_trace(self, sites: Union[tuple, SystemDescriptor]):
+    def partial_trace(self, sites: Union[frozenset, SystemDescriptor]):
         return self.to_qutip_operator().partial_trace(sites)
 
-    def to_qutip(self):
+    def to_qutip(self, block: Optional[Tuple[str]] = None):
+        if block is None:
+            block = tuple(sorted(self.system.sites))
+        else:
+            block = block + tuple(
+                (site for site in sorted(self.acts_over()) if site not in block)
+            )
+
         if not self.normalized:
             rho, log_prefactor = safe_exp_and_normalize(-self.k)
             self.k = self.k + log_prefactor
             self.free_energy = -log_prefactor
             self.normalized = True
-            return rho.to_qutip()
-        result = (-self.k).to_qutip().expm()
+            return rho.to_qutip(block)
+        result = (-self.k).to_qutip(block).expm()
         return result
 
 
@@ -542,7 +575,7 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
 
     """
 
-    k_by_site: dict[str, Operator]
+    k_by_site: Dict[str, Operator]
     prefactor: float
     free_energies: Dict[str, float]
     isherm: bool = True
@@ -653,11 +686,11 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
         )
         return OneBodyOperator(terms, self.system, False)
 
-    def partial_trace(self, sites: Union[tuple, SystemDescriptor]):
+    def partial_trace(self, sites: Union[frozenset, SystemDescriptor]):
 
         if isinstance(sites, SystemDescriptor):
             subsystem = sites
-            sites = tuple(
+            sites = frozenset(
                 (site for site in subsystem.sites if site in self.system.dimensions)
             )
         else:
@@ -690,8 +723,8 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
             normalize=False,
         )
 
-    def to_qutip(self):
-        return self.to_product_state().to_qutip()
+    def to_qutip(self, block: Optional[Tuple[str]] = None):
+        return self.to_product_state().to_qutip(block)
 
 
 # ####################################
@@ -699,7 +732,7 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
 # ####################################
 
 
-##### Sums #############
+# #### Sums #############
 
 
 @Operator.register_add_handler(
@@ -820,7 +853,7 @@ def _(x_op, y_op):
     )
 
 
-##### Products #############
+# #### Products #############
 
 
 # ProductDensityOperator times ProductDensityOperator
@@ -838,7 +871,7 @@ def _(x_op: ProductDensityOperator, y_op: ProductDensityOperator):
 
 # ProductDensityOperator times Operators
 
-####   ScalarOperator
+# ###   ScalarOperator
 
 
 @Operator.register_mul_handler((ScalarOperator, ProductDensityOperator))
@@ -853,10 +886,10 @@ def _(x_op: ProductDensityOperator, y_op: ScalarOperator):
     system = x_op.system * y_op.system if x_op.system else y_op.system
     prefactor = y_op.prefactor
     # prefactor = prefactor * np.exp(sum(x_op.local_fs.values()))
-    return ProductOperator(x_op.sites_op, y_op.prefactor, system)
+    return ProductOperator(x_op.sites_op, prefactor, system)
 
 
-####   LocalOperator
+# ###   LocalOperator
 
 
 @Operator.register_mul_handler((LocalOperator, ProductDensityOperator))
@@ -959,7 +992,7 @@ def _(x_op: SumOperator, y_op: ProductDensityOperator):
     )
 
 
-#############    Mixtures  ##########################
+# ############    Mixtures  ##########################
 
 
 # Anything that is not a SumOperator
@@ -1067,7 +1100,7 @@ def _(
     return result
 
 
-#########  GibbsDensityOperators
+# ########  GibbsDensityOperators
 
 
 @Operator.register_mul_handler((ScalarOperator, GibbsDensityOperator))
@@ -1081,7 +1114,7 @@ def _(x_op: ScalarOperator, y_op: GibbsDensityOperator):
 @Operator.register_mul_handler((GibbsDensityOperator, ScalarOperator))
 def _(x_op: GibbsDensityOperator, y_op: ScalarOperator):
     x_qutip = x_op.to_qutip()
-    result = QutipOperator(y_op.prefactor * x_op.to_qutip(), x_op.system or y_op.system)
+    result = QutipOperator(y_op.prefactor * x_qutip(), x_op.system or y_op.system)
     return result
 
 
@@ -1097,7 +1130,7 @@ def _(x_op: GibbsDensityOperator, y_op: ScalarOperator):
 @Operator.register_mul_handler((SumOperator, GibbsDensityOperator))
 @Operator.register_mul_handler((OneBodyOperator, GibbsDensityOperator))
 @Operator.register_mul_handler((MixtureDensityOperator, GibbsDensityOperator))
-### and backward
+# ## and backward
 @Operator.register_mul_handler((GibbsDensityOperator, LocalOperator))
 @Operator.register_mul_handler((GibbsDensityOperator, ProductOperator))
 @Operator.register_mul_handler((GibbsDensityOperator, OneBodyOperator))
@@ -1113,9 +1146,9 @@ def _(
     return x_op.to_qutip_operator() * y_op.to_qutip_operator()
 
 
-#############################
-#  GibbsProductOperators
-#############################
+# ############################
+#    GibbsProductOperators
+# ############################
 
 
 @Operator.register_mul_handler(

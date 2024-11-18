@@ -237,7 +237,7 @@ def check_operator_equality(op1, op2):
 def expect_from_qutip(rho, obs):
     """Compute expectation values or Qutip objects or iterables"""
     if isinstance(obs, Operator):
-        return qutip.expect(rho, obs.to_qutip())
+        return qutip.expect(rho, obs.to_qutip(tuple(obs.system.sites)))
     if isinstance(obs, dict):
         return {name: expect_from_qutip(rho, op) for name, op in obs.items()}
     return np.array([expect_from_qutip(rho, op) for op in obs])

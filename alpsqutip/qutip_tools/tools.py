@@ -1,3 +1,8 @@
+"""
+Functions for basic interface with qutip objects.
+"""
+
+import logging
 from typing import Iterator, List, Tuple
 
 from numpy import ndarray, zeros as np_zeros
@@ -175,7 +180,7 @@ else:
             scalar = data[0]
             return len(data) == dim and all(value == scalar for value in data)
 
-        print("must be dense")
+        logging.warning("must be dense")
         data = data.as_ndarray()
         dim_i, dim_j = data.shape
         if any(
@@ -184,11 +189,9 @@ else:
             for j_idx in range(dim_j)
             if i_idx != j_idx
         ):
-            print("non null elements out of the diagonal")
+            logging.warning("non null elements out of the diagonal")
             return False
         scalar = data[0, 0]
-        print(scalar)
-        print([data[i, i] for i in range(data.shape[0])])
         return all(scalar == data[i, i] for i in range(data.shape[0]))
 
     def data_is_zero(data) -> bool:

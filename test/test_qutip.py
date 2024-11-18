@@ -3,9 +3,10 @@ Basic unit test.
 """
 
 import numpy as np
+import pytest
 from qutip import jmat, qeye, tensor
 
-from alpsqutip.operators import ProductOperator, QutipOperator
+from alpsqutip.operators import Operator, ProductOperator, QutipOperator
 from alpsqutip.qutip_tools.tools import (
     data_get_type,
     data_is_diagonal,
@@ -19,9 +20,9 @@ from .helper import (
     check_operator_equality,
     operator_type_cases,
     sites,
-    sx_A as local_sx_A,
-    sy_B,
-    sz_C,
+    sx_A as LOCAL_SX_A,
+    sy_B as SY_B,
+    sz_C as SZ_C,
 )
 
 np.set_printoptions(
@@ -29,111 +30,141 @@ np.set_printoptions(
 )
 
 
-sx_A = ProductOperator({local_sx_A.site: local_sx_A.operator}, 1.0, local_sx_A.system)
-sx_A2 = sx_A * sx_A
-sx_Asy_B = sx_A * sy_B
-sx_AsyB_times_2 = 2 * sx_Asy_B
-opglobal = sz_C + sx_AsyB_times_2
+SX_A = ProductOperator({LOCAL_SX_A.site: LOCAL_SX_A.operator}, 1.0, LOCAL_SX_A.system)
+SX_A2 = SX_A * SX_A
+SX_A_SY_B = SX_A * SY_B
+SX_A_SY_B_TIMES_2 = 2 * SX_A_SY_B
+OP_GLOBAL = SZ_C + SX_A_SY_B_TIMES_2
 
-id_2 = qeye(2)
-id_3 = qeye(3)
-sx, sy, sz = jmat(0.5)
-lx, ly, lz = jmat(1.0)
+
+SX_A_QT = SX_A.to_qutip_operator()
+SX_A2_QT = SX_A_QT * SX_A_QT
+
+SY_B_QT = SY_B.to_qutip_operator()
+SZ_C_QT = SZ_C.to_qutip_operator()
+SX_A_SY_B_QT = SX_A_QT * SY_B_QT
+SX_A_SY_B_TIMES_2_QT = 2 * SX_A_SY_B_QT
+OP_GLOBAL_QT = SZ_C_QT + SX_A_SY_B_TIMES_2_QT
+
+ID_2_QUTIP = qeye(2)
+ID_3_QUTIP = qeye(3)
+SX_QUTIP, SY_QUTIP, SZ_QUTIP = jmat(0.5)
+LX_QUTIP, LY_QUTIP, LZ_QUTIP = jmat(1.0)
+
+
+SUBSYSTEMS = [
+    frozenset((sites[0],)),
+    frozenset((sites[1],)),
+    frozenset((sites[3],)),
+    frozenset(
+        (
+            sites[0],
+            sites[1],
+        )
+    ),
+    frozenset(
+        (
+            sites[1],
+            sites[2],
+        )
+    ),
+]
+
 
 QUTIP_TEST_CASES = {
     "product_scalar": {
-        "operator": 3 * tensor(id_2, id_3),
+        "operator": 3 * tensor(ID_2_QUTIP, ID_3_QUTIP),
         "diagonal": True,
         "scalar": True,
         "zero": False,
         "type": np.dtype("complex128"),
     },
     "product_diagonal": {
-        "operator": tensor(sz, lz),
+        "operator": tensor(SZ_QUTIP, LZ_QUTIP),
         "diagonal": True,
         "scalar": False,
         "zero": False,
         "type": np.dtype("complex128"),
     },
     "product_non_diagonal": {
-        "operator": tensor(sx, lx),
+        "operator": tensor(SX_QUTIP, LX_QUTIP),
         "diagonal": False,
         "scalar": False,
         "zero": False,
         "type": np.dtype("complex128"),
     },
     "product_zero": {
-        "operator": 0 * tensor(id_2, id_3),
+        "operator": 0 * tensor(ID_2_QUTIP, ID_3_QUTIP),
         "diagonal": True,
         "scalar": True,
         "zero": True,
         "type": np.dtype("complex128"),
     },
     "scalar": {
-        "operator": 3 * id_2,
+        "operator": 3 * ID_2_QUTIP,
         "diagonal": True,
         "scalar": True,
         "zero": False,
         "type": np.dtype("complex128"),
     },
     "diagonal": {
-        "operator": sz + 0.5 * id_2,
+        "operator": SZ_QUTIP + 0.5 * ID_2_QUTIP,
         "diagonal": True,
         "scalar": False,
         "zero": False,
         "type": np.dtype("complex128"),
     },
     "non_diagonal": {
-        "operator": lx,
+        "operator": LX_QUTIP,
         "diagonal": False,
         "scalar": False,
         "zero": False,
         "type": np.dtype("complex128"),
     },
     "zero": {
-        "operator": 0 * id_2,
+        "operator": 0 * ID_2_QUTIP,
         "diagonal": True,
         "scalar": True,
         "zero": True,
         "type": np.dtype("complex128"),
     },
     "complex": {
-        "operator": sy,
+        "operator": SY_QUTIP,
         "diagonal": False,
         "scalar": False,
         "zero": False,
         "type": np.dtype("complex128"),
     },
     "dense": {
-        "operator": sx.expm(),
+        "operator": SX_QUTIP.expm(),
         "diagonal": False,
         "scalar": False,
         "zero": False,
         "type": np.dtype("complex128"),
     },
     "diagonal dense": {
-        "operator": sz.expm(),
+        "operator": SZ_QUTIP.expm(),
         "diagonal": True,
         "scalar": False,
         "zero": False,
         "type": np.dtype("complex128"),
     },
     "tensor dense": {
-        "operator": tensor(sx, lx).expm(),
+        "operator": tensor(SX_QUTIP, LX_QUTIP).expm(),
         "diagonal": False,
         "scalar": False,
         "zero": False,
         "type": np.dtype("complex128"),
     },
     "tensor diagonal dense": {
-        "operator": tensor(sz, sz).expm(),
+        "operator": tensor(SZ_QUTIP, SZ_QUTIP).expm(),
         "diagonal": True,
         "scalar": False,
         "zero": False,
         "type": np.dtype("complex128"),
     },
     "diagonal dense zero": {
-        "operator": (-10000 * (id_2 + sz)).expm(),
+        "operator": (-10000 * (ID_2_QUTIP + SZ_QUTIP)).expm(),
         "diagonal": True,
         "scalar": True,
         "zero": True,
@@ -160,80 +191,99 @@ def test_factorize_qutip_operators():
     """
     for name, operator_case in operator_type_cases.items():
         print("decomposing ", name)
-        acts_over = operator_case.acts_over()
+        acts_over = tuple(sorted(operator_case.acts_over()))
         if acts_over:
-            operator_case = operator_case.partial_trace(tuple(acts_over))
-        qutip_operator = operator_case.to_qutip()
-        terms = factorize_qutip_operator(qutip_operator)
-        reconstructed = sum(tensor(*t) for t in terms)
-        assert check_operator_equality(
-            qutip_operator, reconstructed
-        ), "reconstruction does not match with the original."
+            qutip_operator = operator_case.to_qutip(acts_over)
+            terms = factorize_qutip_operator(qutip_operator)
+            reconstructed = sum(tensor(*t) for t in terms)
+            assert check_operator_equality(
+                qutip_operator, reconstructed
+            ), "reconstruction does not match with the original."
 
 
-def test_qutip_operators():
+@pytest.mark.parametrize(
+    ("case", "op_case", "expected_value"),
+    [
+        ("sx_A", SX_A_QT, 0.0),
+        ("sy_B", SY_B_QT, 0.0),
+        ("sx_A^2", SX_A2_QT, 0.25 * 2 ** (CHAIN_SIZE)),
+        (
+            "overlap (sxsy, sx*sy)",
+            SX_A_SY_B_QT * SX_A_QT * SY_B_QT,
+            0.25**2 * 2 ** (CHAIN_SIZE),
+        ),
+        (
+            "overlap (global, sx*sy)",
+            OP_GLOBAL_QT * SX_A_QT * SY_B_QT,
+            2 * (0.25**2) * 2 ** (CHAIN_SIZE),
+        ),
+        ("Sz_C^2", SZ_C_QT * SZ_C_QT, 0.25 * 2 ** (CHAIN_SIZE)),
+        (
+            "sxsy^2",
+            SX_A_SY_B_TIMES_2_QT * SX_A_SY_B_TIMES_2_QT,
+            4 * (0.25**2) * (2**CHAIN_SIZE),
+        ),
+        (
+            "global^2",
+            OP_GLOBAL_QT * OP_GLOBAL_QT,
+            (0.25 + 4 * 0.25**2) * (2**CHAIN_SIZE),
+        ),
+        ("global * sx_A", OP_GLOBAL_QT * SX_A_QT, 0.0),
+        ("sx_A * global", SX_A_QT * OP_GLOBAL_QT, 0.0),
+        (
+            "global * global",
+            OP_GLOBAL * OP_GLOBAL,
+            (0.25 + 4 * 0.25**2) * (2**CHAIN_SIZE),
+        ),
+        (
+            "global_QT * global_QT",
+            OP_GLOBAL_QT * OP_GLOBAL_QT,
+            (0.25 + 4 * 0.25**2) * (2**CHAIN_SIZE),
+        ),
+        (
+            "global * global_qt",
+            OP_GLOBAL * OP_GLOBAL_QT,
+            (0.25 + 4 * 0.25**2) * (2**CHAIN_SIZE),
+        ),
+        (
+            ">> global_qt * global",
+            OP_GLOBAL_QT * OP_GLOBAL,
+            (0.25 + 4 * 0.25**2) * (2**CHAIN_SIZE),
+        ),
+    ],
+)
+def test_qutip_operators(case: str, op_case: Operator, expected_value: complex):
     """Test for the qutip representation"""
+    for subsystem in SUBSYSTEMS:
+        ptoperator = (op_case).partial_trace(subsystem)
+        assert ptoperator.tr() == expected_value
 
-    sx_A_qt = sx_A.to_qutip_operator()
-    sx_A2_qt = sx_A_qt * sx_A_qt
 
-    syB_qt = sy_B.to_qutip_operator()
-    szC_qt = sz_C.to_qutip_operator()
-    sx_AsyB_qt = sx_A_qt * syB_qt
-    sx_AsyB_times_2_qt = 2 * sx_AsyB_qt
-    opglobal_qt = szC_qt + sx_AsyB_times_2_qt
-
-    subsystems = [
-        (sites[0],),
-        (sites[1],),
-        (
-            sites[0],
-            sites[1],
-        ),
-        (
-            sites[1],
-            sites[2],
-        ),
-    ]
-
-    for subsystem in subsystems:
-        assert (sx_A_qt).partial_trace(subsystem).tr() == 0.0
-        expect_value = 0.5 * 2 ** (CHAIN_SIZE - 1)
-        assert (sx_A2_qt).partial_trace(subsystem).tr() == expect_value
-        assert (sx_AsyB_qt * sx_A_qt * syB_qt).partial_trace(
-            subsystem
-        ).tr() == 0.25 * 2 ** (CHAIN_SIZE - 2)
-        assert (opglobal_qt * sx_A_qt * syB_qt).partial_trace(
-            subsystem
-        ).tr() == 0.5 * 2 ** (CHAIN_SIZE - 2)
-        assert (szC_qt * szC_qt).partial_trace(subsystem).tr() == 0.5 * 2 ** (
-            CHAIN_SIZE - 1
-        )
-        assert (sx_AsyB_times_2_qt * sx_AsyB_times_2_qt).partial_trace(
-            subsystem
-        ).tr() == 2 ** (CHAIN_SIZE - 2)
-        expected_value = 2 ** (CHAIN_SIZE - 2) * 2
-        assert (opglobal_qt * opglobal_qt).partial_trace(
-            subsystem
-        ).tr() == expected_value
-        assert (opglobal_qt * sx_A_qt).partial_trace(subsystem).tr() == 0.0
-        assert (opglobal_qt * opglobal).partial_trace(subsystem).tr() == 2 ** (
-            CHAIN_SIZE - 2
-        ) * 2
-        assert (opglobal * opglobal_qt).partial_trace(subsystem).tr() == 2 ** (
-            CHAIN_SIZE - 2
-        ) * 2
-
+def test_detached_operators():
+    """Check operators not comming from a system"""
     # Tests for QutipOperators defined without a system
-    detached_qutip_operator = QutipOperator(sx_AsyB_times_2_qt.operator)
-    expected_value = 0.5**2 * 2 ** (CHAIN_SIZE - 2)
-    assert ((sx_AsyB_times_2_qt.operator) ** 2).tr() == expected_value
-    expected_value = 0.5**2 * 2 ** (CHAIN_SIZE - 2)
-    assert (detached_qutip_operator * detached_qutip_operator).tr() == expected_value
+    test_op = SX_A_SY_B_TIMES_2
+    system = test_op.system
+    test_op_tr = test_op.tr()
+    test_op_sq_tr = (test_op * test_op).tr()
+    qutip_repr = test_op.to_qutip(tuple(system.sites))
+    assert test_op_tr == qutip_repr.tr()
+    assert test_op_sq_tr == (qutip_repr * qutip_repr).tr()
 
+    # Now, build a detached operator
+    detached_qutip_operator = QutipOperator(qutip_repr)
+    assert test_op_tr == detached_qutip_operator.tr()
+    assert test_op_sq_tr == (detached_qutip_operator * detached_qutip_operator).tr()
+
+    # sites with names
     detached_qutip_operator = QutipOperator(
-        sx_AsyB_times_2_qt.operator, names={s: i for i, s in enumerate(sites)}
+        qutip_repr, names={s: i for i, s in enumerate(sites)}
     )
-    assert (detached_qutip_operator * detached_qutip_operator).partial_trace(
-        (sites[0],)
-    ).tr() == 0.5**2 * 2 ** (CHAIN_SIZE - 2)
+    assert test_op_tr == detached_qutip_operator.tr()
+    assert test_op_sq_tr == (detached_qutip_operator * detached_qutip_operator).tr()
+    assert (
+        test_op_tr == detached_qutip_operator.partial_trace(frozenset(sites[0:1])).tr()
+    )
+    assert (
+        test_op_tr == detached_qutip_operator.partial_trace(frozenset(sites[0:2])).tr()
+    )

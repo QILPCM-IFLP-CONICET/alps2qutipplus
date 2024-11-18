@@ -62,7 +62,7 @@ def test_states():
 
         for subsystem in subsystems:
             print("   subsystem", subsystem)
-            local_rho = rho.partial_trace(subsystem)
+            local_rho = rho.partial_trace(frozenset(subsystem))
             print(" type", local_rho)
             assert check_equality(
                 local_rho.tr(), 1

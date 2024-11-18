@@ -7,6 +7,7 @@ from typing import Callable, Optional
 
 import numpy as np
 from numpy import real
+from numpy.linalg import svd
 
 from alpsqutip.operators import Operator
 
@@ -26,7 +27,6 @@ def fetch_kubo_scalar_product(sigma: Operator, threshold=0):
         if w < threshold or p <= 0:
             evals_evecs = evals_evecs[: i + 1]
             break
-    stored: dict = {}
 
     def ksp(op1, op2):
         result = sum(
@@ -150,9 +150,9 @@ def orthogonalize_basis(basis: list, sp: Callable, idop: Optional[Operator] = No
         op / (norm) ** 0.5 for op, norm in zip(basis, normalizations) if norm > 1.0e-100
     ]
 
-    for i in range(1):
+    for _ in range(1):
         gs = gram_matrix(basis, sp)
-        lvecs, evals, rvecs = np.linalg.svd(gs)
+        _, evals, rvecs = svd(gs)
         coeffs = [(vec) / (val**0.5) for vec, val in zip(rvecs, evals) if val > 1e-20]
         basis = [sum(c * op for c, op in zip(w, basis)) for w in coeffs]
     return basis
@@ -180,7 +180,7 @@ def build_hermitician_basis(basis, sp=lambda x, y: ((x.dag() * y).tr())):
     # indices is a list that keeps the connection between the original
     # basis and the hermitician basis
     indices = []
-    for m, b in enumerate(basis):
+    for b in basis:
         indices.append([])
         if b.isherm:
             if b:

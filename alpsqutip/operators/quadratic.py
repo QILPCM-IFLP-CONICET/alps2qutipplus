@@ -4,7 +4,7 @@ Define SystemDescriptors and different kind of operators
 
 # from numbers import Number
 from time import time
-from typing import Callable, List, Optional, Tuple, Union
+from typing import Callable, Optional, Tuple, Union
 
 import numpy as np
 from numpy.linalg import eigh, svd
@@ -71,6 +71,10 @@ class QuadraticFormOperator(Operator):
         return len(self.weights) > 0 and any(self.weights) and any(self.basis)
 
     def __add__(self, other):
+
+        # TODO: remove me and fix the sums
+        if other == 0:
+            return self
         assert isinstance(other, Operator), "other must be an operator."
         system = self.system or other.system
         if isinstance(other, QuadraticFormOperator):
@@ -209,14 +213,28 @@ class QuadraticFormOperator(Operator):
             return self
         return result
 
-    def to_qutip(self):
+    def to_qutip(self, block: Optional[Tuple[str]] = None):
+        """
+        return a qutip object acting over the sites listed in
+        `block`.
+        By default (`block=None`) returns a qutip object
+        acting over all the sites, in lexicographical order.
+        """
+        sites = self.system.sites
+        if block is None:
+            block = tuple(sorted(sites))
+        else:
+            block = block + tuple(
+                (site for site in self.acts_over() if site not in block)
+            )
+
         result = sum(
-            (w * op_term.dag() * op_term).to_qutip()
+            (w * op_term.dag() * op_term).to_qutip(block)
             for w, op_term in zip(self.weights, self.basis)
         )
         offset = self.offset
         if offset:
-            result += offset.to_qutip()
+            result += offset.to_qutip(block)
         return result
 
     def to_sum_operator(self, simplify: bool = True) -> SumOperator:
@@ -738,6 +756,12 @@ def _(op1: Operator, op2: QuadraticFormOperator):
 @Operator.register_mul_handler(
     (
         ScalarOperator,
+        QuadraticFormOperator,
+    )
+)
+@Operator.register_mul_handler(
+    (
+        float,
         QuadraticFormOperator,
     )
 )

@@ -108,6 +108,7 @@ def test_one_body_from_qutip_operator():
     DeltaK s.t.
     Tr[DeltaK sigma]=0
     """
+    failed = {}
 
     def check_result(qutip_op, result):
         # Check the structure of the result:
@@ -136,19 +137,50 @@ def test_one_body_from_qutip_operator():
             assert abs(one_body.to_qutip().tr()) < 1.0e-9
             assert abs((remainder.to_qutip()).tr()) < 1.0e-9
         else:
-            assert abs((one_body.to_qutip() * state.to_qutip()).tr()) < 1.0e-9
-            assert abs((remainder.to_qutip() * state.to_qutip()).tr()) < 1.0e-9
+            error_one_body_tr = abs((one_body.to_qutip() * state.to_qutip()).tr())
+            if error_one_body_tr > 1.0e-9:
+                failed.setdefault((operator_name, state_name), {})[
+                    "one body tr"
+                ] = error_one_body_tr
+            remainder_tr = abs((remainder.to_qutip() * state.to_qutip()).tr())
+            if remainder_tr > 1.0e-9:
+                failed.setdefault((operator_name, state_name), {})[
+                    "remainder tr"
+                ] = remainder_tr
         # Check the consistency
-        assert check_operator_equality(
-            qutip_op.to_qutip(), result.to_qutip()
-        ), f"decomposition failed {state_name} for {operator_name}"
+        if not check_operator_equality(qutip_op.to_qutip(), result.to_qutip()):
+            print(f"decomposition failed {state_name} for {operator_name}")
+            failed.setdefault((state_name, operator_name), {})[
+                "operator equality"
+            ] = False
 
     for operator_name, test_operator in TEST_OPERATORS.items():
+        full_sites = tuple(test_operator.system.sites)
+        print(
+            "\n",
+            60 * "-",
+            "\n# operator name",
+            operator_name,
+            "of type",
+            type(test_operator),
+        )
         qutip_op = test_operator.to_qutip_operator()
+        print("      ->qutip_op", type(qutip_op), qutip_op.acts_over())
         for state_name, state in TEST_STATES.items():
-            print(f"testing {operator_name} on state {state_name}")
+            print(f"  - on state {state_name}")
+            print("      * as QutipOperator")
             result = one_body_from_qutip_operator(qutip_op, state)
             check_result(qutip_op, result)
-            print(f"   now testing {operator_name} as a Qobj, on state {state_name}")
-            result = one_body_from_qutip_operator(qutip_op.to_qutip(), state)
+            print("      * as Qobj")
+            result = one_body_from_qutip_operator(qutip_op.to_qutip(full_sites), state)
             check_result(qutip_op, result)
+
+    if failed:
+        print("Discrepances:")
+        print("~~~~~~~~~~~~~")
+        for key, errors in failed.items():
+            print("   in ", key)
+            for err_key, error in errors.items():
+                print("    ", err_key, error)
+
+        assert False, "discrepances"

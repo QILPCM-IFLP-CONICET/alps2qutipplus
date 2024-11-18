@@ -6,9 +6,7 @@ import matplotlib.pyplot as plt
 
 from alpsqutip.alpsmodels import list_operators_in_alps_xml, model_from_alps_xml
 from alpsqutip.geometry import graph_from_alps_xml, list_graph_in_alps_xml
-from alpsqutip.model import SystemDescriptor
 from alpsqutip.settings import FIGURES_DIR, LATTICE_LIB_FILE, MODEL_LIB_FILE
-from alpsqutip.utils import eval_expr
 
 from .helper import alert
 
@@ -58,13 +56,13 @@ def test_graph_operations():
     )
 
     graph_a = graph.subgraph(
-        tuple((s for i, s in enumerate(graph.nodes.keys()) if i < 3)), name="a"
+        frozenset(s for i, s in enumerate(graph.nodes.keys()) if i < 3), name="a"
     )
     graph_b = graph.subgraph(
-        tuple((s for i, s in enumerate(graph.nodes.keys()) if 2 <= i < 5)), name="b"
+        frozenset(s for i, s in enumerate(graph.nodes.keys()) if 2 <= i < 5), name="b"
     )
     graph_c = graph.subgraph(
-        tuple((s for i, s in enumerate(graph.nodes.keys()) if 5 < i < 8)), name="c"
+        frozenset(s for i, s in enumerate(graph.nodes.keys()) if 5 < i < 8), name="c"
     )
 
     print(graph_a.name, "with", graph_a.nodes.keys())
