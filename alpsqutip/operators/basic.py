@@ -192,7 +192,7 @@ class Operator:
     def _repr_latex_(self):
         """LaTeX Representation"""
         acts_over = sorted(self.acts_over())
-        if len(acts_over)>4:            
+        if len(acts_over) > 4:
             return repr(self)
         qutip_repr = self.to_qutip(tuple(acts_over))
         if isinstance(qutip_repr, qutip.Qobj):
@@ -287,7 +287,7 @@ class Operator:
     # pylint: disable=invalid-name
     def tr(self):
         """The trace of the operator"""
-        return self.partial_trace(tuple()).prefactor
+        return self.partial_trace(frozenset()).prefactor
 
     def tidyup(self, atol=None):
         """remove tiny elements of the operator"""
@@ -332,7 +332,7 @@ class LocalOperator(Operator):
         return f"Local Operator on site {self.site}:" f"\n {repr(self.operator.full())}"
 
     def acts_over(self):
-        return set((self.site,))
+        return frozenset((self.site,))
 
     def dag(self):
         """
@@ -380,7 +380,7 @@ class LocalOperator(Operator):
 
         return LocalOperator(self.site, log_qutip(self.operator), self.system)
 
-    def partial_trace(self, sites: Union[tuple, SystemDescriptor]):
+    def partial_trace(self, sites: Union[frozenset, SystemDescriptor]):
         system = self.system
         assert system is not None
         dimensions = system.dimensions
@@ -437,7 +437,7 @@ class LocalOperator(Operator):
         return qutip.tensor(*factors_dict)
 
     def tr(self):
-        result = self.partial_trace(tuple())
+        result = self.partial_trace(frozenset())
         return result.prefactor
 
     def tidyup(self, atol=None):
@@ -504,7 +504,7 @@ class ProductOperator(Operator):
         return result
 
     def acts_over(self):
-        return set((site for site in self.sites_op))
+        return frozenset(site for site in self.sites_op)
 
     def dag(self):
         """
@@ -585,7 +585,7 @@ class ProductOperator(Operator):
         result = result + ScalarOperator(np.log(self.prefactor), system)
         return result
 
-    def partial_trace(self, sites: Union[tuple, SystemDescriptor]):
+    def partial_trace(self, sites: Union[frozenset, SystemDescriptor]):
         full_system_sites = self.system.sites
         dimensions = self.dimensions
         if isinstance(sites, SystemDescriptor):
@@ -672,7 +672,7 @@ class ProductOperator(Operator):
         return self.prefactor * qutip.tensor(*factors)
 
     def tr(self):
-        result = self.partial_trace(tuple())
+        result = self.partial_trace(frozenset())
         return result.prefactor
 
     def tidyup(self, atol=None):
@@ -701,7 +701,7 @@ class ScalarOperator(ProductOperator):
         return result
 
     def acts_over(self):
-        return set()
+        return frozenset()
 
     def dag(self):
         if isinstance(self.prefactor, complex):

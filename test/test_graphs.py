@@ -58,13 +58,13 @@ def test_graph_operations():
     )
 
     graph_a = graph.subgraph(
-        tuple((s for i, s in enumerate(graph.nodes.keys()) if i < 3)), name="a"
+        frozenset(s for i, s in enumerate(graph.nodes.keys()) if i < 3), name="a"
     )
     graph_b = graph.subgraph(
-        tuple((s for i, s in enumerate(graph.nodes.keys()) if 2 <= i < 5)), name="b"
+        frozenset(s for i, s in enumerate(graph.nodes.keys()) if 2 <= i < 5), name="b"
     )
     graph_c = graph.subgraph(
-        tuple((s for i, s in enumerate(graph.nodes.keys()) if 5 < i < 8)), name="c"
+        frozenset(s for i, s in enumerate(graph.nodes.keys()) if 5 < i < 8), name="c"
     )
 
     print(graph_a.name, "with", graph_a.nodes.keys())

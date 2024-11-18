@@ -133,13 +133,13 @@ class QutipOperator(Operator):
         )
         return QutipOperator(log_op, self.system, self.site_names)
 
-    def partial_trace(self, sites: Union[tuple, SystemDescriptor]):
+    def partial_trace(self, sites: Union[frozenset, SystemDescriptor]):
         if isinstance(sites, SystemDescriptor):
             subsystem = sites
-            sites = tuple(sorted(site for site in subsystem.sites))
+            sites = frozenset(site for site in subsystem.sites)
         else:
             subsystem = self.system.subsystem(sites)
-            sites = tuple(sorted(sites))
+            sites = frozenset(sites)
 
         if len(sites) == 0:
             return ScalarOperator(self.tr(), subsystem)
@@ -188,7 +188,9 @@ class QutipOperator(Operator):
 
     def tidyup(self, atol=None):
         """Removes small elements from the quantum object."""
-        return QutipOperator(self.operator.tidyup(atol), self.system, self.names, self.prefactor)
+        return QutipOperator(
+            self.operator.tidyup(atol), self.system, self.names, self.prefactor
+        )
 
     def to_qutip(self, block: Optional[Tuple[str]] = None):
         """
@@ -201,7 +203,7 @@ class QutipOperator(Operator):
         `self.operator`.
         """
         site_names_dict = self.site_names
-        site_names = sorted(site_names_dict, key=lambda x:site_names_dict[x])
+        site_names = sorted(site_names_dict, key=lambda x: site_names_dict[x])
         system = self.system
         sites = system.sites
         operator_qutip: Qobj = self.operator * self.prefactor
@@ -212,7 +214,7 @@ class QutipOperator(Operator):
                 )
             block = tuple(sorted(self.system.sites.keys()))
 
-        if len(block)==0 or list(block) == site_names:
+        if len(block) == 0 or list(block) == site_names:
             return operator_qutip
 
         # Look for sites in block that are not in site_names

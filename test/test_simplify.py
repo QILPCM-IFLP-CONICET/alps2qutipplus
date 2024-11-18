@@ -4,16 +4,17 @@ Basic unit test.
 
 from alpsqutip.operators import (
     LocalOperator,
+    OneBodyOperator,
     Operator,
     ProductOperator,
     QutipOperator,
     ScalarOperator,
     SumOperator,
-    OneBodyOperator,
 )
 from alpsqutip.operators.quadratic import QuadraticFormOperator
-from alpsqutip.operators.states import GibbsDensityOperator, GibbsProductDensityOperator
 from alpsqutip.operators.simplify import sums_as_blocks
+from alpsqutip.operators.states import GibbsDensityOperator, GibbsProductDensityOperator
+
 from .helper import check_operator_equality, full_test_cases
 
 
@@ -139,12 +140,11 @@ def test_simplify():
     assert not passed, "there were errors in simplificacion."
 
 
-
 def test_sum_as_blocks():
     print("Sum as blocks")
     for key, operator in full_test_cases.items():
         print(f"   checking {key}")
-        operator_sab = sums_as_blocks(operator, fn=lambda x:x.to_qutip_operator())
+        operator_sab = sums_as_blocks(operator, fn=lambda x: x.to_qutip_operator())
         if operator_sab is operator:
             continue
         assert check_operator_equality(operator_sab, operator)
@@ -154,8 +154,7 @@ def test_sum_as_blocks():
             continue
         acts_over_lst = [frozenset(term.acts_over()) for term in operator_sab.terms]
         acts_over_set = set(acts_over_lst)
-        assert all(block is None or len(block)!=1
-                   for block in acts_over_set), f"One body terms should be together. Found {acts_over_set}"
-        assert len(acts_over_set)==len(acts_over_lst), "Repeated blocks found"
-
-        
+        assert all(
+            block is None or len(block) != 1 for block in acts_over_set
+        ), f"One body terms should be together. Found {acts_over_set}"
+        assert len(acts_over_set) == len(acts_over_lst), "Repeated blocks found"

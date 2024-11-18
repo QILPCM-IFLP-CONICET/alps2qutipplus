@@ -73,7 +73,7 @@ def one_body_from_qutip_operator(
         else:
             site_names_dict = operator.site_names
             site_names = sorted(site_names_dict, key=lambda x: site_names_dict[x])
-            subsystem = system.subsystem(tuple(site_names))
+            subsystem = system.subsystem(frozenset(site_names))
             operator = QutipOperator(
                 operator.to_qutip(site_names), subsystem, site_names_dict
             )
@@ -94,7 +94,7 @@ def one_body_from_qutip_operator(
 
     # One-body terms
     local_states = {
-        name: sigma0.partial_trace((name,)).to_qutip() for name in site_names
+        name: sigma0.partial_trace(frozenset((name,))).to_qutip() for name in site_names
     }
 
     local_terms = []
@@ -117,7 +117,7 @@ def one_body_from_qutip_operator(
             sigma_compl_factors,
             system=system,
         )
-        local_term = (sigma_compl * operator).partial_trace(block)
+        local_term = (sigma_compl * operator).partial_trace(frozenset(block))
         # Split the zero-average part from the average
 
         if isinstance(local_term, ScalarOperator):
@@ -258,7 +258,7 @@ def project_meanfield(operator, sigma0=None, **kwargs):
         key = (name, id(op_l))
         result = meanvalues.get(key, None)
         if result is None:
-            sigma_local = sigma0.partial_trace((name,)).to_qutip()
+            sigma_local = sigma0.partial_trace(frozenset((name,))).to_qutip()
             result = (op_l * sigma_local).tr()
             meanvalues[key] = result
         return result

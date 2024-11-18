@@ -337,11 +337,11 @@ class ProductDensityOperator(DensityOperatorMixin, ProductOperator):
             return OneBodyOperator(terms, system, False) + ScalarOperator(norm, system)
         return OneBodyOperator(terms, system, False)
 
-    def partial_trace(self, sites: Union[tuple, SystemDescriptor]):
+    def partial_trace(self, sites: Union[frozenset, SystemDescriptor]):
         sites_op = self.sites_op
         if isinstance(sites, SystemDescriptor):
             subsystem = sites
-            sites = tuple(sites.sites.keys())
+            sites = frozenset(sites.sites.keys())
         else:
             subsystem = self.system.subsystem(sites)
 
@@ -441,7 +441,7 @@ class MixtureDensityOperator(DensityOperatorMixin, SumOperator):
             return sum(np.array(term[0]) * term[1] for term in av_terms)[0]
         return sum(np.array(term[0]) * term[1] for term in av_terms)
 
-    def partial_trace(self, sites: Union[tuple, SystemDescriptor]):
+    def partial_trace(self, sites: Union[frozenset, SystemDescriptor]):
         new_terms = tuple(t.partial_trace(sites) for t in self.terms)
         subsystem = new_terms[0].system
         return MixtureDensityOperator(new_terms, subsystem)
@@ -549,7 +549,7 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
             self.normalized = True
         return self
 
-    def partial_trace(self, sites: Union[tuple, SystemDescriptor]):
+    def partial_trace(self, sites: Union[frozenset, SystemDescriptor]):
         return self.to_qutip_operator().partial_trace(sites)
 
     def to_qutip(self, block: Optional[Tuple[str]] = None):
@@ -688,11 +688,11 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
         )
         return OneBodyOperator(terms, self.system, False)
 
-    def partial_trace(self, sites: Union[tuple, SystemDescriptor]):
+    def partial_trace(self, sites: Union[frozenset, SystemDescriptor]):
 
         if isinstance(sites, SystemDescriptor):
             subsystem = sites
-            sites = tuple(
+            sites = frozenset(
                 (site for site in subsystem.sites if site in self.system.dimensions)
             )
         else:

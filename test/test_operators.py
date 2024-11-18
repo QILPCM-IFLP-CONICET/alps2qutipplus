@@ -281,10 +281,10 @@ def test_local_operator():
 
     assert sx_A_qt.tr() == 0
     assert (sx_A2_qt).tr() == 0.5 * 2 ** (CHAIN_SIZE - 1)
-    assert sx_A.partial_trace((sites[0],)).tr() == 0.0
-    assert sx_A.partial_trace((sites[1],)).tr() == 0.0
-    assert sx_A.partial_trace((sites[0], sites[1])).tr() == 0.0
-    assert sx_A.partial_trace((sites[1], sites[2])).tr() == 0.0
+    assert sx_A.partial_trace(frozenset((sites[0],))).tr() == 0.0
+    assert sx_A.partial_trace(frozenset((sites[1],))).tr() == 0.0
+    assert sx_A.partial_trace(frozenset((sites[0], sites[1]))).tr() == 0.0
+    assert sx_A.partial_trace(frozenset((sites[1], sites[2]))).tr() == 0.0
 
 
 def test_product_operator():

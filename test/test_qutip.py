@@ -54,16 +54,20 @@ LX_QUTIP, LY_QUTIP, LZ_QUTIP = jmat(1.0)
 
 
 SUBSYSTEMS = [
-    (sites[0],),
-    (sites[1],),
-    (sites[3],),
-    (
-        sites[0],
-        sites[1],
+    frozenset((sites[0],)),
+    frozenset((sites[1],)),
+    frozenset((sites[3],)),
+    frozenset(
+        (
+            sites[0],
+            sites[1],
+        )
     ),
-    (
-        sites[1],
-        sites[2],
+    frozenset(
+        (
+            sites[1],
+            sites[2],
+        )
     ),
 ]
 
@@ -278,5 +282,9 @@ def test_detached_operators():
     )
     assert test_op_tr == detached_qutip_operator.tr()
     assert test_op_sq_tr == (detached_qutip_operator * detached_qutip_operator).tr()
-    assert test_op_tr == detached_qutip_operator.partial_trace(sites[0:1]).tr()
-    assert test_op_tr == detached_qutip_operator.partial_trace(sites[0:2]).tr()
+    assert (
+        test_op_tr == detached_qutip_operator.partial_trace(frozenset(sites[0:1])).tr()
+    )
+    assert (
+        test_op_tr == detached_qutip_operator.partial_trace(frozenset(sites[0:2])).tr()
+    )

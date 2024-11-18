@@ -163,7 +163,7 @@ class SumOperator(Operator):
             self._isdiagonal = all(term.isdiagonal for term in simplified.terms)
         return self._isdiagonal
 
-    def partial_trace(self, sites: Union[tuple, SystemDescriptor]):
+    def partial_trace(self, sites: Union[frozenset, SystemDescriptor]):
         if not isinstance(sites, SystemDescriptor):
             sites = self.system.subsystem(sites)
         new_terms = (term.partial_trace(sites) for term in self.terms)
