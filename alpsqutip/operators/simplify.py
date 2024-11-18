@@ -75,7 +75,6 @@ def sums_as_blocks(operator, fn=None):
 
     operator = operator.flat()
     terms_dict = collect_nbody_terms(operator)
-    print(terms_dict.keys())
     new_terms = []
     one_body_terms = []
     isherm = operator._isherm
