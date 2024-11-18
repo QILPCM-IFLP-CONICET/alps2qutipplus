@@ -4,7 +4,7 @@ Module that implements a meanfield approximation of a Gibbsian state
 
 from functools import reduce
 from itertools import combinations
-from typing import Optional, Union, Tuple
+from typing import Optional, Tuple, Union
 
 import numpy as np
 from qutip import Qobj
@@ -323,9 +323,7 @@ def self_consistent_quadratic_mfa(ham: Operator):
     Starts by decomposing ham as a quadratic form
 
     """
-    from alpsqutip.operators.quadratic import (
-        build_quadratic_form_from_operator,
-    )
+    from alpsqutip.operators.quadratic import build_quadratic_form_from_operator
 
     system = ham.system
     ham_qf = build_quadratic_form_from_operator(ham, isherm=True, simplify=True)
