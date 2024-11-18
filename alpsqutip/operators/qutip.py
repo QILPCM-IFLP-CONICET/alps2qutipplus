@@ -18,7 +18,15 @@ from alpsqutip.operators.basic import Operator, ScalarOperator, is_diagonal_op
 
 
 class QutipOperator(Operator):
-    """Represents a Qutip operator associated with a system"""
+    """
+    Represents a Qutip operator that acts over a block
+    of sites of a system.
+
+    If two QutipOperator are combined in an arithmetic
+    operation, the result is QutipOperator acting on
+    the union of both blocks.
+
+    """
 
     system: SystemDescriptor
     operator: Qobj
@@ -180,17 +188,20 @@ class QutipOperator(Operator):
 
     def tidyup(self, atol=None):
         """Removes small elements from the quantum object."""
-        return QutipOperator(self.operator.tidyup(atol), self.system, self.prefactor)
+        return QutipOperator(self.operator.tidyup(atol), self.system, self.names, self.prefactor)
 
     def to_qutip(self, block: Optional[Tuple[str]] = None):
         """
-        return a qutip operator representing the action over
+        Return a qutip operator representing the action over
         sites in block.
         By default (`block`=`None`), returns an operator
         acting over the full system, with sites sorted in
         lexicographical order.
+        If `block`=`(,)` (the empty tuple), returns
+        `self.operator`.
         """
-        site_names = self.site_names
+        site_names_dict = self.site_names
+        site_names = sorted(site_names_dict, key=lambda x:site_names_dict[x])
         system = self.system
         sites = system.sites
         operator_qutip: Qobj = self.operator * self.prefactor
@@ -201,27 +212,20 @@ class QutipOperator(Operator):
                 )
             block = tuple(sorted(self.system.sites.keys()))
 
-        def same_block(block):
-            if len(block) != len(site_names):
-                return False
-            for pos, site in enumerate(block):
-                if pos != site_names.get(site, -1):
-                    return False
-            return True
-
-        if same_block(block):
+        if len(block)==0 or list(block) == site_names:
             return operator_qutip
 
         # Look for sites in block that are not in site_names
         out_sites = tuple(
-            (site for site in block if site not in site_names and site in sites)
+            (site for site in block if site not in site_names_dict and site in sites)
         )
 
+        # Add identities and operators in block but not in site_names
         if out_sites:
             in_sites: tuple = tuple(site for site in block if site not in out_sites)
             next_index: int = len(site_names)
-            site_names = site_names.copy()
-            site_names.update(
+            site_names_dict = site_names_dict.copy()
+            site_names_dict.update(
                 {site: next_index + i for i, site in enumerate(out_sites)}
             )
             extra_identities = (sites[site]["identity"] for site in out_sites)
@@ -229,7 +233,7 @@ class QutipOperator(Operator):
 
         # Add sites which are in site_names, but not in block
         block = block + tuple((site for site in site_names if site not in block))
-        shufle: List[int] = list(site_names[site] for site in block)
+        shufle: List[int] = list(site_names_dict[site] for site in block)
         if shufle == sorted(shufle):
             return operator_qutip
         return operator_qutip.permute(shufle)
@@ -351,8 +355,8 @@ def mul_qutip_operator_qutip_operator(x_op: QutipOperator, y_op: QutipOperator):
         )
     names_set = set(x_names)
     names_set.update(y_names)
-    block = sorted(names_set)
-    operator_qutip = x_op.to_qutip(tuple(block)) * y_op.to_qutip(tuple(block))
+    block = tuple(sorted(names_set))
+    operator_qutip = x_op.to_qutip(block) * y_op.to_qutip(block)
     return QutipOperator(
         operator_qutip,
         system,

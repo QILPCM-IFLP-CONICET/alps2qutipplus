@@ -191,14 +191,17 @@ class Operator:
 
     def _repr_latex_(self):
         """LaTeX Representation"""
-        qutip_repr = self.to_qutip()
+        acts_over = sorted(self.acts_over())
+        if len(acts_over)>4:            
+            return repr(self)
+        qutip_repr = self.to_qutip(tuple(acts_over))
         if isinstance(qutip_repr, qutip.Qobj):
             # pylint: disable=protected-access
             parts = qutip_repr._repr_latex_().split("$")
             tex = parts[1] if len(parts) > 2 else "-?-"
         else:
             tex = str(qutip_repr)
-        return f"${tex}$"
+        return f"${tex}$  over " + ",".join(acts_over)
 
     def acts_over(self) -> Optional[set]:
         """

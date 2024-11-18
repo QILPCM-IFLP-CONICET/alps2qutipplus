@@ -157,6 +157,7 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None):
     """
     Approximate `operator` by a sum of (up to) nmax-body
     terms, relative to the state sigma.
+    By default, `sigma` is the identity matrix.
 
     ``operator`` can be a SumOperator or a Product Operator.
     """
