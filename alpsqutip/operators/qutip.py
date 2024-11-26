@@ -14,7 +14,13 @@ from qutip import Qobj, tensor  # type: ignore[import-untyped]
 from alpsqutip.alpsmodels import qutip_model_from_dims
 from alpsqutip.geometry import GraphDescriptor
 from alpsqutip.model import SystemDescriptor
-from alpsqutip.operators.basic import Operator, ScalarOperator, is_diagonal_op
+from alpsqutip.operators.basic import (
+    Operator,
+    ProductOperator,
+    ScalarOperator,
+    is_diagonal_op,
+)
+from alpsqutip.qutip_tools.tools import decompose_qutip_operator
 
 
 class QutipOperator(Operator):
@@ -88,6 +94,27 @@ class QutipOperator(Operator):
 
     def acts_over(self) -> set:
         return set(self.site_names.keys())
+
+    def as_sum_of_products(self):
+        """
+        Decompose the operator as a
+        sum of product operators
+        """
+        from alpsqutip.operators.arithmetic import SumOperator
+
+        isherm = self.operator.isherm
+        site_names = self.site_names
+        sites = sorted(site_names, key=lambda x: site_names[x])
+        decomposition = decompose_qutip_operator(self.operator)
+        terms = (
+            ProductOperator(
+                {site: factor for site, factor in zip(sites, term)},
+                prefactor=1.0,
+                system=self.system,
+            ).simplify()
+            for term in decomposition
+        )
+        return SumOperator(tuple(terms), self.system, isherm=isherm)
 
     def dag(self):
         prefactor = self.prefactor
@@ -221,7 +248,6 @@ class QutipOperator(Operator):
         out_sites = tuple(
             (site for site in block if site not in site_names_dict and site in sites)
         )
-
         # Add identities and operators in block but not in site_names
         if out_sites:
             next_index: int = len(site_names)

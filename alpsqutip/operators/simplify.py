@@ -15,7 +15,7 @@ from alpsqutip.operators.basic import (
     ScalarOperator,
 )
 from alpsqutip.operators.states import DensityOperatorMixin
-from alpsqutip.qutip_tools.tools import data_is_diagonal, factorize_qutip_operator
+from alpsqutip.qutip_tools.tools import data_is_diagonal, decompose_qutip_operator
 
 
 def collect_nbody_terms(operator: Operator) -> dict:
@@ -87,7 +87,8 @@ def sums_as_blocks(operator, fn=None):
             new_term = SumOperator(tuple(terms), system, isherm=isherm)
             if fn is not None:
                 new_term = fn(new_term)
-            new_terms.append(new_term)
+            if fn:
+                new_terms.append(new_term)
 
     new_term = OneBodyOperator(tuple(one_body_terms), system)
     new_terms.append(new_term)
@@ -145,7 +146,7 @@ def rewrite_nbody_term_using_qutip(
     if isdiag is None:
         isdiag = data_is_diagonal(qutip_subop.data)
     # Now, decompose the operator again as a sum of n-body terms
-    factor_terms = factorize_qutip_operator(qutip_subop)
+    factor_terms = decompose_qutip_operator(qutip_subop)
     new_terms = (
         ProductOperator(
             dict(zip(block_sites, factors)),
