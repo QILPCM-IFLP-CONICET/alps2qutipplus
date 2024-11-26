@@ -86,7 +86,7 @@ def sums_as_blocks(operator, fn=None):
         else:
             new_term = SumOperator(tuple(terms), system, isherm=isherm)
             if fn is not None:
-                new_term = fn(new_term)       
+                new_term = fn(new_term)
                 new_terms.append(new_term)
 
     new_term = OneBodyOperator(tuple(one_body_terms), system)
