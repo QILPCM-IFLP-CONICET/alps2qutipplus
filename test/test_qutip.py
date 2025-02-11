@@ -12,7 +12,7 @@ from alpsqutip.qutip_tools.tools import (
     data_is_diagonal,
     data_is_scalar,
     data_is_zero,
-    factorize_qutip_operator,
+    decompose_qutip_operator,
 )
 
 from .helper import (
@@ -184,7 +184,7 @@ def test_qutip_properties():
         assert data["type"] is data_get_type(operator_data)
 
 
-def test_factorize_qutip_operators():
+def test_decompose_qutip_operators():
     """
     test decomposition of qutip operators
     as sums of product operators
@@ -194,7 +194,7 @@ def test_factorize_qutip_operators():
         acts_over = tuple(sorted(operator_case.acts_over()))
         if acts_over:
             qutip_operator = operator_case.to_qutip(acts_over)
-            terms = factorize_qutip_operator(qutip_operator)
+            terms = decompose_qutip_operator(qutip_operator)
             reconstructed = sum(tensor(*t) for t in terms)
             assert check_operator_equality(
                 qutip_operator, reconstructed
@@ -257,6 +257,27 @@ def test_qutip_operators(case: str, op_case: Operator, expected_value: complex):
     for subsystem in SUBSYSTEMS:
         ptoperator = (op_case).partial_trace(subsystem)
         assert ptoperator.tr() == expected_value
+
+
+def test_as_sum_of_products():
+    """
+    Convert qutip operators into product
+    operators back and forward
+    """
+    print("testing QutipOperator.as_sum_of_products")
+    for name, operator_case in operator_type_cases.items():
+        print("   operator", name, "of type", type(operator_case))
+        qutip_op = operator_case.to_qutip_operator()
+        # TODO: support handling hermitician operators
+        if not qutip_op.isherm:
+            continue
+        reconstructed = qutip_op.as_sum_of_products()
+        qutip_op2 = reconstructed.to_qutip_operator()
+        assert qutip_op.system == qutip_op2.system
+        print(operator_case)
+        print(qutip_op.to_qutip())
+        print(qutip_op2.to_qutip())
+        assert qutip_op.to_qutip() == qutip_op2.to_qutip()
 
 
 def test_detached_operators():

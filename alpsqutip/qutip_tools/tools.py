@@ -241,7 +241,7 @@ def reshape_qutip_data(data, dims) -> ndarray:
     return new_data
 
 
-def factorize_qutip_operator(operator: Qobj, tol: float = 1e-10) -> List[Tuple]:
+def decompose_qutip_operator(operator: Qobj, tol: float = 1e-10) -> List[Tuple]:
     """
     Decompose a qutip operator q123... into a sum
     of tensor products sum_{ka, kb, kc...} q1^{ka} q2^{kakb} q3^{kakbkc}...
@@ -270,7 +270,7 @@ def factorize_qutip_operator(operator: Qobj, tol: float = 1e-10) -> List[Tuple]:
     ]
     if len(dims) < 3:
         return list(zip(ops_1, ops_2))
-    ops_2_factors = [factorize_qutip_operator(op2, tol) for op2 in ops_2]
+    ops_2_factors = [decompose_qutip_operator(op2, tol) for op2 in ops_2]
     return [
         (op1,) + factors
         for op1, op21_factors in zip(ops_1, ops_2_factors)
