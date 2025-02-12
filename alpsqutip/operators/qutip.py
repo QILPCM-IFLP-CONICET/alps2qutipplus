@@ -229,7 +229,6 @@ class QutipOperator(Operator):
         If `block`=`(,)` (the empty tuple), returns
         `self.operator`.
         """
-        print("block:", block)
         site_names_dict = self.site_names
         site_names = sorted(site_names_dict, key=lambda x: site_names_dict[x])
         system = self.system
@@ -249,9 +248,6 @@ class QutipOperator(Operator):
         out_sites = tuple(
             (site for site in block if site not in site_names_dict and site in sites)
         )
-        print("system sites:", sorted(sites.keys()))
-        print("in sites:", sorted(site_names_dict.keys()))
-        print("out sites:", out_sites)
         # Add identities and operators in block but not in site_names
         if out_sites:
             next_index: int = len(site_names)
