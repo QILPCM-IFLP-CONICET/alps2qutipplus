@@ -34,7 +34,44 @@ def safe_exp_and_normalize(operator):
     op_exp = (operator - k_0).expm()
     op_exp_tr = op_exp.tr()
     op_exp = op_exp * (1.0 / op_exp_tr)
-    return op_exp, np.log(op_exp_tr) + k_0
+    k_0 = np.log(op_exp_tr) + k_0
+    if isinstance(op_exp, LocalOperator):
+        loc_op = op_exp.operator
+        tr_loc_op = loc_op.tr()
+        k_0 += np.log(tr_loc_op)
+        return (
+            ProductDensityOperator(
+                local_states={op_exp.site: loc_op / tr_loc_op},
+                system=op_exp.system,
+                normalize=False,
+            ),
+            k_0,
+        )
+    if isinstance(op_exp, ProductOperator):
+        loc_ops = op_exp.sites_op
+        tr_ops = {site: l_op.tr() for site, l_op in loc_ops.items()}
+        loc_ops = {site: l_op / tr_ops[site] for site, l_op in loc_ops.items()}
+        k_0 += sum(np.log(tr_op) for tr_op in tr_ops.values())
+        return (
+            ProductDensityOperator(
+                local_states=loc_ops,
+                system=op_exp.system,
+                normalize=False,
+            ),
+            k_0,
+        )
+    if isinstance(op_exp, QutipOperator):
+        return (
+            QutipDensityOperator(
+                op_exp.operator,
+                op_exp.system,
+                op_exp.site_names,
+                prefactor=1,
+            ),
+            k_0,
+        )
+
+    return op_exp, k_0
 
 
 class DensityOperatorMixin:
@@ -154,13 +191,29 @@ class QutipDensityOperator(DensityOperatorMixin, QutipOperator):
                 self.site_names,
                 self.prefactor * operand,
             )
-        block = tuple(self.site_names)
-        block = block + tuple(
-            (site for site in operand.acts_over() if site not in block)
+        block_self = tuple(self.site_names)
+        block_other = tuple(
+            (site for site in operand.acts_over() if site not in block_self)
         )
+        block = block_self + block_other
+        system = self.system.union(operand.system)
+        state = self
+        # If one of the operators lives in a smaller system, extend it in a way that block
+        # is contained on the system of each operator.
+        if any(site not in operand.system.sites for site in block_self):
+            operand = QutipOperator(
+                operand.to_qutip(), system, operand.site_names, operand.prefactor
+            )
+        if any(site not in self.system.sites for site in block_other):
+            state = QutipOperator(
+                state.to_qutip(), system, state.site_names, state.prefactor
+            )
+
         op_qo = operand.to_qutip(block)
-        rho_qo = self.to_qutip(block)
-        return QutipOperator(rho_qo * op_qo, self.system or op_qo.system)
+        rho_qo = state.to_qutip(block)
+        return QutipOperator(
+            rho_qo * op_qo, names={s: i for i, s in enumerate(block)}, system=system
+        )
 
     def __radd__(self, operand) -> Operator:
         if isinstance(operand, (int, float)):
@@ -185,13 +238,29 @@ class QutipDensityOperator(DensityOperatorMixin, QutipOperator):
                 self.site_names,
                 self.prefactor * operand,
             )
-        block = tuple(self.site_names)
-        block = block + tuple(
-            (site for site in operand.acts_over() if site not in block)
+        block_self = tuple(self.site_names)
+        block_other = tuple(
+            (site for site in operand.acts_over() if site not in block_self)
         )
+        block = block_self + block_other
+        system = self.system.union(operand.system)
+        state = self
+        # If one of the operators lives in a smaller system, extend it in a way that block
+        # is contained on the system of each operator.
+        if any(site not in operand.system.sites for site in block_self):
+            operand = QutipOperator(
+                operand.to_qutip(), system, operand.site_names, operand.prefactor
+            )
+        if any(site not in self.system.sites for site in block_other):
+            state = QutipOperator(
+                state.to_qutip(), system, state.site_names, state.prefactor
+            )
+
         op_qo = operand.to_qutip(block)
-        rho_qo = self.to_qutip(block)
-        return QutipOperator(op_qo * rho_qo, self.system or op_qo.system)
+        rho_qo = state.to_qutip(block)
+        return QutipOperator(
+            op_qo * rho_qo, names={s: i for i, s in enumerate(block)}, system=system
+        )
 
     def logm(self):
         operator = self.operator

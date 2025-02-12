@@ -20,6 +20,19 @@ from alpsqutip.operators.qutip import QutipOperator
 from alpsqutip.scalarprod import orthogonalize_basis
 
 
+def anticommutator(op1, op2):
+    """
+    Computes the anticommutator of two operators, defined as {op1, op2} = op1 * op2 + op2 * op1.
+
+    Parameters:
+        op1, op2: operators (can be a matrix or a quantum operator object).
+
+    Returns:
+        The anticommutator of op1 and op2.
+    """
+    return op1 * op2 + op2 * op1
+
+
 def commutator(op_1: Operator, op_2: Operator) -> Operator:
     """
     The commutator of two operators
@@ -41,7 +54,6 @@ def commutator(op_1: Operator, op_2: Operator) -> Operator:
         if acts_over_2 is not None:
             if len(acts_over_2) == 0 or len(acts_over_1.intersection(acts_over_2)) == 0:
                 return ScalarOperator(0, system)
-
     return simplify_sum_operator(op_1 * op_2 - op_2 * op_1)
 
 

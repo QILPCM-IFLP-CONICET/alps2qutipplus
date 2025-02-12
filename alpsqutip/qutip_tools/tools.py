@@ -276,3 +276,55 @@ def decompose_qutip_operator(operator: Qobj, tol: float = 1e-10) -> List[Tuple]:
         for op1, op21_factors in zip(ops_1, ops_2_factors)
         for factors in op21_factors
     ]
+
+
+def project_qutip_to_m_body(op_qutip: Qobj, m_max=2, local_sigmas=None) -> Qobj:
+    """
+    Project a qutip operator onto a m_max - body operators sub-algebra
+    relative to the local states `local_sigmas`.
+    If `local_sigmas` is not given, maximally mixed states are assumed.
+    """
+    scalar_term = 0
+    dimensions = op_qutip.dims[0]
+    site_indx = list(range(len(dimensions)))
+    idops = [qeye(dim) for dim in dimensions]
+    result = qutip_tensor([0 * local_id for local_id in idops])
+    # Decompose the operator
+    decompose = factorize_qutip_operator(op_qutip)
+    # Build the local states
+    if local_sigmas is None:
+        print("local_sigmas=None")
+        local_sigmas = [1 / dim for dim in dimensions]
+    for term in decompose:
+        term = [t.tidyup() for t in term]
+        local_exp_vals = [
+            (state * factor).tr() for state, factor in zip(local_sigmas, term)
+        ]
+        local_delta_op = [
+            factor - exp_val for factor, exp_val in zip(term, local_exp_vals)
+        ]
+        scalar_term += reduce(lambda x, y: x * y, local_exp_vals)
+        for m in range(m_max):
+            for fluc_sites in combinations(site_indx, m + 1):
+                prefactor = reduce(
+                    lambda x, y: x * y,
+                    [
+                        e_val
+                        for i, e_val in enumerate(local_exp_vals)
+                        if i not in fluc_sites
+                    ],
+                    1,
+                )
+                if abs(prefactor) < 1e-10:
+                    continue
+                new_term = (
+                    qutip_tensor(
+                        [
+                            local_delta_op[idx] if idx in fluc_sites else idops[idx]
+                            for idx in site_indx
+                        ]
+                    )
+                    * prefactor
+                )
+                result += new_term
+    return result + scalar_term
