@@ -74,7 +74,7 @@ def build_hierarchical_basis(generator, seed_op, deep) -> List[Operator]:
     basis = []
     if seed_op is not None and deep > 0:
         basis += [
-            1j * seed_op.to_qutip_operator()
+            seed_op.to_qutip_operator()
         ]  # Include the seed operator in the basis.
         for _ in range(deep):
             # Generate new operators by computing the commutator
