@@ -203,7 +203,7 @@ def orthogonalize_basis_gs(basis, sp: callable, tol=1e-5):
     """
     orth_basis = []
     for op_orig in basis:
-        norm = np.real(sp(op_orig, op_orig)) ** 0.5
+        norm:float = abs(sp(op_orig, op_orig)) ** 0.5
         if norm < tol:
             continue
         changed = False
