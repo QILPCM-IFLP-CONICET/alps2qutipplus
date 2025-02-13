@@ -3,10 +3,17 @@ Functions for basic interface with qutip objects.
 """
 
 import logging
+from functools import reduce
+from itertools import combinations
 from typing import Iterator, List, Tuple
 
 from numpy import ndarray, zeros as np_zeros
-from qutip import Qobj, __version__ as qutip_version  # type: ignore[import-untyped]
+from qutip import (  # type: ignore[import-untyped]
+    Qobj,
+    __version__ as qutip_version,
+    qeye,
+    tensor as qutip_tensor,
+)
 from scipy.linalg import svd  # type: ignore[import-untyped]
 
 if int(qutip_version[0]) < 5:
@@ -16,8 +23,7 @@ if int(qutip_version[0]) < 5:
         Generator for the nontrivial elements.
         """
         i_idx, j_idx = data.nonzero()
-        for item in zip(i_idx, j_idx, data.data):
-            yield item
+        yield from zip(i_idx, j_idx, data.data)
 
     def data_get_coeff(data, i_idx, j_idx):
         """
@@ -46,7 +52,7 @@ if int(qutip_version[0]) < 5:
         if data.nnz == 0:
             return True
         if all(a == b for a, b in zip(*data.nonzero())):
-            dim1, dim2 = data.shape
+            dim1, _ = data.shape
             elems = data.data
             if len(elems) < dim1:
                 return False
@@ -70,6 +76,9 @@ if int(qutip_version[0]) < 5:
 else:
 
     def data_element_iterator(data) -> Iterator:
+        """
+        walk over data elements.
+        """
         if hasattr(data, "num_diag"):
             data = data.as_scipy()
             for offset, diag_data in zip(data.offsets, data.data):
@@ -90,8 +99,7 @@ else:
         elif hasattr(data, "as_scipy"):
             data = data.as_scipy()
             i_ind, j_ind = data.nonzero()
-            for item in zip(i_ind, j_ind, data.data):
-                yield item
+            yield from zip(i_ind, j_ind, data.data)
         else:
             data = data.as_ndarray()
             dim_i, dim_j = data.shape
@@ -155,7 +163,7 @@ else:
         """
         Check if data is a multiple of the identity matrix.
         """
-        dim1, dim2 = data.shape
+        dim1, _ = data.shape
         if hasattr(data, "num_diag"):
             if data.num_diag == 0:
                 return True
@@ -210,7 +218,7 @@ def is_scalar_op(op: Qobj) -> bool:
     return data_is_scalar(op.data)
 
 
-def reshape_qutip_data(data, dims) -> ndarray:
+def reshape_qutip_data(data, dims, bs=1) -> ndarray:
     """
     reshape the data representing an operator with dimensions
     dims = [[dim1, dim2,...],[dim1, dim2,...]]
@@ -220,7 +228,7 @@ def reshape_qutip_data(data, dims) -> ndarray:
 
     data_type = data_get_type(data)
 
-    dim_1 = dims[0]
+    dim_1 = reduce(lambda x, y: x * y, dims[:bs])
     dim_2 = int(data.shape[0] / dim_1)
     new_data: ndarray = np_zeros(
         (
@@ -241,11 +249,12 @@ def reshape_qutip_data(data, dims) -> ndarray:
     return new_data
 
 
-def decompose_qutip_operator(operator: Qobj, tol: float = 1e-10) -> List[Tuple]:
+def schmidt_dec_first_rest_qutip_operator(
+    operator: Qobj, tol: float = 1e-10
+) -> List[Tuple]:
     """
-    Decompose a qutip operator q123... into a sum
-    of tensor products sum_{ka, kb, kc...} q1^{ka} q2^{kakb} q3^{kakbkc}...
-    return a list of tuples, with each factor.
+    Decompose a qutip operator acting over H_1 (x) H_2 (x) H_3 (x)
+    as a sum of terms of the form Q_{k} (x) Rest_{k}
     """
     dims = operator.dims[0]
     if len(dims) < 2:
@@ -256,7 +265,7 @@ def decompose_qutip_operator(operator: Qobj, tol: float = 1e-10) -> List[Tuple]:
     dims_1 = [[dim_1], [dim_1]]
     dims_2 = [dims[1:], dims[1:]]
     u_mat, s_mat, vh_mat = svd(
-        reshape_qutip_data(data, dims), full_matrices=False, overwrite_a=True
+        reshape_qutip_data(data, dims, 1), full_matrices=False, overwrite_a=True
     )
     ops_1 = [
         Qobj(s * u_mat[:, i].reshape(dim_1, dim_1), dims=dims_1, copy=False)
@@ -268,6 +277,51 @@ def decompose_qutip_operator(operator: Qobj, tol: float = 1e-10) -> List[Tuple]:
         for vh_mat_row, s in zip(vh_mat, s_mat)
         if s > tol
     ]
+    return ops_1, ops_2
+
+
+def schmidt_dec_firsts_last_qutip_operator(
+    operator: Qobj, tol: float = 1e-10
+) -> List[Tuple]:
+    """
+    Decompose a qutip operator acting over H_1 (x) H_2 (x) H_3 (x)
+    as a sum of terms of the form Q_{k} (x) Rest_{k}
+    """
+    dims = operator.dims[0]
+    if len(dims) < 2:
+        return [(operator,)]
+    data = operator.data
+    dim_2 = dims[-1]
+    dim_1 = int(data.shape[0] / dim_2)
+    dims_1 = [dims[:-1], dims[:-1]]
+    dims_2 = [[dim_2], [dim_2]]
+    u_mat, s_mat, vh_mat = svd(
+        reshape_qutip_data(data, dims, -1), full_matrices=False, overwrite_a=True
+    )
+    ops_1 = [
+        Qobj(s * u_mat[:, i].reshape(dim_1, dim_1), dims=dims_1, copy=False)
+        for i, s in enumerate(s_mat)
+        if s > tol
+    ]
+    ops_2 = [
+        Qobj(vh_mat_row.reshape(dim_2, dim_2), dims=dims_2, copy=False)
+        for vh_mat_row, s in zip(vh_mat, s_mat)
+        if s > tol
+    ]
+    return ops_1, ops_2
+
+
+def decompose_qutip_operator(operator: Qobj, tol: float = 1e-10) -> List[Tuple]:
+    """
+    Decompose a qutip operator q123... into a sum
+    of tensor products sum_{ka, kb, kc...} q1^{ka} q2^{kakb} q3^{kakbkc}...
+    return a list of tuples, with each factor.
+    """
+    dims = operator.dims[0]
+    ops_1, *ops_2 = schmidt_dec_first_rest_qutip_operator(operator, tol)
+    if len(ops_2) == 0:
+        return [(op_l,) for op_l in ops_1]
+    ops_2 = ops_2[0]
     if len(dims) < 3:
         return list(zip(ops_1, ops_2))
     ops_2_factors = [decompose_qutip_operator(op2, tol) for op2 in ops_2]
@@ -290,10 +344,9 @@ def project_qutip_to_m_body(op_qutip: Qobj, m_max=2, local_sigmas=None) -> Qobj:
     idops = [qeye(dim) for dim in dimensions]
     result = qutip_tensor([0 * local_id for local_id in idops])
     # Decompose the operator
-    decompose = factorize_qutip_operator(op_qutip)
+    decompose = decompose_qutip_operator(op_qutip)
     # Build the local states
     if local_sigmas is None:
-        print("local_sigmas=None")
         local_sigmas = [1 / dim for dim in dimensions]
     for term in decompose:
         term = [t.tidyup() for t in term]

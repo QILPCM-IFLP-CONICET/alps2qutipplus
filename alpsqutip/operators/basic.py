@@ -211,6 +211,10 @@ class Operator:
         """
         return None
 
+    def as_sum_of_products(self):
+        """Decompose an operator as a sum of product operators"""
+        return self
+
     def dag(self):
         """Adjoint operator of quantum object"""
         return self.to_qutip_operator().dag()
@@ -228,6 +232,11 @@ class Operator:
     def isdiagonal(self) -> bool:
         """Check if the operator is diagonal"""
         return False
+
+    @property
+    def is_zero(self) -> bool:
+        """True if self is a null operator"""
+        return empty_op(self)
 
     def eigenstates(self):
         """List of eigenstates of the operator"""
@@ -279,10 +288,13 @@ class Operator:
         from alpsqutip.operators.qutip import QutipOperator
 
         block = tuple(sorted(self.acts_over()))
+        if len(block) == 0:
+            return self
         site_names = {site: i for i, site in enumerate(block)}
         qobj = self.to_qutip(block)
         if isinstance(qobj, qutip.Qobj):
-            return QutipOperator(qobj, self.system, site_names)
+            assert qobj.type != "scalar"
+            return QutipOperator(qobj, system=self.system, names=site_names)
         return ScalarOperator(qobj, self.system)
 
     # pylint: disable=invalid-name
@@ -743,6 +755,13 @@ class ScalarOperator(ProductOperator):
 
         factors = (sites[site]["identity"] for site in block)
         return self.prefactor * qutip.tensor(*factors)
+
+    def to_qutip_operator(self):
+        """
+        Produce a Qutip representation of the operator.
+        For ScalarOperators, just return self.
+        """
+        return self
 
 
 # ##########################################

@@ -163,6 +163,13 @@ class SumOperator(Operator):
             self._isdiagonal = all(term.isdiagonal for term in simplified.terms)
         return self._isdiagonal
 
+    @property
+    def is_zero(self) -> bool:
+        simplify_self = self.simplify()
+        if hasattr(simplify_self, "terms"):
+            return all(term.is_zero for term in simplify_self.terms)
+        return simplify_self.is_zero
+
     def partial_trace(self, sites: Union[frozenset, SystemDescriptor]):
         if not isinstance(sites, SystemDescriptor):
             sites = self.system.subsystem(sites)

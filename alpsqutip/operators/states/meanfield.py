@@ -123,12 +123,11 @@ def one_body_from_qutip_operator(
         if isinstance(local_term, ScalarOperator):
             assert (
                 abs(local_term.prefactor) < 1e-6
-            ), f"{abs(local_term.prefactor)} shoudl be 0."
+            ), f"{abs(local_term.prefactor)} should be 0."
         else:
             local_term_qutip = local_term.to_qutip(block)
             local_average = (local_term_qutip * local_states[name]).tr()
-            assert abs(local_average) < 1e-6, f"{abs(local_average)} shoudl be 0."
-            local_term_qutip = local_term_qutip
+            assert abs(local_average) < 1e-6, f"{abs(local_average)} " "should be 0."
             local_terms.append(LocalOperator(name, local_term_qutip, system))
 
     one_body_term = OneBodyOperator(tuple(local_terms), system=system)
@@ -355,7 +354,7 @@ def self_consistent_quadratic_mfa(ham: Operator):
     phis[0] = res.x
     state_mf, kappa = try_state(res.x)
 
-    for it_int in range(10):
+    for _ in range(10):
         exp_vals = state_mf.expect([w_b[1] for w_b in basis]).real
         new_phis = [2 * o_av for w_b, o_av in zip(basis, exp_vals)]
         phis = new_phis
