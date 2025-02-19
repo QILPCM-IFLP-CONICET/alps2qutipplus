@@ -93,6 +93,17 @@ class SumOperator(Operator):
     def __repr__(self):
         return "(\n" + "\n  +".join(repr(t) for t in self.terms) + "\n)"
 
+    def _repr_latex_(self):
+        """LaTeX Representation"""
+        terms = self.terms
+        if len(terms) > 6:
+            result = " + ".join(term._repr_latex_()[1:-1] for term in terms[:3])
+            result += " + ... + "
+            result = " + ".join(term._repr_latex_()[1:-1] for term in terms[-3:])
+        else:
+            result = " + ".join(term._repr_latex_()[1:-1] for term in terms)
+        return f"${result}$"
+
     def acts_over(self):
         result = set()
         for term in self.terms:
@@ -275,7 +286,9 @@ class OneBodyOperator(SumOperator):
             terms, system = self._simplify_terms(terms, system)
             simplified = True
 
-        super().__init__(terms, system=system, isherm=isherm, isdiag=isdiag, simplified=simplified)
+        super().__init__(
+            terms, system=system, isherm=isherm, isdiag=isdiag, simplified=simplified
+        )
 
     def __repr__(self):
         return "  " + "\n  +".join("(" + repr(term) + ")" for term in self.terms)
@@ -334,7 +347,9 @@ class OneBodyOperator(SumOperator):
             return ScalarOperator(0, system)
         if num_terms == 1:
             return terms[0]
-        return OneBodyOperator(terms, system, isherm=self._isherm, isdiag=self._isdiagonal, simplified=True)
+        return OneBodyOperator(
+            terms, system, isherm=self._isherm, isdiag=self._isdiagonal, simplified=True
+        )
 
     @staticmethod
     def _simplify_terms(terms, system):

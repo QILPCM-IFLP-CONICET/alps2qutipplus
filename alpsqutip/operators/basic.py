@@ -198,11 +198,15 @@ class Operator:
         qutip_repr = self.to_qutip(tuple(acts_over))
         if isinstance(qutip_repr, qutip.Qobj):
             # pylint: disable=protected-access
-            parts = qutip_repr._repr_latex_().split("$")
-            tex = parts[1] if len(parts) > 2 else "-?-"
+            parts = qutip_repr._repr_latex_().replace("$$", "$").split("$")
+            if len(parts) != 3:
+                tex = "-?-"
+            else:
+                tex = parts[1]
         else:
             tex = str(qutip_repr)
-        return f"${tex}$  over " + ",".join(acts_over)
+        result = f"${tex}_" + "{" + ",".join(acts_over) + "}$"
+        return result
 
     def acts_over(self) -> Optional[set]:
         """
@@ -515,6 +519,26 @@ class ProductOperator(Operator):
         )
         result += "\n   )"
         return result
+
+    def _repr_latex(self):
+        """latex representation"""
+        factors_latex = []
+        for site, qutip_op in self.sites_op.items():
+            tex = qutip_op._repr_latex_().replace("$$", "$")
+            parts = tex.split("$")
+            if len(parts) == 3:
+                tex = parts[1]
+            else:
+                tex = "-?-"
+
+            prefactor = self.prefactor
+            if prefactor == 1:
+                factors_latex.append(tex + "_{" + site + "}")
+            elif prefactor < 0:
+                factors_latex.append(f"({prefactor}) *" + tex + "_{" + site + "}")
+            else:
+                factors_latex.append(f"{prefactor} *" + tex + "_{" + site + "}")
+        return "$" + "\\otimes".join(factors_latex) + "$"
 
     def acts_over(self):
         return frozenset(site for site in self.sites_op)
