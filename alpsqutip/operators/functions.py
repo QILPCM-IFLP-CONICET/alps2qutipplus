@@ -4,7 +4,6 @@ Functions for operators.
 
 # from collections.abc import Iterable
 # from typing import Callable, List, Optional, Tuple
-from numbers import Number
 from typing import Tuple
 
 from numpy import imag, ndarray, real
@@ -17,7 +16,8 @@ from alpsqutip.operators.basic import (
     ScalarOperator,
 )
 from alpsqutip.operators.qutip import QutipOperator
-from alpsqutip.scalarprod import orthogonalize_basis
+
+# from alpsqutip.operators.simplify import simplify_sum_operator
 
 
 def anticommutator(op1, op2):
@@ -54,7 +54,7 @@ def commutator(op_1: Operator, op_2: Operator) -> Operator:
         if acts_over_2 is not None:
             if len(acts_over_2) == 0 or len(acts_over_1.intersection(acts_over_2)) == 0:
                 return ScalarOperator(0, system)
-    return simplify_sum_operator(op_1 * op_2 - op_2 * op_1)
+    return (op_1 * op_2 - op_2 * op_1).simplify()
 
 
 def compute_dagger(operator):
@@ -160,110 +160,6 @@ def hermitian_and_antihermitian_parts(operator: Operator) -> Tuple[Operator, Ope
             isherm=True,
         ).simplify(),
     )
-
-
-def reduce_by_orthogonalization(operator_list):
-    """
-    From a list of operators whose sum spans another operator,
-    produce a new list with linear independent terms
-    """
-
-    def scalar_product(op_1, op_2):
-        return (op_1.dag() * op_2).tr()
-
-    basis = orthogonalize_basis(operator_list, sp=scalar_product)
-    if len(basis) > len(operator_list):
-        return operator_list
-    coeffs = [
-        sum(scalar_product(op_b, term) for term in operator_list) for op_b in basis
-    ]
-
-    return [op_b * coeff for coeff, op_b in zip(coeffs, basis)]
-
-
-def simplify_sum_operator(operator):
-    """
-    Try a more agressive simplification that self.simplify()
-    by classifing the terms according to which subsystem acts,
-    reducing the partial sums by orthogonalization.
-    """
-    simplified_op = operator.simplify()
-
-    if isinstance(simplified_op, OneBodyOperator) or not isinstance(
-        simplified_op, SumOperator
-    ):
-        return simplified_op
-
-    operator = simplified_op
-    # Now, operator has at least two non-trivial terms.
-    operator_terms = operator.terms
-
-    system = operator.system
-    isherm = operator._isherm
-
-    terms_by_subsystem = {}
-    one_body_terms = []
-    scalar_terms = []
-
-    for term in operator_terms:
-        assert not isinstance(
-            term, SumOperator
-        ), f"{type(term)} should not be here. Check simplify."
-        assert not isinstance(term, Number), (
-            "In a sum, numbers should be represented by "
-            f"ScalarOperator's, but {type(term)} was found."
-        )
-
-    for term in operator_terms:
-        if isinstance(term, LocalOperator):
-            one_body_terms.append(term)
-        elif isinstance(term, ScalarOperator):
-            scalar_terms.append(term)
-        else:
-            sites = term.acts_over()
-            sites = tuple(sites) if sites is not None else None
-            terms_by_subsystem.setdefault(sites, []).append(term)
-
-    # Simplify the scalars:
-    if len(scalar_terms) > 1:
-        assert all(isinstance(t, ScalarOperator) for t in scalar_terms)
-        value = sum(value.prefactor for value in scalar_terms)
-        scalar_terms = [ScalarOperator(value, system)] if value else []
-    elif len(scalar_terms) == 1:
-        if scalar_terms[0].prefactor == 0:
-            scalar_terms = []
-
-    one_body_terms = (
-        [OneBodyOperator(tuple(one_body_terms), system)]
-        if len(one_body_terms) != 0
-        else []
-    )
-    new_terms = scalar_terms + one_body_terms
-
-    # Try to reduce the other terms
-    for subsystem, block_terms in terms_by_subsystem.items():
-        if subsystem is None:
-            # Maybe here we should convert block_terms into
-            # qutip, add the terms and if the result is not zero,
-            # store as a single term
-            new_terms.extend(block_terms)
-        elif len(subsystem) > 1:
-            if len(block_terms) > 1:
-                block_terms = reduce_by_orthogonalization(block_terms)
-            new_terms.extend(block_terms)
-        else:
-            # Never reached?
-            assert False
-            new_terms.extend(block_terms)
-
-    # Build the return value
-    if new_terms:
-        if len(new_terms) == 1:
-            return new_terms[0]
-        if not isherm:
-            isherm = None
-        return SumOperator(tuple(new_terms), system, isherm)
-    return ScalarOperator(0.0, system)
 
 
 def spectral_norm(operator: Operator) -> float:

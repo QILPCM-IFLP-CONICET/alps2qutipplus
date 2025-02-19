@@ -34,9 +34,11 @@ class SumOperator(Operator):
         system=None,
         isherm: Optional[bool] = None,
         isdiag: Optional[bool] = None,
+        simplified: Optional[bool] = False,
     ):
         assert system is not None
         assert isinstance(term_tuple, tuple)
+        assert self not in term_tuple, "cannot be a term of myself."
         self.terms = term_tuple
         if system is None and term_tuple:
             for term in term_tuple:
@@ -50,6 +52,7 @@ class SumOperator(Operator):
         self.system = system
         self._isherm = isherm
         self._isdiagonal = isdiag
+        self._simplified = simplified
 
     def __bool__(self):
         if len(self.terms) == 0:
@@ -104,6 +107,10 @@ class SumOperator(Operator):
         return SumOperator(tuple(term.dag() for term in self.terms), self.system)
 
     def flat(self):
+        """
+        Use the associativity to write the sum of sums
+        as a sum of non sum terms.
+        """
         terms = []
         changed = False
         for term in self.terms:
@@ -127,45 +134,57 @@ class SumOperator(Operator):
     def isherm(self) -> bool:
         isherm = self._isherm
 
-        def aggresive_hermitician_test():
-            # pylint: disable=import-outside-toplevel
-            from alpsqutip.operators.functions import (
-                hermitian_and_antihermitian_parts,
-                simplify_sum_operator,
-            )
+        def aggresive_hermitician_test(non_hermitian_tuple: Tuple[Operator]):
+            """Determine if the antihermitician part is zero"""
+            # Here we assume that after simplify, the operator is a single term
+            # (not a SumOperator), a OneBodyOperator, or a sum of a one-body operator
+            # and terms acting over an specific block.
+            nh_sum = SumOperator(non_hermitian_tuple, self.system).simplify()
+            if not hasattr(nh_sum, "terms"):
+                self._isherm = nh_sum.isherm
+                return self._isherm
 
-            self._isherm = False
-            real_part, imag_part = hermitian_and_antihermitian_parts(self)
-            real_part = simplify_sum_operator(real_part)
-            imag_part = simplify_sum_operator(imag_part)
-            if not bool(imag_part):
-                self._isherm = True
-                if isinstance(real_part, SumOperator):
-                    self.terms = real_part.terms
-                else:
-                    self.terms = [real_part]
-                return True
-            self._isherm = False
-            return False
+            # Hermitician until the opposite is shown:
+            for term in nh_sum.terms:
+                if isinstance(term, OneBodyOperator) or not isinstance(
+                    term, SumOperator
+                ):
+                    if not term.isherm:
+                        self._isherm = False
+                        return False
+                # If the term is a sum of many-body terms acting on a site,
+                # check if the HS norm of the antihermitician part is not zero.
+                ah_part = term - term.dag()
+                if abs((ah_part * ah_part).tr()) > 1e-10:
+                    self._isherm = False
+                    return False
+            self._isherm = True
+            return True
 
         if isherm is None:
             # First, try with the less aggressive test:
-            if all(term.isherm for term in self.terms):
-                self._isherm = True
-                return True
-            return aggresive_hermitician_test()
+            non_hermitian = tuple((term for term in self.terms if not term.isherm))
+            if non_hermitian:
+                return aggresive_hermitician_test(non_hermitian)
+
+            self._isherm = True
+            return True
+
         return bool(self._isherm)
 
     @property
     def isdiagonal(self) -> bool:
         if self._isdiagonal is None:
-            simplified = self.simplify()
-            self._isdiagonal = all(term.isdiagonal for term in simplified.terms)
+            simplified = self if self._simplified else self.simplify()
+            try:
+                self._isdiagonal = all(term.isdiagonal for term in simplified.terms)
+            except AttributeError:
+                self._isdiagonal = simplified.isdiagonal
         return self._isdiagonal
 
     @property
     def is_zero(self) -> bool:
-        simplify_self = self.simplify()
+        simplify_self = self if self._simplified else self.simplify()
         if hasattr(simplify_self, "terms"):
             return all(term.is_zero for term in simplify_self.terms)
         return simplify_self.is_zero
@@ -178,71 +197,12 @@ class SumOperator(Operator):
 
     def simplify(self):
         """Simplify the operator"""
-        system = self.system
-        general_terms = []
-        isherm = self._isherm
-        # First, shallow the list of terms:
-        for term in (t.flat() for t in self.terms):
-            if isinstance(term, SumOperator):
-                general_terms.extend(term.terms)
-            else:
-                general_terms.append(term)
+        from alpsqutip.operators.simplify import group_terms_by_blocks
 
-        terms = general_terms
-        # Now, collect and sum LocalOperator and QutipOperator terms
-        general_terms = []
-        site_terms = {}
-        qutip_terms = []
-        scalar_term = 0
-        last_scalar_term = None
-        for term in terms:
-            if isinstance(term, ScalarOperator):
-                last_scalar_term = term
-                scalar_term += term.prefactor
-            elif isinstance(term, LocalOperator):
-                if term:
-                    site_terms.setdefault(term.site, []).append(term)
-            elif isinstance(term, QutipOperator):
-                if term:
-                    qutip_terms.append(term)
-            else:
-                if term:
-                    general_terms.append(term)
-
-        loc_ops_lst = [
-            (
-                LocalOperator(site, sum(lop.operator for lop in l_ops), system)
-                if len(l_ops) > 1
-                else l_ops[0]
-            )
-            for site, l_ops in site_terms.items()
-        ]
-
-        if len(qutip_terms) > 1:
-            qutip_terms = [sum(qutip_terms)]
-
-        is_one_body = len(general_terms) == 0 and len(qutip_terms) == 0
-        terms = general_terms + loc_ops_lst + qutip_terms
-
-        if scalar_term:
-            # If we found just one non-trivial scalar term, do not create a new one
-            if last_scalar_term is None or last_scalar_term.prefactor != scalar_term:
-                last_scalar_term = ScalarOperator(scalar_term, system)
-            terms += [last_scalar_term]
-
-        num_terms = len(terms)
-        if num_terms == 0:
-            return ScalarOperator(0, system)
-        if num_terms == 1:
-            return terms[0]
-        if num_terms == len(self.terms) and all(
-            old_t is new_t for old_t, new_t in zip(self.terms, terms)
-        ):
+        if self._simplified:
             return self
-        # If all the terms are LocalOperators or ScalarOperators, return a OneBodyOperator
-        if is_one_body:
-            return OneBodyOperator(tuple(terms), system, isherm)
-        return SumOperator(tuple(terms), system, isherm)
+
+        return group_terms_by_blocks(self.flat().tidyup())
 
     def to_qutip(self, block: Optional[Tuple[str]] = None):
         """Produce a qutip compatible object"""
@@ -269,8 +229,13 @@ class SumOperator(Operator):
         """Removes small elements from the quantum object."""
         tidy_terms = [term.tidyup(atol) for term in self.terms]
         tidy_terms = tuple((term for term in tidy_terms if term))
+        if len(tidy_terms) == 0:
+            return ScalarOperator(0, self.system)
+        if len(tidy_terms) == 1:
+            return tidy_terms[0]
         isherm = all(term.isherm for term in tidy_terms) or None
-        return SumOperator(tidy_terms, self.system, isherm=isherm)
+        isdiag = all(term.isdiagonal for term in tidy_terms) or None
+        return SumOperator(tidy_terms, self.system, isherm=isherm, isdiag=isdiag)
 
 
 NBodyOperator = SumOperator
@@ -286,6 +251,7 @@ class OneBodyOperator(SumOperator):
         check_and_convert=True,
         isherm: Optional[bool] = None,
         isdiag: Optional[bool] = None,
+        simplified: Optional[bool] = False,
     ):
         """
         if check_and_convert is True,
@@ -307,8 +273,9 @@ class OneBodyOperator(SumOperator):
         if check_and_convert:
             system = collect_systems(terms, system)
             terms, system = self._simplify_terms(terms, system)
+            simplified = True
 
-        super().__init__(terms, system, isherm, isdiag)
+        super().__init__(terms, system=system, isherm=isherm, isdiag=isdiag, simplified=simplified)
 
     def __repr__(self):
         return "  " + "\n  +".join("(" + repr(term) + ")" for term in self.terms)
@@ -358,6 +325,17 @@ class OneBodyOperator(SumOperator):
         prefactor = np.exp(ln_prefactor)
         return ProductOperator(sites_op, prefactor=prefactor, system=self.system)
 
+    def simplify(self):
+        if self._simplified:
+            return self
+        terms, system = self._simplify_terms(self.terms, self.system)
+        num_terms = len(terms)
+        if num_terms == 0:
+            return ScalarOperator(0, system)
+        if num_terms == 1:
+            return terms[0]
+        return OneBodyOperator(terms, system, isherm=self._isherm, isdiag=self._isdiagonal, simplified=True)
+
     @staticmethod
     def _simplify_terms(terms, system):
         """Group terms by subsystem and process scalar terms"""
@@ -372,6 +350,12 @@ class OneBodyOperator(SumOperator):
                 terms.extend(term.terms)
             elif isinstance(term, (ScalarOperator, LocalOperator)):
                 terms.append(term)
+            elif isinstance(term, QutipOperator):
+                terms.append(
+                    LocalOperator(
+                        tuple(term.acts_over())[0], term.operator, system=term.system
+                    )
+                )
             else:
                 raise ValueError(
                     f"A OneBodyOperator can not have {type(term)} as a term."
@@ -407,7 +391,7 @@ class OneBodyOperator(SumOperator):
         tidy_terms = [term.tidyup(atol) for term in self.terms]
         tidy_terms = tuple((term for term in tidy_terms if term))
         isherm = all(term.isherm for term in tidy_terms) or None
-        isdiag = all(term.isdiag for term in tidy_terms) or None
+        isdiag = all(term.isdiagonal for term in tidy_terms) or None
         return OneBodyOperator(tidy_terms, self.system, isherm=isherm, isdiag=isdiag)
 
 

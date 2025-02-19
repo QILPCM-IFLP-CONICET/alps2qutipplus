@@ -437,6 +437,7 @@ class SystemDescriptor:
         # Build the global_operator from the descriptor
         op_descr = self.spec["model"].global_ops.get(name, None)
         if op_descr is None:
+            logging.warning(f"{op_descr} not defined.")
             return None
 
         graph = self.spec["graph"]

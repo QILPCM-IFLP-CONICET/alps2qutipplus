@@ -22,7 +22,6 @@ from alpsqutip.operators.basic import (
     ScalarOperator,
     is_diagonal_op,
 )
-from alpsqutip.operators.functions import eigenvalues
 from alpsqutip.operators.qutip import QutipOperator
 
 
@@ -30,6 +29,8 @@ def safe_exp_and_normalize(operator):
     """Compute `expm(operator)/Z` and `log(Z)`.
     `Z=expm(operator).tr()` in a safe way.
     """
+    from alpsqutip.operators.functions import eigenvalues
+
     k_0 = max(np.real(eigenvalues(operator, sparse=True, sort="high", eigvals=3)))
     op_exp = (operator - k_0).expm()
     op_exp_tr = op_exp.tr()
@@ -85,7 +86,7 @@ class DensityOperatorMixin:
     into  a mixture by adding them, and when we do operations with
     positive numbers.
 
-    In other operations, like mutiplication with other operators,
+    In other operations, like multiplication with other operators,
     density operators are handled as positive operators of trace 1.
 
     So, for example,
@@ -271,6 +272,15 @@ class QutipDensityOperator(DensityOperatorMixin, QutipOperator):
         )
         return QutipOperator(log_op, self.system, self.site_names)
 
+    def partial_trace(self, sites: Union[frozenset, SystemDescriptor]):
+        self_pt = super().partial_trace(sites)
+        return QutipDensityOperator(
+            self_pt.operator,
+            names=self_pt.site_names,
+            system=self_pt.system,
+            prefactor=self_pt.prefactor,
+        )
+
 
 class ProductDensityOperator(DensityOperatorMixin, ProductOperator):
     """An uncorrelated density operator."""
@@ -295,13 +305,11 @@ class ProductDensityOperator(DensityOperatorMixin, ProductOperator):
 
         # Complete the scalar factors using the system
         if system is None:
-            sites = tuple(local_states.keys())
             dimensions = {
                 site: operator.data.shape[0] for site, operator in local_states.items()
             }
             # TODO: build a system
         else:
-            sites = tuple(system.sites.keys())
             dimensions = system.dimensions
             local_identities: dict = {}
             for site, dimension in dimensions.items():
@@ -412,7 +420,6 @@ class ProductDensityOperator(DensityOperatorMixin, ProductOperator):
         else:
             subsystem = self.system.subsystem(sites)
 
-        sites_in = [site for site in sites if site in sites_op]
         local_states = {site: sites_op[site] for site in sites}
 
         return ProductDensityOperator(

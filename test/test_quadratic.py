@@ -38,6 +38,8 @@ def test_simplify_quadratic_form():
         check_operator_equality(qutip_operator, simplified.to_qutip())
         assert qutip_operator.isherm == quadratic_form.isherm
         assert quadratic_form.isherm == simplified.isherm
+        print(type(quadratic_form),"->", type(simplified))
+        print(simplified.simplify)
         assert simplified is simplified.simplify()
 
 

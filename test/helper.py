@@ -66,8 +66,36 @@ sx_total: OneBodyOperator = sum(system.site_operator("Sx", s) for s in sites)
 sy_total: OneBodyOperator = sum(system.site_operator("Sy", s) for s in sites)
 hamiltonian: SumOperator = system.global_operator("Hamiltonian")
 
+assert hamiltonian is not None
 
 assert (sminus_A * sminus_B) is not None
+
+
+splus0 = system.site_operator(f"Splus@{sites[0]}")
+splus1 = system.site_operator(f"Splus@{sites[1]}")
+
+spsp_hc = SumOperator(
+    (
+        splus0 * splus1,
+        (splus0 * splus1).dag(),
+    ),
+    system,
+    True,
+)
+
+
+OPERATORS = {
+    "Identity": global_identity,
+    "sz_total": sz_total,
+    "sx_total": sx_total,
+    "sx_total_sq": sx_total * sx_total,
+    "sx+ 3j sz": sx_total + (3 * 1j) * sz_total,
+    "splus*splus": splus0 * splus1,
+    "splus*splus+hc": spsp_hc,
+    "hamiltonian": hamiltonian,
+    "nonhermitician": hamiltonian + (3 * 1j) * sz_total,
+}
+
 
 subsystems = [
     (sites[0],),

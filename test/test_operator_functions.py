@@ -11,18 +11,16 @@ from alpsqutip.operators.functions import (
     hermitian_and_antihermitian_parts,
     log_op,
     relative_entropy,
-    simplify_sum_operator,
 )
 from alpsqutip.utils import operator_to_wolfram
 
 from .helper import (
     CHAIN_SIZE,
+    OPERATORS,
     check_equality,
     check_operator_equality,
-    global_identity,
     hamiltonian,
     sites,
-    sx_total,
     system,
     sz_total,
     test_cases_states,
@@ -42,19 +40,6 @@ spsp_hc = SumOperator(
     system,
     True,
 )
-
-
-operators = {
-    "Identity": global_identity,
-    "sz_total": sz_total,
-    "sx_total": sx_total,
-    "sx_total_sq": sx_total * sx_total,
-    "sx+ 3j sz": sx_total + (3 * 1j) * sz_total,
-    "splus*splus": splus0 * splus1,
-    "splus*splus+hc": spsp_hc,
-    "hamiltonian": hamiltonian,
-    "nonhermitician": hamiltonian + (3 * 1j) * sz_total,
-}
 
 
 def compare_spectrum(spectrum1, spectrum2):
@@ -102,7 +87,7 @@ def test_decompose_hermitician():
     """Test the decomposition as Q=A+iB with
     A=A.dag() and B=B.dag()
     """
-    for name, operator in operators.items():
+    for name, operator in OPERATORS.items():
         print("name", name, type(operator))
         op_re, op_im = hermitian_and_antihermitian_parts(operator)
         op_qutip = operator.to_qutip()
@@ -111,21 +96,6 @@ def test_decompose_hermitician():
         assert op_re.isherm and op_im.isherm
         assert check_operator_equality(op_re.to_qutip(), op_re_qutip)
         assert check_operator_equality(op_im.to_qutip(), op_im_qutip)
-
-
-def test_simplify_sum_operator():
-    def do_test(name, operator):
-        if isinstance(operator, list):
-            for op_case in operator:
-                do_test(name, op_case)
-            return
-        operator_simpl = simplify_sum_operator(operator)
-        assert check_equality(operator.to_qutip(), operator_simpl.to_qutip())
-        assert operator.to_qutip().isherm == operator_simpl.isherm
-
-    for name, operator_case in operators.items():
-        print("name", name, type(operator_case))
-        do_test(name, operator_case)
 
 
 def test_relative_entropy():
@@ -214,7 +184,7 @@ def test_log_op():
     """
 
     clean = True
-    for name, operator in operators.items():
+    for name, operator in OPERATORS.items():
         test_op = operator + 0.0001
         # logm does now work well with non hermitician operators
         if not test_op.isherm:
@@ -230,7 +200,7 @@ def test_log_op():
             print("    exp(log(op))!=op.")
             print("    ", spectral_norm_error)
 
-    for name, operator in operators.items():
+    for name, operator in OPERATORS.items():
         test_op = operator
         if not test_op.isherm:
             continue

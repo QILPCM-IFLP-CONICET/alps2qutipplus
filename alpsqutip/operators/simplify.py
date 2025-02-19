@@ -2,6 +2,8 @@
 """
 Functions to simplify sums of operators
 """
+from numbers import Number
+
 import numpy as np
 from qutip import tensor
 from scipy.linalg import svd
@@ -14,8 +16,10 @@ from alpsqutip.operators.basic import (
     ProductOperator,
     ScalarOperator,
 )
+from alpsqutip.operators.qutip import QutipOperator
 from alpsqutip.operators.states import DensityOperatorMixin
 from alpsqutip.qutip_tools.tools import data_is_diagonal, decompose_qutip_operator
+from alpsqutip.scalarprod import orthogonalize_basis
 
 
 def collect_nbody_terms(operator: Operator) -> dict:
@@ -40,7 +44,7 @@ def collect_nbody_terms(operator: Operator) -> dict:
         if num_bodies == 0:
             scalar_term += term.prefactor
         else:
-            acts_over_key = tuple(acts_over)
+            acts_over_key = tuple(sorted(acts_over))
             terms_by_block.setdefault(acts_over_key, []).append(term)
 
     # Add a scalar term
@@ -49,7 +53,7 @@ def collect_nbody_terms(operator: Operator) -> dict:
     return terms_by_block
 
 
-def sums_as_blocks(operator, fn=None):
+def group_terms_by_blocks(operator, fn=None):
     """
     Rewrite a sum of operators as a sum
     of a ScalarOperator, a OneBodyOperator
@@ -67,31 +71,146 @@ def sums_as_blocks(operator, fn=None):
     representation.
 
     """
+    changed = False
     system = operator.system
-    if not isinstance(operator, SumOperator):
-        return operator
-    if isinstance(operator, (OneBodyOperator, DensityOperatorMixin)):
+    assert operator is not None
+
+    if not isinstance(operator, SumOperator) or isinstance(
+        operator, (OneBodyOperator, DensityOperatorMixin)
+    ):
         return operator
 
-    operator = operator.flat()
+    operator_flat = operator.flat()
+    if operator_flat is not operator:
+        changed = True
+        operator = operator_flat
+
+    assert operator is not None
     terms_dict = collect_nbody_terms(operator)
     new_terms = []
     one_body_terms = []
     isherm = operator._isherm
+    isdiag = operator._isdiagonal
+
     for block, terms in terms_dict.items():
         if block is None or len(block) == 0:
             new_terms.extend(terms)
         elif len(block) == 1:
-            one_body_terms.extend(block)
+            one_body_terms.extend(terms)
         else:
-            new_term = SumOperator(tuple(terms), system, isherm=isherm)
-            if fn is not None:
-                new_term = fn(new_term)
-                new_terms.append(new_term)
+            if len(terms) > 1:
+                new_term = SumOperator(tuple(terms), system=system)
 
-    new_term = OneBodyOperator(tuple(one_body_terms), system)
-    new_terms.append(new_term)
-    return SumOperator(tuple(new_terms), system, isherm=isherm)
+                try:
+                    new_term_simpl = simplify_qutip_sums(new_term)
+                    if new_term_simpl is not new_term:
+                        changed = True
+                        new_term = new_term_simpl
+                except Exception:
+                    pass
+
+            else:
+                new_term = terms[0]
+            if fn is not None:
+                try:
+                    new_term_fn = fn(new_term)
+                    if new_term_fn is not new_term:
+                        new_term = new_term_fn
+                        changed = True
+                except Exception:
+                    pass
+            new_terms.append(new_term)
+
+    new_terms = [term for term in new_terms if term]
+
+    if one_body_terms:
+        new_term = OneBodyOperator(tuple(one_body_terms), system)
+        changed = True
+        if new_term:
+            if len(new_terms) == 0:
+                return new_term
+            new_terms.append(new_term)
+        else:
+            if len(new_terms) == 0:
+                return ScalarOperator(0, system)
+            if len(new_terms) == 1:
+                return new_terms[0]
+    else:
+        if len(new_terms) == 0:
+            return ScalarOperator(0, system)
+        if len(new_terms) == 1:
+            return new_terms[0]
+
+    if not changed:
+        return operator
+    return SumOperator(
+        tuple(new_terms), system=system, isherm=isherm, isdiag=isdiag, simplified=True
+    )
+
+
+def simplify_qutip_sums(sum_operator):
+    """
+    collect terms acting on the same block of sites,
+    and reduce it to a single qutip operator.
+    """
+    if not isinstance(sum_operator, SumOperator):
+        return sum_operator
+
+    changed = False
+    system = sum_operator.system
+    terms = []
+    qutip_terms = dict()
+    product_terms = dict()
+    for term in sum_operator.terms:
+        if isinstance(term, ProductOperator):
+            product_terms.setdefault(frozenset(term.acts_over()), []).append(term)
+        elif isinstance(term, QutipOperator):
+            qutip_terms.setdefault(frozenset(term.acts_over()), []).append(term)
+        else:
+            terms.append(term)
+
+    # Process first the product operator terms
+    for block, p_terms in product_terms.items():
+        # If block is in qutip_terms, or there are more than a single product term,
+        # and each product term acts on few sites, it is more efficient to store
+        # them as a single qutip operator:
+        if block in qutip_terms or (len(p_terms) > 1 and len(block) < 6):
+            changed = True
+            block_tuple = tuple(sorted(block))
+            sum_qutip_op = sum(
+                term.to_qutip_operator().to_qutip(block_tuple) for term in p_terms
+            )
+            qutip_terms.setdefault(block, []).append(
+                QutipOperator(
+                    sum_qutip_op,
+                    names={site: idx for idx, site in enumerate(block_tuple)},
+                    system=system,
+                )
+            )
+            continue
+        # Otherwise, just add as terms
+        terms.extend(p_terms)
+
+    # Now,
+    for block, q_terms in qutip_terms.items():
+        block_tuple = tuple(sorted(block))
+        if len(q_terms) == 1:
+            terms.append(q_terms[0])
+            continue
+        changed = True
+        new_qterm = sum(q_term.to_qutip(block_tuple) for q_term in q_terms)
+        terms.append(
+            QutipOperator(
+                new_qterm,
+                names={site: pos for pos, site in enumerate(block_tuple)},
+                system=system,
+            )
+        )
+    if len(terms) == 1:
+        return terms[0]
+    if changed:
+        return SumOperator(tuple(terms), system, simplified=True)
+    return sum_operator
 
 
 def post_process_collections(collection: dict) -> dict:
@@ -114,6 +233,25 @@ def post_process_collections(collection: dict) -> dict:
     if None in collection:
         new_collection[None] = collection[None]
     return new_collection
+
+
+def reduce_by_orthogonalization(operator_list):
+    """
+    From a list of operators whose sum spans another operator,
+    produce a new list with linear independent terms
+    """
+
+    def scalar_product(op_1, op_2):
+        return (op_1.dag() * op_2).tr()
+
+    basis = orthogonalize_basis(operator_list, sp=scalar_product)
+    if len(basis) > len(operator_list):
+        return operator_list
+    coeffs = [
+        sum(scalar_product(op_b, term) for term in operator_list) for op_b in basis
+    ]
+
+    return [op_b * coeff for coeff, op_b in zip(coeffs, basis)]
 
 
 def rewrite_nbody_term_using_qutip(
@@ -250,6 +388,91 @@ def simplify_sum_using_qutip(operator: Operator) -> Operator:
     if len(new_terms) == 1:
         return new_terms[0]
     return SumOperator(tuple(new_terms), system, isherm=isherm, isdiag=isdiag)
+
+
+def simplify_sum_operator(operator):
+    """
+    Try a more aggressive simplification that self.simplify()
+    by classifing the terms according to which subsystem acts,
+    reducing the partial sums by orthogonalization.
+    """
+    simplified_op = operator.simplify().flat()
+
+    if isinstance(simplified_op, OneBodyOperator) or not isinstance(
+        simplified_op, SumOperator
+    ):
+        return simplified_op
+
+    operator = simplified_op
+    # Now, operator has at least two non-trivial terms.
+    operator_terms = operator.terms
+
+    system = operator.system
+    isherm = operator._isherm
+
+    terms_by_subsystem = {}
+    one_body_terms = []
+    scalar_terms = []
+
+    for term in operator_terms:
+        assert not isinstance(
+            term, SumOperator
+        ), f"{type(term)} should not be here. Check simplify."
+        assert not isinstance(term, Number), (
+            "In a sum, numbers should be represented by "
+            f"ScalarOperator's, but {type(term)} was found."
+        )
+
+    for term in operator_terms:
+        if isinstance(term, LocalOperator):
+            one_body_terms.append(term)
+        elif isinstance(term, ScalarOperator):
+            scalar_terms.append(term)
+        else:
+            sites = term.acts_over()
+            sites = tuple(sites) if sites is not None else None
+            terms_by_subsystem.setdefault(sites, []).append(term)
+
+    # Simplify the scalars:
+    if len(scalar_terms) > 1:
+        assert all(isinstance(t, ScalarOperator) for t in scalar_terms)
+        value = sum(value.prefactor for value in scalar_terms)
+        scalar_terms = [ScalarOperator(value, system)] if value else []
+    elif len(scalar_terms) == 1:
+        if scalar_terms[0].prefactor == 0:
+            scalar_terms = []
+
+    one_body_terms = (
+        [OneBodyOperator(tuple(one_body_terms), system)]
+        if len(one_body_terms) != 0
+        else []
+    )
+    new_terms = scalar_terms + one_body_terms
+
+    # Try to reduce the other terms
+    for subsystem, block_terms in terms_by_subsystem.items():
+        if subsystem is None:
+            # Maybe here we should convert block_terms into
+            # qutip, add the terms and if the result is not zero,
+            # store as a single term
+            new_terms.extend(block_terms)
+        elif len(subsystem) > 1:
+            if len(block_terms) > 1:
+                block_terms = reduce_by_orthogonalization(block_terms)
+            new_terms.extend(block_terms)
+        else:
+            # Never reached?
+            assert False
+            new_terms.extend(block_terms)
+
+    # Build the return value
+    if new_terms:
+        if len(new_terms) == 1:
+            return new_terms[0]
+        if not isherm:
+            isherm = None
+        return SumOperator(tuple(new_terms), system, isherm)
+    return ScalarOperator(0.0, system)
 
 
 def simplify_sum_using_orthogonal_decomposition(operator: Operator) -> Operator:

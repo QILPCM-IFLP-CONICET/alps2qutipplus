@@ -17,9 +17,8 @@ from alpsqutip.operators import (
     ScalarOperator,
     SumOperator,
 )
-from alpsqutip.operators.functions import anticommutator, commutator
+from alpsqutip.operators.functions import anticommutator, commutator, relative_entropy
 from alpsqutip.operators.states import ProductDensityOperator
-from alpsqutip.operators.states.meanfield import one_body_from_qutip_operator
 
 # function used to safely and robustly map K-states to states
 from alpsqutip.proj_evol import safe_exp_and_normalize
@@ -112,10 +111,26 @@ def fn_hij_tensor(basis, sp: Callable, generator):
 def fn_hij_tensor_with_errors(basis, sp: Callable, generator):
     """Compute the tensor Hij and the norm of the orthogonal projection"""
     hgen = -1j * generator
-    comm_h_ops = [commutator(hgen, op2) for op2 in basis]
-    local_h_ij = np.array(
-        [[sp(op1, comm_op) for comm_op in comm_h_ops] for op1 in basis]
-    )
+    print("        + build commutators")
+    comm_h_ops = [commutator(hgen, op2).simplify() for op2 in basis]
+    print("        + build scalar products")
+
+    local_h_ij = np.zeros([len(basis), len(basis)], dtype=complex)
+    for i, b in enumerate(basis):
+        for j, comm_op in enumerate(comm_h_ops):
+            print(
+                "          -",
+                (i, j),
+                [(type(b), b.acts_over()), (type(comm_op), comm_op.acts_over())],
+            )
+            res = sp(b, comm_op)
+            print("             ->", res)
+            local_h_ij[i, j] = res
+
+    # local_h_ij = np.array(
+    #    [[sp(op1, comm_op) for comm_op in comm_h_ops] for op1 in basis]
+    # )
+    print("    + build errors")
     proj_comm_norms_sq = (sum(col**2) for col in local_h_ij.transpose())
     comm_full_norms_sq = (sp(comm_op, comm_op) for comm_op in comm_h_ops)
     errors_w = [
@@ -203,7 +218,7 @@ def orthogonalize_basis_gs(basis, sp: callable, tol=1e-5):
     """
     orth_basis = []
     for op_orig in basis:
-        norm:float = abs(sp(op_orig, op_orig)) ** 0.5
+        norm: float = abs(sp(op_orig, op_orig)) ** 0.5
         if norm < tol:
             continue
         changed = False
@@ -374,9 +389,21 @@ def mft_state_it(k_op, sigma=None, max_it=100):
         MFT process.
     """
     sigma_one_body = sigma
-    for _ in range(max_it):
-        k_one_body = one_body_from_qutip_operator(k_op, sigma_one_body).terms[1]
-        sigma_one_body = safe_exp_and_normalize(k_one_body)[0]
+    print("sigma is", type(sigma))
+    rel_s = 10000
+    for it in range(max_it):
+        print("     it=", it)
+        k_one_body = project_operator_to_m_body(k_op, 1, sigma_one_body)
+        k_one_body = k_one_body.simplify()
+        print("k_one body is", type(k_one_body))
+        new_sigma_one_body = safe_exp_and_normalize(k_one_body)[0]
+        rel_s_new = relative_entropy(sigma_one_body, new_sigma_one_body)
+        print("   relative entropy", rel_s_new)
+        if rel_s_new > 2 * rel_s:
+            break
+        rel_s = rel_s_new
+        sigma_one_body = new_sigma_one_body
+
     return k_one_body, sigma_one_body
 
 
@@ -433,6 +460,7 @@ def project_operator_to_m_body(full_operator: Operator, m_max=2, sigma_0=None):
     relative to the local states `local_sigmas`.
     If `local_sigmas` is not given, maximally mixed states are assumed.
     """
+    assert sigma_0 is None or hasattr(sigma_0, "expect"), f"{type(sigma_0)} invalid"
     if m_max == 0:
         if sigma_0:
             return ScalarOperator(sigma_0.expect(full_operator), full_operator.system)
@@ -504,10 +532,10 @@ def project_qutip_operator_to_m_body(full_operator: Operator, m_max=2, sigma_0=N
     system = full_operator.system
     if full_operator.is_zero:
         return ScalarOperator(0, system)
-
+    assert sigma_0 is None or hasattr(sigma_0, "expect"), f"{type(sigma_0)} invalid"
     if sigma_0 is None:
         sigma_0 = ProductDensityOperator({}, system=system)
-
+    assert sigma_0 is None or hasattr(sigma_0, "expect"), f"{type(sigma_0)} invalid"
     if m_max == 0:
         return ScalarOperator(sigma_0.expect(full_operator), system)
 
@@ -527,6 +555,10 @@ def project_qutip_operator_to_m_body(full_operator: Operator, m_max=2, sigma_0=N
     sigma_last_qutip = sigma_0.partial_trace(frozenset({last_site})).to_qutip()
     averages = [qutip.expect(sigma_last_qutip, op_loc) for op_loc in qutip_ops_last]
     sigma_firsts = sigma_0.partial_trace(frozenset(rest_sitenames))
+    assert hasattr(
+        sigma_firsts, "expect"
+    ), f"{type(sigma_0)}->{type(sigma_firsts)} invalid"
+
     firsts_ops = [
         QutipOperator(op_c, names=rest_sitenames, system=system)
         for op_c in qutip_ops_firsts

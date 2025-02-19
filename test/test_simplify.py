@@ -4,7 +4,6 @@ Basic unit test.
 
 from alpsqutip.operators import (
     LocalOperator,
-    OneBodyOperator,
     Operator,
     ProductOperator,
     QutipOperator,
@@ -12,10 +11,10 @@ from alpsqutip.operators import (
     SumOperator,
 )
 from alpsqutip.operators.quadratic import QuadraticFormOperator
-from alpsqutip.operators.simplify import sums_as_blocks
+from alpsqutip.operators.simplify import group_terms_by_blocks, simplify_sum_operator
 from alpsqutip.operators.states import GibbsDensityOperator, GibbsProductDensityOperator
 
-from .helper import check_operator_equality, full_test_cases
+from .helper import OPERATORS, check_equality, check_operator_equality, full_test_cases
 
 
 def compute_size(operator: Operator):
@@ -140,17 +139,32 @@ def test_simplify():
     assert not passed, "there were errors in simplificacion."
 
 
+def test_simplify_sum_operator():
+    def do_test(name, operator):
+        if isinstance(operator, list):
+            for op_case in operator:
+                do_test(name, op_case)
+            return
+        operator_simpl = simplify_sum_operator(operator)
+        assert check_equality(operator.to_qutip(), operator_simpl.to_qutip())
+        assert operator.to_qutip().isherm == operator_simpl.isherm
+
+    for name, operator_case in OPERATORS.items():
+        print("name", name, type(operator_case))
+        do_test(name, operator_case)
+
+
 def test_sum_as_blocks():
     print("Sum as blocks")
     for key, operator in full_test_cases.items():
         print(f"   checking {key}")
-        operator_sab = sums_as_blocks(operator, fn=lambda x: x.to_qutip_operator())
+        operator_sab = group_terms_by_blocks(
+            operator, fn=lambda x: x.to_qutip_operator()
+        )
         if operator_sab is operator:
             continue
         assert check_operator_equality(operator_sab, operator)
-        if not isinstance(operator, SumOperator):
-            continue
-        if isinstance(operator, OneBodyOperator):
+        if not isinstance(operator_sab, SumOperator):
             continue
         acts_over_lst = [frozenset(term.acts_over()) for term in operator_sab.terms]
         acts_over_set = set(acts_over_lst)
