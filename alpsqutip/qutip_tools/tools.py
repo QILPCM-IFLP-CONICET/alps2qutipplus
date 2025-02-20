@@ -2,7 +2,6 @@
 Functions for basic interface with qutip objects.
 """
 
-import logging
 from functools import reduce
 from itertools import combinations
 from typing import Iterator, List, Tuple
@@ -188,7 +187,7 @@ else:
             scalar = data[0]
             return len(data) == dim and all(value == scalar for value in data)
 
-        logging.warning("must be dense")
+        # Must be dense...
         data = data.as_ndarray()
         dim_i, dim_j = data.shape
         if any(
@@ -197,7 +196,6 @@ else:
             for j_idx in range(dim_j)
             if i_idx != j_idx
         ):
-            logging.warning("non null elements out of the diagonal")
             return False
         scalar = data[0, 0]
         return all(scalar == data[i, i] for i in range(data.shape[0]))

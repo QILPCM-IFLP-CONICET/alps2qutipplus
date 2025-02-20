@@ -18,7 +18,10 @@ from alpsqutip.operators import (
     SumOperator,
 )
 from alpsqutip.operators.functions import anticommutator, commutator, relative_entropy
-from alpsqutip.operators.states import ProductDensityOperator
+from alpsqutip.operators.states import (
+    GibbsProductDensityOperator,
+    ProductDensityOperator,
+)
 
 # function used to safely and robustly map K-states to states
 from alpsqutip.proj_evol import safe_exp_and_normalize
@@ -111,26 +114,17 @@ def fn_hij_tensor(basis, sp: Callable, generator):
 def fn_hij_tensor_with_errors(basis, sp: Callable, generator):
     """Compute the tensor Hij and the norm of the orthogonal projection"""
     hgen = -1j * generator
-    print("        + build commutators")
     comm_h_ops = [commutator(hgen, op2).simplify() for op2 in basis]
-    print("        + build scalar products")
 
     local_h_ij = np.zeros([len(basis), len(basis)], dtype=complex)
     for i, b in enumerate(basis):
         for j, comm_op in enumerate(comm_h_ops):
-            print(
-                "          -",
-                (i, j),
-                [(type(b), b.acts_over()), (type(comm_op), comm_op.acts_over())],
-            )
             res = sp(b, comm_op)
-            print("             ->", res)
             local_h_ij[i, j] = res
 
     # local_h_ij = np.array(
     #    [[sp(op1, comm_op) for comm_op in comm_h_ops] for op1 in basis]
     # )
-    print("    + build errors")
     proj_comm_norms_sq = (sum(col**2) for col in local_h_ij.transpose())
     comm_full_norms_sq = (sp(comm_op, comm_op) for comm_op in comm_h_ops)
     errors_w = [
@@ -229,7 +223,7 @@ def orthogonalize_basis_gs(basis, sp: callable, tol=1e-5):
                 new_op -= prev_op * overlap
                 changed = True
         if changed:
-            norm = np.real(sp(new_op, new_op)) ** 0.5
+            norm = np.real(sp(new_op, new_op) ** 0.5)
             if norm < tol:
                 continue
             new_op = new_op / norm
@@ -379,6 +373,7 @@ def mft_state_it(k_op, sigma=None, max_it=100):
         k_op: The initial operator, a QuTip.Qobj, to be decomposed into
         one-body components.
         sigma: The referential state to be used in the calculations.
+        k_0: if given, the logarithm of sigma.
         max_it: Maximum number of iterations.
 
     Returns:
@@ -388,23 +383,32 @@ def mft_state_it(k_op, sigma=None, max_it=100):
         - sigma_one_body: The one-body state normalized through the
         MFT process.
     """
-    sigma_one_body = sigma
-    print("sigma is", type(sigma))
+    if sigma is None:
+        sigma = GibbsProductDensityOperator(local_states={}, system=k_op.system)
+        neg_log_sigma = -sigma.logm()
+    else:
+        neg_log_sigma = -sigma.logm()
+        print("log sigma of type ", type(neg_log_sigma), "from type", type(sigma))
+        if not isinstance(sigma, GibbsProductDensityOperator):
+            sigma = GibbsProductDensityOperator(neg_log_sigma)
+
+    system = sigma.system
     rel_s = 10000
+
     for it in range(max_it):
-        print("     it=", it)
-        k_one_body = project_operator_to_m_body(k_op, 1, sigma_one_body)
-        k_one_body = k_one_body.simplify()
-        print("k_one body is", type(k_one_body))
-        new_sigma_one_body = safe_exp_and_normalize(k_one_body)[0]
-        rel_s_new = relative_entropy(sigma_one_body, new_sigma_one_body)
-        print("   relative entropy", rel_s_new)
-        if rel_s_new > 2 * rel_s:
+        k_one_body = project_operator_to_m_body(k_op, 1, sigma)
+        if hasattr(k_one_body, "terms"):
+            print([(type(t), t.acts_over()) for t in k_one_body.terms])
+        new_sigma = GibbsProductDensityOperator(k_one_body)
+        k_one_body = new_sigma.logm()
+        rel_s_new = np.real(sigma.expect(k_op - k_one_body))
+        print("     S(curr||target)=", rel_s_new)
+        if it > 5 and rel_s_new > 2 * rel_s:
             break
         rel_s = rel_s_new
-        sigma_one_body = new_sigma_one_body
+        sigma = new_sigma
 
-    return k_one_body, sigma_one_body
+    return k_one_body, sigma
 
 
 def slice_times(tlist: np.array, tcuts):

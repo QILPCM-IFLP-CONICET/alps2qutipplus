@@ -48,9 +48,6 @@ def test_states():
     }
 
     for name, rho in test_cases_states.items():
-        # TODO: Remove me
-        if name != "mixture":
-            continue
 
         print(
             "\n     ", 120 * "@", "\n testing", name, f"({type(rho)})", "\n", 100 * "@"
