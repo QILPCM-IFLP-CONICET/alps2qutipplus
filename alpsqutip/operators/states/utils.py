@@ -1,21 +1,22 @@
 """
-Utility functions for alps2qutip.operators.states
+Utility functions for alpsqutip.operators.states
 
 """
 
 from typing import Dict
 
 import numpy as np
-from alps2qutip.operators.aritmethic import SumOperator
-from alps2qutip.operators.basic import (
+
+from alpsqutip.operators.arithmetic import SumOperator
+from alpsqutip.operators.basic import (
     LocalOperator,
     Operator,
     ProductOperator,
     ScalarOperator,
 )
-from alps2qutip.operators.qutip import QutipOperator
-from alps2qutip.operators.states.basic import ProductDensityOperator
-from alps2qutip.operators.states.qutip import QutipDensityOperator
+from alpsqutip.operators.qutip import QutipOperator
+from alpsqutip.operators.states.basic import ProductDensityOperator
+from alpsqutip.operators.states.qutip import QutipDensityOperator
 
 
 def k_by_site_from_operator(k: Operator) -> Dict[str, Operator]:

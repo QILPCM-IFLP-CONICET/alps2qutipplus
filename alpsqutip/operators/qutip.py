@@ -429,6 +429,26 @@ def mul_qutip_operator_qutip_operator(x_op: QutipOperator, y_op: QutipOperator):
 
 @Operator.register_mul_handler(
     (
+        QutipOperator,
+        Operator,
+    )
+)
+def _(x_op: QutipOperator, y_op: Operator):
+    return x_op * y_op.to_qutip_operator()
+
+
+@Operator.register_mul_handler(
+    (
+        Operator,
+        QutipOperator,
+    )
+)
+def _(x_op: Operator, y_op: QutipOperator):
+    return x_op.to_qutip_operator() * y_op
+
+
+@Operator.register_mul_handler(
+    (
         ScalarOperator,
         QutipOperator,
     )

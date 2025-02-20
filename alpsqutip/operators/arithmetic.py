@@ -454,6 +454,24 @@ def _(x_op: SumOperator, y_value: Number):
         SumOperator,
     )
 )
+@Operator.register_mul_handler(
+    (
+        int,
+        SumOperator,
+    )
+)
+@Operator.register_mul_handler(
+    (
+        float,
+        SumOperator,
+    )
+)
+@Operator.register_mul_handler(
+    (
+        complex,
+        SumOperator,
+    )
+)
 def _(y_value: Number, x_op: SumOperator):
     if y_value == 0:
         return ScalarOperator(0, x_op.system)

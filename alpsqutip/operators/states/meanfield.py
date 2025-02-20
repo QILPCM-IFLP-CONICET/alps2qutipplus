@@ -19,11 +19,11 @@ from alpsqutip.operators import (
     SumOperator,
 )
 from alpsqutip.operators.qutip import QutipOperator
-from alpsqutip.operators.states.states import (
+from alpsqutip.operators.states.basic import (
     DensityOperatorMixin,
-    GibbsProductDensityOperator,
     ProductDensityOperator,
 )
+from alpsqutip.operators.states.gibbs import GibbsProductDensityOperator
 
 
 def one_body_from_qutip_operator(

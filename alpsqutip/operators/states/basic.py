@@ -94,7 +94,7 @@ class DensityOperatorMixin:
         return True
 
     def to_qutip_operator(self):
-        from alps2qutip.operators.states import QutipDensityOperator
+        from alpsqutip.operators.states import QutipDensityOperator
 
         block = tuple(sorted(self.acts_over()))
         rho_qutip = self.to_qutip(block)

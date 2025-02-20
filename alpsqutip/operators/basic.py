@@ -50,13 +50,8 @@ class Operator:
     system: SystemDescriptor
     prefactor: complex = 1.0
 
-    # def __add__(self, term):
-    #    # pylint: disable=import-outside-toplevel
-    #    from alpsqutip.operators import SumOperator
-    #
-    #    return SumOperator([self, term], self.system)
-
-    # TODO check the possibility of implementing this with multimethods
+    # TODO check if it is possible implementing this
+    # with multimethods
     __add__dispatch__: Dict[Tuple, Callable] = {}
     __mul__dispatch__: Dict[Tuple, Callable] = {}
 
@@ -82,59 +77,40 @@ class Operator:
 
     def __add__(self, term):
         # Use multiple dispatch to determine how to add
-        func = self.__add__dispatch__.get((type(self), type(term)), None)
+        dispatch_table = Operator.__add__dispatch__
+
+        # First try with the cases stored in the dispatch table:
+        func = dispatch_table.get((type(self), type(term)), None)
         if func is not None:
             return func(self, term)
 
-        func = self.__add__dispatch__.get((type(term), type(self)), None)
+        func = dispatch_table.get((type(term), type(self)), None)
         if func is not None:
             return func(term, self)
 
-        for key, func in self.__add__dispatch__.items():
-            lhf, rhf = key
-            if isinstance(self, lhf) and isinstance(term, rhf):
-                self.__add__dispatch__[
-                    (
-                        lhf,
-                        rhf,
-                    )
-                ] = func
-                return func(self, term)
-            rhf, lhf = key
-            if isinstance(self, lhf) and isinstance(term, rhf):
-                self.__add__dispatch__[
-                    (
-                        lhf,
-                        rhf,
-                    )
-                ] = lambda x, y: func(y, x)
-                return func(term, self)
+        # Now, look for cases associated to the class hierarchy
+        func = find_arithmetic_implementation(self, term, dispatch_table)
+        if func:
+            return func(self, term)
+        func = find_arithmetic_implementation(term, self, dispatch_table)
+        if func:
+            return func(term, self)
 
-        raise ValueError(type(self), "cannot be added with ", type(term))
+        raise TypeError(f"{type(self)} cannot be added with  {type(term)}")
 
     def __mul__(self, factor):
         # Use multiple dispatch to determine how to multiply
-        key = (
-            type(self),
-            type(factor),
-        )
-        func = self.__mul__dispatch__.get(key, None)
+        dispatch_table = Operator.__mul__dispatch__
 
+        # First try with the cases stored in the dispatch table:
+        func = dispatch_table.get((type(self), type(factor)), None)
         if func is not None:
-            result = func(self, factor)
-            return result  # func(self, factor)
-
-        for try_key, func in Operator.__mul__dispatch__.items():
-            lhf, rhf = try_key
-            if isinstance(self, lhf) and isinstance(factor, rhf):
-                Operator.__mul__dispatch__[key] = func
-                result = func(self, factor)
-                return result  # func(self, factor)
-
-        if not hasattr(factor, "to_qutip_operator"):
-            raise ValueError(type(self), "cannot be multiplied with ", type(factor))
-        factor = factor.to_qutip_operator()
-        return self.to_qutip_operator() * factor
+            return func(self, factor)
+        # Now, look for cases associated to the class hierarchy
+        func = find_arithmetic_implementation(self, factor, dispatch_table)
+        if func:
+            return func(self, factor)
+        raise TypeError(f"{type(self)} cannot be multiplied with  {type(factor)}")
 
     def __neg__(self):
         return -(self.to_qutip_operator())
@@ -152,23 +128,18 @@ class Operator:
     def __rmul__(self, factor):
         # Use __mul__dispatch__ to determine how to evaluate the product
 
-        key = (
-            type(factor),
-            type(self),
-        )
-        func = self.__mul__dispatch__.get(key, None)
-        if func is not None:
-            result = func(factor, self)
-            return result  # func(factor, self)
-        for try_key, func in Operator.__mul__dispatch__.items():
-            lhf, rhf = try_key
-            if isinstance(factor, lhf) and isinstance(self, rhf):
-                Operator.__mul__dispatch__[key] = func
-                result = func(factor, self)
-                return result  # func(factor, self)
+        dispatch_table = Operator.__mul__dispatch__
 
-        raise ValueError(type(self), "cannot be multiplied  with ", type(factor))
-        # return factor.to_qutip_operator() * self.to_qutip_operator()
+        # First try with the cases stored in the dispatch table:
+        func = dispatch_table.get((type(factor), type(self)), None)
+        if func is not None:
+            return func(factor, self)
+        # Now, look for cases associated to the class hierarchy
+        func = find_arithmetic_implementation(factor, self, dispatch_table)
+        if func:
+            return func(factor, self)
+
+        raise TypeError(f"{type(factor)} cannot be multiplied with  {type(self)}")
 
     def __rsub__(self, operand):
         if operand is None:
@@ -439,7 +410,7 @@ class LocalOperator(Operator):
         if block is None:
             block = tuple(sorted(sites))
             if len(block) > 8:
-                logging.warn(
+                logging.warning(
                     "Asking for a qutip representation of an operator over the full system"
                 )
         elif site not in block:
@@ -694,7 +665,7 @@ class ProductOperator(Operator):
         if block is None:
             block = sorted(tuple(sites) if system else self.acts_over())
             if len(block) > 8:
-                logging.warn(
+                logging.warning(
                     "Asking for a qutip representation of an operator over the full system"
                 )
 
@@ -1080,7 +1051,7 @@ def empty_op(op: Union[Qobj, Operator]) -> bool:
             if op.prefactor == 0:
                 return True
             return any(empty_op(op_l) for op_l in op.sites_op.values())
-        raise ValueError(f"Operator of type {type(op)} is not allowed.")
+        raise TypeError(f"Operator of type {type(op)} is not allowed.")
     return data_is_zero(op.data)
 
 
@@ -1095,7 +1066,7 @@ def is_diagonal_op(op: Union[Qobj, Operator]) -> bool:
             if op.prefactor == 0:
                 return True
             return all(is_diagonal_op(op_l) for op_l in op.sites_op.values())
-        raise ValueError(f"Operator of type {type(op)} is not allowed.")
+        raise TypeError(f"Operator of type {type(op)} is not allowed.")
     return data_is_diagonal(op.data)
 
 
@@ -1111,5 +1082,39 @@ def is_scalar_op(op: Qobj) -> bool:
             return is_scalar_op(op.operator)
         if hasattr(op, "sites_op"):
             return all(is_scalar_op(site_op) for site_op in op.sites_op.values())
-        raise ValueError(f"Operator of type {type(op)} is not allowed.")
+        raise TypeError(f"Operator of type {type(op)} is not allowed.")
     return data_is_scalar(op.data)
+
+
+def find_arithmetic_implementation(
+    op1, op2, dispatch_table: dict
+) -> Optional[Callable]:
+    """
+    Find the function that implements the operation
+    op1 [operation] op2 in the dispatch table
+    dispatch.
+    If the combination of types is not already in the dispatch table,
+    store it.
+    """
+
+    type_op1, type_op2 = type(op1), type(op2)
+    op1_parent_classes = type_op1.__mro__
+    op2_parent_classes = type_op2.__mro__
+    # Go over the combinations of parent classes
+    for lhf in op1_parent_classes:
+        for rhf in op2_parent_classes:
+            key = (lhf, rhf)
+            if key in dispatch_table:
+                func = dispatch_table[key]
+                dispatch_table[(type_op1, type_op2)] = func
+                return func
+
+    # Last resource: try if the operands are instances of one of the keys in the dispatch table.
+    # Required for example for keys of the form (Operator, Number).
+
+    for key, func in dispatch_table.items():
+        if isinstance(op1, key[0]) and isinstance(op2, key[1]):
+            func = dispatch_table[key]
+            dispatch_table[(type_op1, type_op2)] = func
+            return func
+    return None

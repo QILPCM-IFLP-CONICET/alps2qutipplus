@@ -8,7 +8,6 @@ from typing import Optional
 
 from alpsqutip.alpsmodels import ModelDescriptor
 from alpsqutip.geometry import GraphDescriptor
-from alpsqutip.settings import VERBOSITY_LEVEL
 from alpsqutip.utils import eval_expr
 
 
@@ -452,8 +451,7 @@ class SystemDescriptor:
             )
             site_terms = tuple(term for term in site_terms if term)
         except ValueError as exc:
-            if VERBOSITY_LEVEL > 2:
-                logging.warning(f"{exc.args} Aborting evaluation of {name}.")
+            logging.warning(f"{exc.args} Aborting evaluation of {name}.")
             model.global_ops.pop(name)
             return None
 
@@ -466,8 +464,7 @@ class SystemDescriptor:
             bond_terms = tuple(term for term in bond_terms if term)
 
         except ValueError as exc:
-            if VERBOSITY_LEVEL > 2:
-                logging.warning(f"{exc.args} Aborting evaluation of {name}.")
+            logging.warning(f"{exc.args} Aborting evaluation of {name}.")
             model.global_ops.pop(name)
             return None
 
