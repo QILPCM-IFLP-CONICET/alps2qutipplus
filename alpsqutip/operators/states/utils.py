@@ -56,8 +56,7 @@ def k_by_site_from_operator(k: Operator) -> Dict[str, Operator]:
             elif isinstance(term, ScalarOperator):
                 offset += term.prefactor
             elif isinstance(term, SumOperator):
-                sub_terms, sub_offset = k_by_site_from_operator(term)
-                offset += sub_offset
+                sub_terms = k_by_site_from_operator(term)
                 for sub_site, sub_term in sub_terms.items():
                     if sub_site in result:
                         result[sub_site] += sub_term
