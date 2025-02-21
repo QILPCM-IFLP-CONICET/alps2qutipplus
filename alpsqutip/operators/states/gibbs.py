@@ -158,6 +158,8 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
                 k = k.simplify()
                 if system:
                     system = k.system.union(system)
+                else:
+                    system = k.system
                 self.system = system
                 k_by_site = k_by_site_from_operator(k)
             except AttributeError as e:
@@ -165,6 +167,7 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
                     f"k_by_site must be a dictionary or an Operator. Got {type(k)}"
                 )
 
+        assert system is not None
         if normalized:
             if system:
                 self.free_energies = {

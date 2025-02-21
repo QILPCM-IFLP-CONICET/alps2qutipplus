@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from qutip import jmat, qeye, tensor
 
-from alpsqutip.operators import Operator, ProductOperator, QutipOperator
+from alpsqutip.operators import Operator, ProductOperator, QutipOperator, ScalarOperator
 from alpsqutip.qutip_tools.tools import (
     data_get_type,
     data_is_diagonal,
@@ -308,3 +308,20 @@ def test_detached_operators():
     assert (
         test_op_tr == detached_qutip_operator.partial_trace(frozenset(sites[0:2])).tr()
     )
+
+
+
+
+def test_to_qutip_operator():
+    # special cases
+    expected_types_to_qutip={
+        "scalar, zero":ScalarOperator,
+        "scalar, real":ScalarOperator,
+        "scalar, complex":ScalarOperator,
+        "product, zero":ScalarOperator,
+        "product, 1":ScalarOperator,
+    }
+    for name, op_case in operator_type_cases.items():
+        expected_type = expected_types_to_qutip.get(name, QutipOperator)
+        op_tqo = op_case.to_qutip_operator()
+        assert isinstance(op_tqo, expected_type), f"<<{name}>> to qutip operator results in {type(op_tqo)} instead of {expected_type}"

@@ -45,6 +45,9 @@ def test_acts_over():
     full_chain = {f"1[{s}]" for s in range(CHAIN_SIZE)}
 
     results = {
+        "scalar, zero":set(),
+        "product, zero":set(),
+        "product, 1":set(),
         "scalar, real": set(),
         "scalar, complex": set(),
         "local operator, hermitician": {"1[0]"},

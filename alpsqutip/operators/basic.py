@@ -679,6 +679,21 @@ class ProductOperator(Operator):
         )
         return self.prefactor * qutip.tensor(*factors)
 
+    def to_qutip_operator(self)->Operator:
+        """
+        Return a QutipOperator representation.
+        If the operator is scalar, returns a ScalarOperator.
+        Otherwise, returns a QutipOperator.
+        """
+        from alpsqutip.operators.qutip import QutipOperator
+
+        prefactor = self.prefactor
+        sites_op = self.sites_op
+        if not prefactor or len(sites_op)==0:
+            return ScalarOperator(prefactor, self.system)
+        names = {name:pos for pos, name in enumerate(sorted(site for site in sites_op))}
+        return QutipOperator(self.to_qutip(tuple()), names=names, system=self.system)
+
     def tr(self):
         result = self.partial_trace(frozenset())
         return result.prefactor
@@ -750,6 +765,7 @@ class ScalarOperator(ProductOperator):
 
         factors = (sites[site]["identity"] for site in block)
         return self.prefactor * qutip.tensor(*factors)
+
 
     def to_qutip_operator(self):
         """
@@ -1037,22 +1053,27 @@ def _(y_op: LocalOperator, x_op: ProductOperator):
     return ProductOperator(site_op, x_op.prefactor, system)
 
 
-def empty_op(op: Union[Qobj, Operator]) -> bool:
+def empty_op(op: Union[Number, Qobj, Operator]) -> bool:
     """
     Check if op is an sparse operator without
     non-zero elements.
     """
-    if not hasattr(op, "data"):
-        if isinstance(op, ScalarOperator):
-            return op.prefactor == 0
-        if hasattr(op, "operator"):
-            return empty_op(op.operator)
-        if hasattr(op, "sites_op"):
-            if op.prefactor == 0:
-                return True
-            return any(empty_op(op_l) for op_l in op.sites_op.values())
-        raise TypeError(f"Operator of type {type(op)} is not allowed.")
-    return data_is_zero(op.data)
+    if isinstance(op, Number):
+        return op == 0
+
+    if getattr(op, "prefactor", 1)==0:
+        return True
+
+    if hasattr(op, "data"):
+        return data_is_zero(op.data)
+
+    if hasattr(op, "operator"):
+        return empty_op(op.operator)        
+    if any(empty_op(factor)
+           for factor in getattr(op, "sites_op", {}).values()
+           ):
+        return True
+    return False
 
 
 def is_diagonal_op(op: Union[Qobj, Operator]) -> bool:

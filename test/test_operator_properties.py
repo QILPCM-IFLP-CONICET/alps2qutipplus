@@ -32,8 +32,9 @@ def test_empty_op():
     for name, value in full_test_cases.items():
         if value is None:
             continue
-        print(name, "of type ", type(value))
-        assert not empty_op(value.to_qutip())
+        value_qutip = value.to_qutip()
+        print(name, "of type ", type(value), type(value_qutip))        
+        assert empty_op(value_qutip) == empty_op(value)
 
 
 def test_is_scalar_or_diagonal_operator():

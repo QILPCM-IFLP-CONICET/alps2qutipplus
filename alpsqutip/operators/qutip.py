@@ -434,7 +434,12 @@ def mul_qutip_operator_qutip_operator(x_op: QutipOperator, y_op: QutipOperator):
     )
 )
 def _(x_op: QutipOperator, y_op: Operator):
-    return x_op * y_op.to_qutip_operator()
+    if y_op:
+        y_op_qutip = y_op.to_qutip_operator()
+        if isinstance(y_op_qutip, ScalarOperator):
+            return x_op * y_op_qutip.prefactor        
+        return mul_qutip_operator_qutip_operator(x_op, y_op_qutip)
+    return ScalarOperator(0, x_op.system.union(y_op.system))
 
 
 @Operator.register_mul_handler(
@@ -444,8 +449,12 @@ def _(x_op: QutipOperator, y_op: Operator):
     )
 )
 def _(x_op: Operator, y_op: QutipOperator):
-    return x_op.to_qutip_operator() * y_op
-
+    if x_op:
+        x_op_qutip = x_op.to_qutip_operator()
+        if isinstance(x_op_qutip, ScalarOperator):
+            return y_op * x_op_qutip.prefactor
+        return mul_qutip_operator_qutip_operator(x_op_qutip, y_op)
+    return ScalarOperator(0, x_op.system.union(y_op.system))
 
 @Operator.register_mul_handler(
     (
@@ -568,3 +577,32 @@ def mul_qutip_obj_times_qutip_operator(y_op: Qobj, x_op: QutipOperator):
         names=x_op.site_names,
         prefactor=x_op.prefactor,
     )
+
+
+
+@Operator.register_mul_handler(
+    (
+        QutipOperator,
+        ScalarOperator,
+    )
+)
+def _(x_op: QutipOperator, y_op: ScalarOperator):
+    system = x_op.system * y_op.system if x_op.system else y_op.system
+    return QutipOperator(
+        x_op.operator, system, x_op.site_names, x_op.prefactor * y_op.prefactor
+    )
+
+
+@Operator.register_mul_handler(
+    (
+        ScalarOperator,
+        QutipOperator,
+    )
+)
+def _(y_op: ScalarOperator, x_op: QutipOperator):
+    system = x_op.system * y_op.system if x_op.system else y_op.system
+    return QutipOperator(
+        x_op.operator, system, x_op.site_names, x_op.prefactor * y_op.prefactor
+    )
+
+

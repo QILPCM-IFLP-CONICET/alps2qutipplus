@@ -9,7 +9,7 @@ import numpy as np
 import qutip
 
 from alpsqutip.model import SystemDescriptor, build_spin_chain
-from alpsqutip.operators import OneBodyOperator, Operator, ScalarOperator, SumOperator
+from alpsqutip.operators import OneBodyOperator, Operator, ScalarOperator, ProductOperator, SumOperator
 from alpsqutip.operators.quadratic import build_quadratic_form_from_operator
 from alpsqutip.operators.states import (
     GibbsDensityOperator,
@@ -130,6 +130,9 @@ observable_cases = {
 
 
 operator_type_cases = {
+    "scalar, zero": ScalarOperator(0.0, system),
+    "product, zero": ProductOperator({},prefactor=0.0, system=system),
+    "product, 1": ProductOperator({},prefactor=1.0, system=system),
     "scalar, real": ScalarOperator(1.0, system),
     "scalar, complex": ScalarOperator(1.0 + 3j, system),
     "local operator, hermitician": sx_A,  # LocalOperator
@@ -152,6 +155,9 @@ operator_type_cases = {
     "log unitary": build_quadratic_form_from_operator(hamiltonian * 1j),
     "single interaction term": build_quadratic_form_from_operator(sx_A * sx_B),
 }
+
+
+
 
 
 test_cases_states = {}
