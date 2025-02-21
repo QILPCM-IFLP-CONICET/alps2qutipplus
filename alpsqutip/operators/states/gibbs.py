@@ -162,7 +162,7 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
                     system = k.system
                 self.system = system
                 k_by_site = k_by_site_from_operator(k)
-            except AttributeError as e:
+            except AttributeError:
                 raise ValueError(
                     f"k_by_site must be a dictionary or an Operator. Got {type(k)}"
                 )

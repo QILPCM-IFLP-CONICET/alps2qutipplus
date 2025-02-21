@@ -281,7 +281,7 @@ def test_as_sum_of_products():
 
 
 def test_detached_operators():
-    """Check operators not comming from a system"""
+    """Check operators not coming from a system"""
     # Tests for QutipOperators defined without a system
     test_op = SX_A_SY_B_TIMES_2
     system = test_op.system
@@ -310,18 +310,18 @@ def test_detached_operators():
     )
 
 
-
-
 def test_to_qutip_operator():
     # special cases
-    expected_types_to_qutip={
-        "scalar, zero":ScalarOperator,
-        "scalar, real":ScalarOperator,
-        "scalar, complex":ScalarOperator,
-        "product, zero":ScalarOperator,
-        "product, 1":ScalarOperator,
+    expected_types_to_qutip = {
+        "scalar, zero": ScalarOperator,
+        "scalar, real": ScalarOperator,
+        "scalar, complex": ScalarOperator,
+        "product, zero": ScalarOperator,
+        "product, 1": ScalarOperator,
     }
     for name, op_case in operator_type_cases.items():
         expected_type = expected_types_to_qutip.get(name, QutipOperator)
         op_tqo = op_case.to_qutip_operator()
-        assert isinstance(op_tqo, expected_type), f"<<{name}>> to qutip operator results in {type(op_tqo)} instead of {expected_type}"
+        assert isinstance(
+            op_tqo, expected_type
+        ), f"<<{name}>> to qutip operator results in {type(op_tqo)} instead of {expected_type}"

@@ -2,6 +2,8 @@
 Define SystemDescriptors and different kind of operators
 """
 
+from numbers import Number
+
 # from numbers import Number
 from time import time
 from typing import Callable, Optional, Tuple, Union
@@ -73,8 +75,11 @@ class QuadraticFormOperator(Operator):
     def __add__(self, other):
 
         # TODO: remove me and fix the sums
-        if other == 0:
+        if not bool(other):
             return self
+        if isinstance(other, Number):
+            other = ScalarOperator(other, system=self.system)
+
         assert isinstance(other, Operator), "other must be an operator."
         system = self.system or other.system
         if isinstance(other, QuadraticFormOperator):
@@ -148,7 +153,7 @@ class QuadraticFormOperator(Operator):
             if term_acts_over is None:
                 return None
             result = result.union(term_acts_over)
-        return result
+        return frozenset(result)
 
     def flat(self):
         return self
@@ -399,7 +404,7 @@ def build_quadratic_form_from_operator(
                 )
             )
 
-    # Anti-hermitician terms at the begining...
+    # Anti-hermitician terms at the beginning...
     if isherm:
         basis = basis_h
         weights = weights_h

@@ -992,6 +992,3 @@ def _(x_op: QutipOperator, y_op: Operator):
         ),
         system,
     )
-
-
-

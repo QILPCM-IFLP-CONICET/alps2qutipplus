@@ -65,7 +65,9 @@ class QutipOperator(Operator):
             names = {s: i for i, s in enumerate(system.sites)}
 
         self.system = system
-        assert len(qoperator.dims[0]) == len(names)
+        assert len(qoperator.dims[0]) == len(
+            names
+        ), f"{qoperator.dims[0]} and {names} have different lengths"
         assert all(pos < len(names) for pos in names.values())
         self.operator = qoperator
         self.site_names = names
@@ -96,7 +98,7 @@ class QutipOperator(Operator):
         return "qutip interface operator for\n" + repr(self.operator)
 
     def acts_over(self) -> set:
-        return set(self.site_names.keys())
+        return frozenset(self.site_names.keys())
 
     def as_sum_of_products(self):
         """
@@ -437,7 +439,7 @@ def _(x_op: QutipOperator, y_op: Operator):
     if y_op:
         y_op_qutip = y_op.to_qutip_operator()
         if isinstance(y_op_qutip, ScalarOperator):
-            return x_op * y_op_qutip.prefactor        
+            return x_op * y_op_qutip.prefactor
         return mul_qutip_operator_qutip_operator(x_op, y_op_qutip)
     return ScalarOperator(0, x_op.system.union(y_op.system))
 
@@ -455,6 +457,7 @@ def _(x_op: Operator, y_op: QutipOperator):
             return y_op * x_op_qutip.prefactor
         return mul_qutip_operator_qutip_operator(x_op_qutip, y_op)
     return ScalarOperator(0, x_op.system.union(y_op.system))
+
 
 @Operator.register_mul_handler(
     (
@@ -579,7 +582,6 @@ def mul_qutip_obj_times_qutip_operator(y_op: Qobj, x_op: QutipOperator):
     )
 
 
-
 @Operator.register_mul_handler(
     (
         QutipOperator,
@@ -604,5 +606,3 @@ def _(y_op: ScalarOperator, x_op: QutipOperator):
     return QutipOperator(
         x_op.operator, system, x_op.site_names, x_op.prefactor * y_op.prefactor
     )
-
-

@@ -673,13 +673,17 @@ class ProductOperator(Operator):
             block = tuple((site for site in block if site in sites)) + tuple(
                 sorted(site for site in sites_op if site not in block)
             )
+        if len(block) == 0:
+            return self.prefactor
+
         factors = (
             (sites_op.get(site, None) if site in sites_op else sites[site]["identity"])
             for site in block
         )
+
         return self.prefactor * qutip.tensor(*factors)
 
-    def to_qutip_operator(self)->Operator:
+    def to_qutip_operator(self) -> Operator:
         """
         Return a QutipOperator representation.
         If the operator is scalar, returns a ScalarOperator.
@@ -689,9 +693,11 @@ class ProductOperator(Operator):
 
         prefactor = self.prefactor
         sites_op = self.sites_op
-        if not prefactor or len(sites_op)==0:
+        if not prefactor or len(sites_op) == 0:
             return ScalarOperator(prefactor, self.system)
-        names = {name:pos for pos, name in enumerate(sorted(site for site in sites_op))}
+        names = {
+            name: pos for pos, name in enumerate(sorted(site for site in sites_op))
+        }
         return QutipOperator(self.to_qutip(tuple()), names=names, system=self.system)
 
     def tr(self):
@@ -759,13 +765,10 @@ class ScalarOperator(ProductOperator):
         if block is None:
             block = sorted(sites)
         elif len(block) == 0:
-            # first_identity = next(iter(system.sites.values()))["identity"]
-            first_identity = qutip.qeye(1)
-            return first_identity * self.prefactor
+            return self.prefactor
 
         factors = (sites[site]["identity"] for site in block)
         return self.prefactor * qutip.tensor(*factors)
-
 
     def to_qutip_operator(self):
         """
@@ -1061,17 +1064,15 @@ def empty_op(op: Union[Number, Qobj, Operator]) -> bool:
     if isinstance(op, Number):
         return op == 0
 
-    if getattr(op, "prefactor", 1)==0:
+    if getattr(op, "prefactor", 1) == 0:
         return True
 
     if hasattr(op, "data"):
         return data_is_zero(op.data)
 
     if hasattr(op, "operator"):
-        return empty_op(op.operator)        
-    if any(empty_op(factor)
-           for factor in getattr(op, "sites_op", {}).values()
-           ):
+        return empty_op(op.operator)
+    if any(empty_op(factor) for factor in getattr(op, "sites_op", {}).values()):
         return True
     return False
 

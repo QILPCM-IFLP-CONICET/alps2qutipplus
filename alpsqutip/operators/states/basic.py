@@ -2,7 +2,6 @@
 Density operator classes.
 """
 
-from functools import reduce
 from numbers import Number
 from typing import Iterable, Optional, Tuple, Union
 
@@ -79,15 +78,58 @@ class DensityOperatorMixin:
             return super().eigenstates()  # type:ignore[misc]
         raise NotImplementedError
 
-    def expect(self, obs: Union[Operator, Iterable]) -> Union[np.ndarray, dict, Number]:
+    def expect(
+        self, obs_objs: Union[Operator, Iterable]
+    ) -> Union[np.ndarray, dict, Number]:
         """Compute the expectation value of an observable"""
-        if isinstance(obs, dict):
-            return {name: self.expect(operator) for name, operator in obs.items()}
 
-        if isinstance(obs, (tuple, list)):
-            return np.array([self.expect(operator) for operator in obs])
+        # TODO: expode that expectation values of operators just requires the
+        # state where the operators acts.
 
-        return (self * obs).tr() / self.prefactor
+        local_states = {None: self}
+
+        def do_evaluate_expect(obs):
+            """
+            Inner function to evaluate expectation values. This method keeps
+            track of the states of the subsystems required in the evaluation,
+            which in typical cases is the most expensive part of the evaluation.
+            """
+            nonlocal local_states
+
+            if isinstance(obs, dict):
+                return {
+                    name: do_evaluate_expect(operator) for name, operator in obs.items()
+                }
+
+            if isinstance(obs, (tuple, list)):
+                return np.array([do_evaluate_expect(operator) for operator in obs])
+
+            if isinstance(obs, SumOperator):
+                return sum(do_evaluate_expect(term) for term in obs.terms)
+
+            acts_over = obs.acts_over()
+            if len(acts_over) == 0:
+                if hasattr(obs, "prefactor"):
+                    return obs.prefactor
+
+            if acts_over not in local_states:
+                local_states[acts_over] = self.partial_trace(acts_over)
+
+            # if the argument matches with the argument of expect, it means that
+            # we already try with the implementation of the subclasses. Then, let's rely
+            # in the generic implementation: convert everything to qutip and evaluate
+            # the trace:
+            if obs_objs is obs:
+                block = tuple(sorted(acts_over))
+                return (
+                    local_states[acts_over].to_qutip(block) * obs.to_qutip(block)
+                ).tr()
+
+            # If obs comes from an internal call, then try to use the specific method
+            # of the subclass.
+            return local_states[acts_over].expect(obs)
+
+        return do_evaluate_expect(obs_objs)
 
     @property
     def isherm(self):
@@ -96,9 +138,12 @@ class DensityOperatorMixin:
     def to_qutip_operator(self):
         from alpsqutip.operators.states import QutipDensityOperator
 
-        block = tuple(sorted(self.acts_over()))
+        block = tuple(sorted(self.system.sites))
+        names = {name: pos for pos, name in enumerate(block)}
         rho_qutip = self.to_qutip(block)
-        return QutipDensityOperator(rho_qutip, self.system, prefactor=1)
+        return QutipDensityOperator(
+            rho_qutip, names=names, system=self.system, prefactor=1
+        )
 
     def tr(self):
         return 1
@@ -118,12 +163,16 @@ class ProductDensityOperator(DensityOperatorMixin, ProductOperator):
 
         # Build the local partition functions and normalize
         # if required
-        local_zs = {site: state.tr() for site, state in local_states.items()}
-        if normalize:
-            assert (z > 0 for z in local_zs.values())
-            local_states = {
-                site: sigma / local_zs[site] for site, sigma in local_states.items()
-            }
+        if weight == 0:
+            local_states = {}
+            local_zs = {}
+        else:
+            local_zs = {site: state.tr() for site, state in local_states.items()}
+            if normalize:
+                assert (z > 0 for z in local_zs.values())
+                local_states = {
+                    site: sigma / local_zs[site] for site, sigma in local_states.items()
+                }
 
         # Complete the scalar factors using the system
         if system is None:
@@ -143,31 +192,23 @@ class ProductDensityOperator(DensityOperatorMixin, ProductOperator):
                         local_identities[dimension] = local_id
                     local_states[site] = local_id
 
-        # TODO: remove me
-        self.tagged_scalar = True
         super().__init__(local_states, prefactor=weight, system=system)
         self.local_fs = {site: -np.log(z) for site, z in local_zs.items()}
 
     def __mul__(self, a):
         if isinstance(a, float):
-            if a > 0:
+            if a >= 0:
                 return ProductDensityOperator(
                     self.sites_op, self.prefactor * a, self.system, False
                 )
-
-            if a == 0.0:
-                return ProductDensityOperator({}, a, self.system, False)
         return super().__mul__(a)
 
     def __rmul__(self, a):
         if isinstance(a, float):
-            if a > 0:
+            if a >= 0:
                 return ProductDensityOperator(
                     self.sites_op, self.prefactor * a, self.system, False
                 )
-
-            if a == 0.0:
-                return ProductDensityOperator({}, a, self.system, False)
         return super().__rmul__(a)
 
     def expect(self, obs: Union[Operator, Iterable]) -> Union[np.ndarray, dict, Number]:
@@ -177,13 +218,15 @@ class ProductDensityOperator(DensityOperatorMixin, ProductOperator):
             local_states = self.sites_op
             if site in local_states:
                 return (local_states[site] * operator).tr()
-            return operator.tr() / reduce(lambda x, y: x * y, operator.dims[0])
+            return operator.tr() / self.system.dimensions[site]
+
         if isinstance(obs, SumOperator):
             return sum(self.expect(term) for term in obs.terms)
 
         if isinstance(obs, ProductOperator):
             sites_obs = obs.sites_op
             local_states = self.sites_op
+            dimensions = self.system.dimensions
             result = obs.prefactor
 
             for site, obs_op in sites_obs.items():
@@ -192,8 +235,9 @@ class ProductDensityOperator(DensityOperatorMixin, ProductOperator):
                 if site in local_states:
                     result *= (local_states[site] * obs_op).tr()
                 else:
-                    result *= obs_op.tr() / reduce((lambda x, y: x * y), obs_op.dims[0])
+                    result *= obs_op.tr() / dimensions[site]
             return result
+
         return super().expect(obs)
 
     def logm(self):

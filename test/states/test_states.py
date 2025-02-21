@@ -2,9 +2,7 @@
 Basic unit test for states.
 """
 
-from alpsqutip.operators import OneBodyOperator
-
-from .helper import (
+from test.helper import (
     alert,
     check_equality,
     expect_from_qutip,
@@ -13,6 +11,8 @@ from .helper import (
     sz_total,
     test_cases_states,
 )
+
+from alpsqutip.operators import OneBodyOperator
 
 # from alpsqutip.settings import VERBOSITY_LEVEL
 

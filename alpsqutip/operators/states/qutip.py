@@ -4,13 +4,13 @@ Qutip representation for density operators.
 Be careful: just use this class for states of small systems.
 """
 
-from typing import Optional, Union
+from typing import Optional, Tuple, Union
 
 import numpy as np
 from qutip import Qobj  # type: ignore[import-untyped]
 
 from alpsqutip.model import SystemDescriptor
-from alpsqutip.operators.basic import Operator
+from alpsqutip.operators.basic import Operator, ScalarOperator
 from alpsqutip.operators.qutip import QutipOperator
 from alpsqutip.operators.states.basic import DensityOperatorMixin
 
@@ -26,7 +26,12 @@ class QutipDensityOperator(DensityOperatorMixin, QutipOperator):
         system: Optional[SystemDescriptor] = None,
         names=None,
         prefactor=1,
+        normalized=False,
     ):
+        if not normalized:
+            tr_op = qoperator.tr()
+            if tr_op != 1:
+                qoperator = qoperator / tr_op
         super().__init__(qoperator, system, names, prefactor)
 
     def __add__(self, operand) -> Operator:
@@ -134,9 +139,19 @@ class QutipDensityOperator(DensityOperatorMixin, QutipOperator):
 
     def partial_trace(self, sites: Union[frozenset, SystemDescriptor]):
         self_pt = super().partial_trace(sites)
+        if isinstance(self_pt, ScalarOperator):
+            return self_pt
+
         return QutipDensityOperator(
             self_pt.operator,
             names=self_pt.site_names,
             system=self_pt.system,
-            prefactor=self_pt.prefactor,
+            prefactor=self.prefactor,
         )
+
+    def to_qutip(self, block: Optional[Tuple[str]] = None):
+        qutip_op = super().to_qutip(block)
+        tr_op = qutip_op.tr()
+        if tr_op != 1:
+            qutip_op = qutip_op / tr_op
+        return qutip_op

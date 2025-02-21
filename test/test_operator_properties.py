@@ -33,7 +33,7 @@ def test_empty_op():
         if value is None:
             continue
         value_qutip = value.to_qutip()
-        print(name, "of type ", type(value), type(value_qutip))        
+        print(name, "of type ", type(value), type(value_qutip))
         assert empty_op(value_qutip) == empty_op(value)
 
 
