@@ -27,7 +27,7 @@ def test_simplify_quadratic_form():
     Try to convert all the test cases into
     quadratic forms, and check if simplification
     works in all the cases.
-    """    
+    """
     test_cases = operator_type_cases
     for name, operator in test_cases.items():
         print("\n *******\n\n name: ", name)

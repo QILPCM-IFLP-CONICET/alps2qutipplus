@@ -76,11 +76,9 @@ def group_terms_by_blocks(operator, fn=None):
     assert operator is not None
 
     if (
-            not isinstance(operator, SumOperator) or
-            operator._simplified or
-            isinstance(
-                operator, (OneBodyOperator, DensityOperatorMixin)
-            )
+        not isinstance(operator, SumOperator)
+        or operator._simplified
+        or isinstance(operator, (OneBodyOperator, DensityOperatorMixin))
     ):
         return operator
 
@@ -212,11 +210,11 @@ def simplify_qutip_sums(sum_operator):
             )
         )
     strip_terms = tuple((term for term in terms if not term.is_zero))
-    if len(strip_terms)!=len(terms):
-        changed = True  
-        
+    if len(strip_terms) != len(terms):
+        changed = True
+
     terms = tuple(terms)
-    if len(terms)==0:
+    if len(terms) == 0:
         return ScalarOperator(0, system)
     if len(terms) == 1:
         return terms[0]

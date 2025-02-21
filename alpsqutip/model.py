@@ -11,6 +11,7 @@ from alpsqutip.geometry import GraphDescriptor
 from alpsqutip.settings import LATTICE_LIB_FILE, MODEL_LIB_FILE
 from alpsqutip.utils import eval_expr
 
+
 class SystemDescriptor:
     """
     System Descriptor class.
@@ -481,7 +482,7 @@ class SystemDescriptor:
 def build_spin_chain(length: int = 2, field=0.0):
     """Build a spin chain of length `l`"""
     parameters = {"L": length, "a": 1, "h": field, "J": 1, "Jz0": 1, "Jxy0": 1}
-    return build_system("chain lattice", "spin",  **parameters)
+    return build_system("chain lattice", "spin", **parameters)
 
 
 def build_system(
@@ -496,7 +497,7 @@ def build_system(
     the geometry and the model.
 
     lattice_lib_file: str
-         
+
 
     **kwargs: Optional keyword parameters are passed to the model.
 
@@ -510,7 +511,7 @@ def build_system(
 
     print("loading model", model_name, " over graph", geometry_name)
 
-    parms = {"L": 4, "J": 1, "Jz0": 1, "Jxy0": 1, "a":1}
+    parms = {"L": 4, "J": 1, "Jz0": 1, "Jxy0": 1, "a": 1}
     parms.update(kwargs)
     model = model_from_alps_xml(models_lib_file, model_name, parms)
     graph = graph_from_alps_xml(lattice_lib_file, geometry_name, parms)
