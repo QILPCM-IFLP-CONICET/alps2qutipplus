@@ -213,6 +213,10 @@ class Operator:
         """True if self is a null operator"""
         return empty_op(self)
 
+    def eigenenergies(self):
+        """List of eigenstates of the operator"""
+        return self.to_qutip_operator().eigenenergies()
+
     def eigenstates(self):
         """List of eigenstates of the operator"""
         return self.to_qutip_operator().eigenstates()

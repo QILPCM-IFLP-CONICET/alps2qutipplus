@@ -136,6 +136,9 @@ class QutipOperator(Operator):
             prefactor=prefactor,
         )
 
+    def eigenenergies(self):
+        return self.operator.eigenenergies()
+
     def eigenstates(self):
         return self.operator.eigenstates()
 

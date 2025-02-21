@@ -27,19 +27,16 @@ def test_simplify_quadratic_form():
     Try to convert all the test cases into
     quadratic forms, and check if simplification
     works in all the cases.
-    """
+    """    
     test_cases = operator_type_cases
     for name, operator in test_cases.items():
         print("\n *******\n\n name: ", name)
-        print("quadratic form", type(operator))
         quadratic_form = build_quadratic_form_from_operator(operator, simplify=False)
         qutip_operator = operator.to_qutip()
         simplified = quadratic_form.simplify()
         check_operator_equality(qutip_operator, simplified.to_qutip())
         assert qutip_operator.isherm == quadratic_form.isherm
         assert quadratic_form.isherm == simplified.isherm
-        print(type(quadratic_form),"->", type(simplified))
-        print(simplified.simplify)
         assert simplified is simplified.simplify()
 
 

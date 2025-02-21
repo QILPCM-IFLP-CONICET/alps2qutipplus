@@ -75,8 +75,12 @@ def group_terms_by_blocks(operator, fn=None):
     system = operator.system
     assert operator is not None
 
-    if not isinstance(operator, SumOperator) or isinstance(
-        operator, (OneBodyOperator, DensityOperatorMixin)
+    if (
+            not isinstance(operator, SumOperator) or
+            operator._simplified or
+            isinstance(
+                operator, (OneBodyOperator, DensityOperatorMixin)
+            )
     ):
         return operator
 
@@ -142,6 +146,7 @@ def group_terms_by_blocks(operator, fn=None):
             return new_terms[0]
 
     if not changed:
+        operator._simplified = True
         return operator
     return SumOperator(
         tuple(new_terms), system=system, isherm=isherm, isdiag=isdiag, simplified=True
@@ -206,10 +211,18 @@ def simplify_qutip_sums(sum_operator):
                 system=system,
             )
         )
+    strip_terms = tuple((term for term in terms if not term.is_zero))
+    if len(strip_terms)!=len(terms):
+        changed = True  
+        
+    terms = tuple(terms)
+    if len(terms)==0:
+        return ScalarOperator(0, system)
     if len(terms) == 1:
         return terms[0]
     if changed:
-        return SumOperator(tuple(terms), system, simplified=True)
+        print("changed...")
+        return SumOperator(terms, system, simplified=True)
     return sum_operator
 
 

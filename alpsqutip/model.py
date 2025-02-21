@@ -8,8 +8,8 @@ from typing import Optional
 
 from alpsqutip.alpsmodels import ModelDescriptor
 from alpsqutip.geometry import GraphDescriptor
+from alpsqutip.settings import LATTICE_LIB_FILE, MODEL_LIB_FILE
 from alpsqutip.utils import eval_expr
-
 
 class SystemDescriptor:
     """
@@ -122,7 +122,7 @@ class SystemDescriptor:
 
                 global_qn_terms.append(LocalOperator(site, operator, self))
 
-            global_qn = OneBodyOperator(tuple(global_qn_terms), self, True)
+            global_qn = OneBodyOperator(tuple(global_qn_terms), self, True).simplify()
 
             if bool(global_qn):
                 self.operators["global_operators"][constraint_qn] = global_qn
@@ -302,6 +302,7 @@ class SystemDescriptor:
 
             result = eval_expr(bond_op_descriptor, parms_and_ops)
             if result is not None and not isinstance(result, str):
+                result = result.simplify()
                 self.operators["bond_operators"][
                     (
                         name,
@@ -451,7 +452,7 @@ class SystemDescriptor:
             )
             site_terms = tuple(term for term in site_terms if term)
         except ValueError as exc:
-            logging.warning(f"{exc.args} Aborting evaluation of {name}.")
+            logging.debug(f"{exc.args} Aborting evaluation of {name}.")
             model.global_ops.pop(name)
             return None
 
@@ -464,7 +465,7 @@ class SystemDescriptor:
             bond_terms = tuple(term for term in bond_terms if term)
 
         except ValueError as exc:
-            logging.warning(f"{exc.args} Aborting evaluation of {name}.")
+            logging.debug(f"{exc.args} Aborting evaluation of {name}.")
             model.global_ops.pop(name)
             return None
 
@@ -472,25 +473,48 @@ class SystemDescriptor:
             result = SumOperator(site_terms + bond_terms, self, True)
         else:
             result = OneBodyOperator(site_terms, self, True)
+        result = result.simplify()
         self.operators["global_operators"][name] = result
         return result
 
 
 def build_spin_chain(length: int = 2, field=0.0):
     """Build a spin chain of length `l`"""
+    parameters = {"L": length, "a": 1, "h": field, "J": 1, "Jz0": 1, "Jxy0": 1}
+    return build_system("chain lattice", "spin",  **parameters)
+
+
+def build_system(
+    geometry_name: str = "chain lattice",
+    model_name: str = "spin",
+    models_lib_file=MODEL_LIB_FILE,
+    lattice_lib_file=LATTICE_LIB_FILE,
+    **kwargs,
+) -> SystemDescriptor:
+    """
+    Build a SystemDescriptor from the names of
+    the geometry and the model.
+
+    lattice_lib_file: str
+         
+
+    **kwargs: Optional keyword parameters are passed to the model.
+
+
+    """
     # pylint: disable=import-outside-toplevel
     from alpsqutip.alpsmodels import model_from_alps_xml
 
     # pylint: disable=import-outside-toplevel
     from alpsqutip.geometry import graph_from_alps_xml
 
-    # pylint: disable=import-outside-toplevel
-    from alpsqutip.settings import LATTICE_LIB_FILE, MODEL_LIB_FILE
+    print("loading model", model_name, " over graph", geometry_name)
 
-    return SystemDescriptor(
-        model=model_from_alps_xml(MODEL_LIB_FILE, "spin"),
-        graph=graph_from_alps_xml(
-            LATTICE_LIB_FILE, "chain lattice", parms={"L": length, "a": 1}
-        ),
-        parms={"h": field, "J": 1, "Jz0": 1, "Jxy0": 1},
-    )
+    parms = {"L": 4, "J": 1, "Jz0": 1, "Jxy0": 1, "a":1}
+    parms.update(kwargs)
+    model = model_from_alps_xml(models_lib_file, model_name, parms)
+    graph = graph_from_alps_xml(lattice_lib_file, geometry_name, parms)
+
+    assert model is not None
+    assert graph is not None
+    return SystemDescriptor(graph, model, parms)
