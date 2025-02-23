@@ -44,7 +44,7 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
         self.free_energy = 0.0
         self.prefactor = prefactor
         self.normalized = normalized
-        self.system = system or k.system
+        self.system = k.system.union(system)
 
     def __mul__(self, operand):
         if isinstance(operand, (int, float, complex)):
@@ -102,7 +102,7 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
             rho, log_prefactor = safe_exp_and_normalize(
                 -self.k
             )  # pylint: disable=unused-variable
-            self.k = self.k + log_prefactor
+            self.k = (self.k + log_prefactor).simplify()
             self.free_energy = -log_prefactor
             self.normalized = True
         return self
