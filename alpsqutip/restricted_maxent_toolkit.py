@@ -2,6 +2,7 @@
 Functions used to run MaxEnt simulations.
 """
 
+import logging
 from typing import Callable, List
 
 import numpy as np
@@ -17,20 +18,14 @@ from alpsqutip.operators import (
     ScalarOperator,
     SumOperator,
 )
-from alpsqutip.operators.functions import anticommutator, commutator, relative_entropy
+from alpsqutip.operators.functions import anticommutator, commutator
 from alpsqutip.operators.states import (
     GibbsProductDensityOperator,
     ProductDensityOperator,
 )
 
 # function used to safely and robustly map K-states to states
-from alpsqutip.proj_evol import safe_exp_and_normalize
 from alpsqutip.qutip_tools.tools import schmidt_dec_firsts_last_qutip_operator
-
-
-def safe_expm_and_normalize(op):
-    """Alias to safe_exp_and_normalize."""
-    return safe_exp_and_normalize(op)
 
 
 def fetch_covar_scalar_product(sigma):
@@ -388,21 +383,17 @@ def mft_state_it(k_op, sigma=None, max_it=100):
         neg_log_sigma = -sigma.logm()
     else:
         neg_log_sigma = -sigma.logm()
-        print("log sigma of type ", type(neg_log_sigma), "from type", type(sigma))
         if not isinstance(sigma, GibbsProductDensityOperator):
             sigma = GibbsProductDensityOperator(neg_log_sigma)
 
-    system = sigma.system
     rel_s = 10000
 
     for it in range(max_it):
         k_one_body = project_operator_to_m_body(k_op, 1, sigma)
-        if hasattr(k_one_body, "terms"):
-            print([(type(t), t.acts_over()) for t in k_one_body.terms])
         new_sigma = GibbsProductDensityOperator(k_one_body)
         k_one_body = new_sigma.logm()
         rel_s_new = np.real(sigma.expect(k_op - k_one_body))
-        print("     S(curr||target)=", rel_s_new)
+        logging.debug("     S(curr||target)=", rel_s_new)
         if it > 5 and rel_s_new > 2 * rel_s:
             break
         rel_s = rel_s_new

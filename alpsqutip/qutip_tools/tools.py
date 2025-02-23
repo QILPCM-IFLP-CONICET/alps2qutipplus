@@ -6,6 +6,7 @@ from functools import reduce
 from itertools import combinations
 from typing import Iterator, List, Tuple
 
+import numpy as np
 from numpy import ndarray, zeros as np_zeros
 from qutip import (  # type: ignore[import-untyped]
     Qobj,
@@ -379,3 +380,22 @@ def project_qutip_to_m_body(op_qutip: Qobj, m_max=2, local_sigmas=None) -> Qobj:
                 )
                 result += new_term
     return result + scalar_term
+
+
+def safe_exp_and_normalize(operator: Qobj) -> Tuple[Qobj, float]:
+    """
+    Compute the decomposition of exp(operator) as rho*exp(f)
+    with f = Tr[exp(operator)], for operator a Qutip operator.
+
+    operator: Qobj
+
+    result: Tuple[Qobj, float]
+         (exp(operator)/f , f)
+
+    """
+    k_0 = max(np.real(operator.eigenenergies(sparse=True, sort="high", eigvals=3)))
+    op_exp = (operator - k_0).expm()
+    op_exp_tr = op_exp.tr()
+    op_exp = op_exp * (1.0 / op_exp_tr)
+    k_0 = np.log(op_exp_tr) + k_0
+    return op_exp, k_0

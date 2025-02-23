@@ -18,6 +18,9 @@ from alpsqutip.operators.basic import (
 from alpsqutip.operators.qutip import QutipOperator
 from alpsqutip.operators.states.basic import ProductDensityOperator
 from alpsqutip.operators.states.qutip import QutipDensityOperator
+from alpsqutip.qutip_tools.tools import (
+    safe_exp_and_normalize as safe_exp_and_normalize_qobj,
+)
 
 
 def k_by_site_from_operator(k: Operator) -> Dict[str, Operator]:
@@ -175,21 +178,18 @@ def safe_exp_and_normalize_qutip_operator(operator):
     )
 
 
-def safe_exp_and_normalize_qobj(operator):
-    from alpsqutip.operators.functions import eigenvalues
-
-    k_0 = max(np.real(eigenvalues(operator, sparse=True, sort="high", eigvals=3)))
-    op_exp = (operator - k_0).expm()
-    op_exp_tr = op_exp.tr()
-    op_exp = op_exp * (1.0 / op_exp_tr)
-    k_0 = np.log(op_exp_tr) + k_0
-    return op_exp, k_0
-
-
 def safe_exp_and_normalize(operator):
-    """Compute `expm(operator)/Z` and `log(Z)`.
-    `Z=expm(operator).tr()` in a safe way.
     """
+    Compute the decomposition of exp(operator) as rho*exp(f)
+    with f = Tr[exp(operator)], for operator a Qutip operator.
+
+    operator: Operator | Qobj
+
+    result: Tuple[Operator|Qobj, float]
+         (exp(operator)/f , f)
+
+    """
+
     if isinstance(operator, ScalarOperator):
         system = operator.system
         ln_z = sum((np.log(dim) for dim in system.dimensions.values()))
