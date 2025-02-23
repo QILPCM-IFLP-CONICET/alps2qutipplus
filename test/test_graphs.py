@@ -4,15 +4,15 @@ Basic unit test.
 
 import matplotlib.pyplot as plt
 
-from alpsqutip.alpsmodels import list_operators_in_alps_xml, model_from_alps_xml
-from alpsqutip.geometry import graph_from_alps_xml, list_graph_in_alps_xml
+from alpsqutip.alpsmodels import list_models_in_alps_xml, model_from_alps_xml
+from alpsqutip.geometry import graph_from_alps_xml, list_geometries_in_alps_xml
 from alpsqutip.settings import FIGURES_DIR, LATTICE_LIB_FILE, MODEL_LIB_FILE
 
 from .helper import alert
 
 
 def test_load_and_plot_graph():
-    for name in list_graph_in_alps_xml(LATTICE_LIB_FILE):
+    for name in list_geometries_in_alps_xml():
         try:
             g = graph_from_alps_xml(
                 LATTICE_LIB_FILE,
@@ -34,7 +34,7 @@ def test_load_and_plot_graph():
         plt.savefig(FIGURES_DIR + f"/{name}.png")
     alert(1, "models:")
 
-    for modelname in list_operators_in_alps_xml(MODEL_LIB_FILE):
+    for modelname in list_models_in_alps_xml():
         alert(1, "\n       ", modelname)
         alert(1, 40 * "*")
         try:

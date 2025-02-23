@@ -8,10 +8,11 @@ from typing import Optional, Tuple
 import numpy as np
 from numpy.random import rand
 
+from alpsqutip.settings import LATTICE_LIB_FILE
 from alpsqutip.utils import eval_expr, find_ref, next_name
 
 
-def list_graph_in_alps_xml(filename="lattices.xml") -> Tuple[str]:
+def list_geometries_in_alps_xml(filename=LATTICE_LIB_FILE) -> Tuple[str]:
     """
     List all the graph names in a lattice.xml ALPS file
     """
@@ -33,7 +34,7 @@ def list_graph_in_alps_xml(filename="lattices.xml") -> Tuple[str]:
 
 
 def graph_from_alps_xml(
-    filename="lattices.xml", name="rectangular lattice", parms=None
+    filename=LATTICE_LIB_FILE, name="rectangular lattice", parms=None
 ):
     """
     Load from `filename` xml library a Graph or LatticeGraph of name

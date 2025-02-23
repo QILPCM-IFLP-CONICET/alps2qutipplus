@@ -8,10 +8,11 @@ from typing import Optional
 
 import qutip  # type: ignore[import-untyped]
 
+from alpsqutip.settings import MODEL_LIB_FILE
 from alpsqutip.utils import eval_expr, find_ref
 
 
-def list_operators_in_alps_xml(filename="models.xml"):
+def list_models_in_alps_xml(filename=MODEL_LIB_FILE):
     """
     List the models available in the library
     """
@@ -83,7 +84,7 @@ def build_local_basis_from_qn_descriptors(
     return {"qns": qn_indx, "basis": basis_vectors}
 
 
-def model_from_alps_xml(filename="lattices.xml", name="spin", parms=None):
+def model_from_alps_xml(filename=MODEL_LIB_FILE, name="spin", parms=None):
     """
     Load from `filename` xml library a model of name
     `name`, using `parms` as parameters.

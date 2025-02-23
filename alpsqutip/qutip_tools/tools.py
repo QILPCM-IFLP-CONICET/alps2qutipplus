@@ -393,7 +393,10 @@ def safe_exp_and_normalize(operator: Qobj) -> Tuple[Qobj, float]:
          (exp(operator)/f , f)
 
     """
-    k_0 = max(np.real(operator.eigenenergies(sparse=True, sort="high", eigvals=3)))
+    num_eigvals = min(3, operator.shape[0])
+    k_0 = max(
+        np.real(operator.eigenenergies(sparse=True, sort="high", eigvals=num_eigvals))
+    )
     op_exp = (operator - k_0).expm()
     op_exp_tr = op_exp.tr()
     op_exp = op_exp * (1.0 / op_exp_tr)

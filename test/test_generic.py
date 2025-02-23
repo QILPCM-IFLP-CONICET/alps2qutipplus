@@ -2,8 +2,8 @@
 Basic unit test.
 """
 
-from alpsqutip.alpsmodels import list_operators_in_alps_xml, model_from_alps_xml
-from alpsqutip.geometry import graph_from_alps_xml, list_graph_in_alps_xml
+from alpsqutip.alpsmodels import list_models_in_alps_xml, model_from_alps_xml
+from alpsqutip.geometry import graph_from_alps_xml, list_geometries_in_alps_xml
 from alpsqutip.model import SystemDescriptor
 from alpsqutip.settings import LATTICE_LIB_FILE, MODEL_LIB_FILE
 from alpsqutip.utils import eval_expr
@@ -32,8 +32,8 @@ def test_eval_expr():
 
 def test_load_all_models_and_lattices():
     """Try to load each model and lattice."""
-    models = list_operators_in_alps_xml(MODEL_LIB_FILE)
-    graphs = list_graph_in_alps_xml(LATTICE_LIB_FILE)
+    models = list_models_in_alps_xml()
+    graphs = list_geometries_in_alps_xml()
 
     for model_name in models:
         print(model_name, "\n", 10 * "*")
