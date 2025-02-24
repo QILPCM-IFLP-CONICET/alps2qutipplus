@@ -258,16 +258,10 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
         else:
             subsystem = self.system.subsystem(sites)
 
-        k_by_site = self.k_by_site
+        k_by_site = {site:localstate for site, localstate in self.k_by_site.items() if site in sites}
+        print({site:localstate.tr() for site, localstate in k_by_site.items() })
         return GibbsProductDensityOperator(
-            OneBodyOperator(
-                tuple(
-                    LocalOperator(site, k_by_site[site], subsystem)
-                    for site in sites
-                    if site in k_by_site
-                ),
-                subsystem,
-            ),
+            k_by_site,
             self.prefactor,
             subsystem,
             True,
@@ -282,7 +276,7 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
             local_states,
             self.prefactor,
             system=self.system,
-            normalize=False,
+            normalize=True,
         )
 
     def to_qutip(self, block: Optional[Tuple[str]] = None):

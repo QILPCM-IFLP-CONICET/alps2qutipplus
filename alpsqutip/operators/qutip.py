@@ -46,7 +46,7 @@ class QutipOperator(Operator):
         names: Optional[Dict[str, int]] = None,
         prefactor=1,
     ):
-        assert isinstance(qoperator, Qobj), "qoperator should be a Qutip Operator"
+        assert isinstance(qoperator, Qobj), f"qoperator should be a Qutip Operator. Was {type(qoperator)}"
         if system is None:
             dims = qoperator.dims[0]
             model = qutip_model_from_dims(dims)

@@ -287,4 +287,14 @@ def is_one_body_operator(operator) -> bool:
     return len(operator.acts_over()) < 2
 
 
+GIBBS_GENERATOR_TESTS = {
+    key: val for key, val in operator_type_cases.items() if val.isherm
+}
+
+PRODUCT_GIBBS_GENERATOR_TESTS = {
+    key: val for key, val in GIBBS_GENERATOR_TESTS.items() if is_one_body_operator(val)
+}
+
+
+
 print("loaded")

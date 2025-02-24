@@ -140,6 +140,7 @@ class DensityOperatorMixin:
 
         block = tuple(sorted(self.system.sites))
         names = {name: pos for pos, name in enumerate(block)}
+        print(type(self), "to qutip")
         rho_qutip = self.to_qutip(block)
         return QutipDensityOperator(
             rho_qutip, names=names, system=self.system, prefactor=1

@@ -3,6 +3,8 @@ Basic unit test for states.
 """
 
 from test.helper import (
+    GIBBS_GENERATOR_TESTS,
+    PRODUCT_GIBBS_GENERATOR_TESTS,
     check_equality,
     check_operator_equality,
     is_one_body_operator,
@@ -23,13 +25,6 @@ from alpsqutip.operators.states.utils import safe_exp_and_normalize
 
 # from alpsqutip.settings import VERBOSITY_LEVEL
 
-
-GIBBS_GENERATOR_TESTS = {
-    key: val for key, val in operator_type_cases.items() if val.isherm
-}
-PRODUCT_GIBBS_GENERATOR_TESTS = {
-    key: val for key, val in GIBBS_GENERATOR_TESTS.items() if is_one_body_operator(val)
-}
 
 
 def do_test_expect(rho, sigma_dict):
