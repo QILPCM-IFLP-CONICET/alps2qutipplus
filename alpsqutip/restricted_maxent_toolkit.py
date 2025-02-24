@@ -530,10 +530,7 @@ def project_qutip_operator_to_m_body(full_operator: Operator, m_max=2, sigma_0=N
     system = full_operator.system
     if full_operator.is_zero:
         return ScalarOperator(0, system)
-    assert sigma_0 is None or hasattr(
-        sigma_0, "expect"
-    ), f"{
-        type(sigma_0)} invalid"
+    assert sigma_0 is None or hasattr(sigma_0, "expect"), f"{type(sigma_0)} invalid"
     if sigma_0 is None:
         sigma_0 = ProductDensityOperator({}, system=system)
     assert sigma_0 is None or hasattr(
