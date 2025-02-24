@@ -456,9 +456,7 @@ def project_operator_to_m_body(full_operator: Operator, m_max=2, sigma_0=None):
     relative to the local states `local_sigmas`.
     If `local_sigmas` is not given, maximally mixed states are assumed.
     """
-    assert sigma_0 is None or hasattr(
-        sigma_0, "expect"
-    ), f"{        type(sigma_0)} invalid"
+    assert sigma_0 is None or hasattr(sigma_0, "expect"), f"{type(sigma_0)} invalid"
     if m_max == 0:
         if sigma_0:
             return ScalarOperator(sigma_0.expect(full_operator), full_operator.system)
@@ -530,13 +528,10 @@ def project_qutip_operator_to_m_body(full_operator: Operator, m_max=2, sigma_0=N
     system = full_operator.system
     if full_operator.is_zero:
         return ScalarOperator(0, system)
-    assert sigma_0 is None or hasattr(sigma_0, "expect"), f"{type(sigma_0)} invalid"
+    assert sigma_0 is None or hasattr(sigma_0, "expect"), f"{type(sigma_0)} is invalid."
     if sigma_0 is None:
         sigma_0 = ProductDensityOperator({}, system=system)
-    assert sigma_0 is None or hasattr(
-        sigma_0, "expect"
-    ), f"{
-        type(sigma_0)} invalid"
+    assert sigma_0 is None or hasattr(sigma_0, "expect"), f"{type(sigma_0)} is invalid."
     if m_max == 0:
         return ScalarOperator(sigma_0.expect(full_operator), system)
 
@@ -558,7 +553,7 @@ def project_qutip_operator_to_m_body(full_operator: Operator, m_max=2, sigma_0=N
     sigma_firsts = sigma_0.partial_trace(frozenset(rest_sitenames))
     assert hasattr(
         sigma_firsts, "expect"
-    ), f"{type(sigma_0)}->{type(sigma_firsts)} invalid"
+    ), f"{type(sigma_0)}->{type(sigma_firsts)} is invalid."
 
     firsts_ops = [
         QutipOperator(op_c, names=rest_sitenames, system=system)
