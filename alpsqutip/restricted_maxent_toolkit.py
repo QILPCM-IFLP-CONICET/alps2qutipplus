@@ -458,8 +458,7 @@ def project_operator_to_m_body(full_operator: Operator, m_max=2, sigma_0=None):
     """
     assert sigma_0 is None or hasattr(
         sigma_0, "expect"
-    ), f"{
-        type(sigma_0)} invalid"
+    ), f"{        type(sigma_0)} invalid"
     if m_max == 0:
         if sigma_0:
             return ScalarOperator(sigma_0.expect(full_operator), full_operator.system)
