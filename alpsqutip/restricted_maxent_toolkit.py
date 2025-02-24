@@ -379,7 +379,7 @@ def mft_state_it(k_op, sigma=None, max_it=100):
         MFT process.
     """
     if sigma is None:
-        sigma = GibbsProductDensityOperator(local_states={}, system=k_op.system)
+        sigma = GibbsProductDensityOperator(k={}, system=k_op.system)
         neg_log_sigma = -sigma.logm()
     else:
         neg_log_sigma = -sigma.logm()
@@ -393,7 +393,8 @@ def mft_state_it(k_op, sigma=None, max_it=100):
         new_sigma = GibbsProductDensityOperator(k_one_body)
         k_one_body = new_sigma.logm()
         rel_s_new = np.real(sigma.expect(k_op - k_one_body))
-        logging.debug("     S(curr||target)=", rel_s_new)
+        rel_entropy_txt = f"     S(curr||target)={rel_s_new}"
+        logging.debug(rel_entropy_txt)
         if it > 5 and rel_s_new > 2 * rel_s:
             break
         rel_s = rel_s_new
@@ -455,7 +456,10 @@ def project_operator_to_m_body(full_operator: Operator, m_max=2, sigma_0=None):
     relative to the local states `local_sigmas`.
     If `local_sigmas` is not given, maximally mixed states are assumed.
     """
-    assert sigma_0 is None or hasattr(sigma_0, "expect"), f"{type(sigma_0)} invalid"
+    assert sigma_0 is None or hasattr(
+        sigma_0, "expect"
+    ), f"{
+        type(sigma_0)} invalid"
     if m_max == 0:
         if sigma_0:
             return ScalarOperator(sigma_0.expect(full_operator), full_operator.system)
@@ -527,10 +531,16 @@ def project_qutip_operator_to_m_body(full_operator: Operator, m_max=2, sigma_0=N
     system = full_operator.system
     if full_operator.is_zero:
         return ScalarOperator(0, system)
-    assert sigma_0 is None or hasattr(sigma_0, "expect"), f"{type(sigma_0)} invalid"
+    assert sigma_0 is None or hasattr(
+        sigma_0, "expect"
+    ), f"{
+        type(sigma_0)} invalid"
     if sigma_0 is None:
         sigma_0 = ProductDensityOperator({}, system=system)
-    assert sigma_0 is None or hasattr(sigma_0, "expect"), f"{type(sigma_0)} invalid"
+    assert sigma_0 is None or hasattr(
+        sigma_0, "expect"
+    ), f"{
+        type(sigma_0)} invalid"
     if m_max == 0:
         return ScalarOperator(sigma_0.expect(full_operator), system)
 

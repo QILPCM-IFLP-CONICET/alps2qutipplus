@@ -15,10 +15,8 @@ from alpsqutip.operators.states.basic import (
     DensityOperatorMixin,
     ProductDensityOperator,
 )
-from alpsqutip.operators.states.utils import (
-    k_by_site_from_operator,
-    safe_exp_and_normalize,
-)
+from alpsqutip.operators.states.utils import k_by_site_from_operator
+from alpsqutip.qutip_tools.tools import safe_exp_and_normalize
 
 
 class GibbsDensityOperator(DensityOperatorMixin, Operator):
@@ -88,8 +86,10 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
         """
         return self.k.acts_over()
 
-    def expect(self, obs: Union[Operator, Iterable]) -> Union[np.ndarray, dict, Number]:
-        return self.to_qutip_operator().expect(obs)
+    def expect(
+        self, obs_objs: Union[Operator, Iterable]
+    ) -> Union[np.ndarray, dict, Number]:
+        return self.to_qutip_operator().expect(obs_objs)
 
     def logm(self):
         self.normalize()
@@ -110,9 +110,9 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
         all_sites = tuple(system.sites)
         if block is None:
             block = tuple(sorted(all_sites))
-        elif len(block)<len(all_sites):
+        elif len(block) < len(all_sites):
             block = block + tuple(
-                sorted((site for site in all_sites if site not in block))                
+                sorted((site for site in all_sites if site not in block))
             )
 
         if not self.normalized:
@@ -162,11 +162,18 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
                     system = k.system
                 self.system = system
                 k_by_site = k_by_site_from_operator(k)
-                k_by_site.update({site: system.site_identity(site)/system.dimensions[site] for site in system.sites if site not in k_by_site})
-            except AttributeError:
-                raise ValueError(
-                    f"k_by_site must be a dictionary or an Operator. Got {type(k)}"
+                k_by_site.update(
+                    {
+                        site: system.site_identity(site) / system.dimensions[site]
+                        for site in system.sites
+                        if site not in k_by_site
+                    }
                 )
+            except AttributeError as exc:
+                raise ValueError(
+                    f"k_by_site must be a dictionary or an Operator. Got {
+                        type(k)}"
+                ) from exc
 
         assert system is not None
         if normalized:
@@ -223,11 +230,10 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
         """
         return set(site for site in self.k_by_site)
 
-    def expect(self, obs: Union[Operator, Iterable]) -> Union[np.ndarray, dict, Number]:
-        # TODO: write a better implementation
-        if isinstance(obs, Operator):
-            return (self.to_product_state()).expect(obs)
-        return super().expect(obs)
+    def expect(
+        self, obs_objs: Union[Operator, Iterable]
+    ) -> Union[np.ndarray, dict, Number]:
+        return (self.to_product_state()).expect(obs_objs)
 
     @property
     def isdiagonal(self) -> bool:
