@@ -137,10 +137,11 @@ class QutipOperator(Operator):
         )
 
     def eigenenergies(self):
-        return self.operator.eigenenergies()
+        return self.operator.eigenenergies()*self.prefactor
 
     def eigenstates(self):
-        return self.operator.eigenstates()
+        evals, evecs = self.operator.eigenstates()
+        return evals*self.prefactor, evecs
 
     def inv(self):
         """the inverse of the operator"""

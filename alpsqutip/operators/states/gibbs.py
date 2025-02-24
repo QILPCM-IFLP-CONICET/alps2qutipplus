@@ -99,31 +99,31 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
     def normalize(self) -> Operator:
         """Normalize the operator in a way that exp(-K).tr()==1"""
         if not self.normalized:
-            rho, log_prefactor = safe_exp_and_normalize(
-                -self.k
-            )  # pylint: disable=unused-variable
-            self.k = (self.k + log_prefactor).simplify()
-            self.free_energy = -log_prefactor
-            self.normalized = True
+            self.to_qutip(tuple())
         return self
 
     def partial_trace(self, sites: Union[frozenset, SystemDescriptor]):
         return self.to_qutip_operator().partial_trace(sites)
 
     def to_qutip(self, block: Optional[Tuple[str]] = None):
+        system = self.system
+        all_sites = tuple(system.sites)
         if block is None:
-            block = tuple(sorted(self.system.sites))
-        else:
+            block = tuple(sorted(all_sites))
+        elif len(block)<len(all_sites):
             block = block + tuple(
-                (site for site in sorted(self.acts_over()) if site not in block)
+                sorted((site for site in all_sites if site not in block))                
             )
 
         if not self.normalized:
-            rho, log_prefactor = safe_exp_and_normalize(-self.k)
+            rho_qutip, log_prefactor = safe_exp_and_normalize(-self.k.to_qutip())
             self.k = self.k + log_prefactor
             self.free_energy = -log_prefactor
             self.normalized = True
-            return rho.to_qutip(block)
+            if block == all_sites:
+                return rho_qutip
+            return rho_qutip.permute((all_sites.index(site) for site in block))
+
         result = (-self.k).to_qutip(block).expm()
         return result
 
@@ -162,6 +162,7 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
                     system = k.system
                 self.system = system
                 k_by_site = k_by_site_from_operator(k)
+                k_by_site.update({site: system.site_identity(site)/system.dimensions[site] for site in system.sites if site not in k_by_site})
             except AttributeError:
                 raise ValueError(
                     f"k_by_site must be a dictionary or an Operator. Got {type(k)}"
@@ -177,6 +178,7 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
             else:
                 self.free_energies = {site: 0 for site in k_by_site}
         else:
+            print("processing non normalized entries.")
             f_locals = {
                 site: -np.log((-l_op).expm().tr()) for site, l_op in k_by_site.items()
             }
