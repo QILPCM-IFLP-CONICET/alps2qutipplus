@@ -171,8 +171,7 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
                 )
             except AttributeError as exc:
                 raise ValueError(
-                    (f"k_by_site must be a dictionary or an Operator. "
-                    f"Got {type(k)}")
+                    f"k_by_site must be a dictionary or an Operator. Got {type(k)}"
                 ) from exc
 
         assert system is not None
