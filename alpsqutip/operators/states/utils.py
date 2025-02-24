@@ -48,7 +48,7 @@ def k_by_site_from_operator(k: Operator) -> Dict[str, Operator]:
             site = next(iter(system.dimensions))
             return {site: prefactor * system.site_identity(site)}
         if prefactor == 1:
-            return sites_op
+            return {site: op for site, op in sites_op.items()}
         return {site: op * prefactor for site, op in sites_op.items()}
     if isinstance(k, SumOperator):
         result = {}
