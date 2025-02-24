@@ -10,11 +10,12 @@ from numpy import real
 from numpy.linalg import svd
 
 from alpsqutip.operators import Operator
+from alpsqutip.operators.functions import anticommutator
 
 #  ### Functions that build the scalar products ###
 
 
-def fetch_kubo_scalar_product(sigma: Operator, threshold=0):
+def fetch_kubo_scalar_product(sigma: Operator, threshold=0) -> Callable:
     """
     Build a KMB scalar product function
     associated to the state `sigma`
@@ -46,7 +47,7 @@ def fetch_kubo_scalar_product(sigma: Operator, threshold=0):
     return ksp
 
 
-def fetch_kubo_int_scalar_product(sigma: Operator):
+def fetch_kubo_int_scalar_product(sigma: Operator) -> Callable:
     """
     Build a KMB scalar product function
     associated to the state `sigma`, from
@@ -72,10 +73,23 @@ def fetch_kubo_int_scalar_product(sigma: Operator):
     return return_func
 
 
-def fetch_corr_scalar_product(sigma: Operator):
+def fetch_covar_scalar_product(sigma: Operator) -> Callable:
     """
-    Build a correlation scalar product function
-    associated to the state `sigma`
+    Returns a scalar product function based on the covariance of a density
+    operator.
+
+    The scalar product for two operators op1 and op2 is defined as:
+        0.5 * Tr(sigma * {op1†, op2}),
+    where sigma is a density operator, {op1†, op2} is the anticommutator of
+    the Hermitian conjugate of op1 and op2, and Tr denotes the trace.
+
+    Parameters:
+        sigma: The density operator (quantum state) used to define the scalar
+        product.
+
+    Returns:
+        A function that takes two operators (op1, op2) and computes their
+        covariance-based scalar product.
     """
 
     def sp_(op1: Operator, op2: Operator):
@@ -90,16 +104,14 @@ def fetch_corr_scalar_product(sigma: Operator):
         else:
             op1_dag = op1.dag()
         if op1_dag is op2:
-            w = (op1_dag * op2).simplify()
+            return sigma.expect((op1_dag * op2).simplify())
         else:
-            w = (op1_dag * op2 + op2 * op1_dag).simplify()
-
-        return 0.5 * sigma.expect(w)
+            return 0.5 * sigma.expect(anticommutator(op1_dag, op2))
 
     return sp_
 
 
-def fetch_HS_scalar_product():
+def fetch_HS_scalar_product() -> Callable:
     """
     Build a HS scalar product function
     """
@@ -109,10 +121,23 @@ def fetch_HS_scalar_product():
 # ### Generic functions depending on the SP ###
 
 
-def gram_matrix(basis: list, sp: Callable):
+def gram_matrix(basis, sp: Callable):
     """
-    Build the Gramm matrix for the scalar
-    product `sp` and the operators in  `basis`
+    Computes the Gram matrix of a given operator basis using a scalar product.
+
+    The Gram matrix is symmetric and defined as:
+        Gij = sp(op1, op2)
+    where `sp` is the scalar product function and `op1, op2` are operators from
+    the basis.
+
+    Parameters:
+        basis: A list of basis operators.
+        sp: A callable that defines a scalar product function between two
+        operators.
+
+    Returns:
+        A symmetric NumPy array representing the Gram matrix, with entries
+        rounded to 14 decimal places.
     """
     size = len(basis)
     result = np.zeros([size, size], dtype=float)
@@ -120,49 +145,188 @@ def gram_matrix(basis: list, sp: Callable):
     for i, op1 in enumerate(basis):
         for j, op2 in enumerate(basis):
             if j < i:
-                continue
+                continue  # Use symmetry: Gij = Gji.
             entry = np.real(sp(op1, op2))
             if i == j:
-                result[i, i] = entry
+                result[i, i] = entry  # Diagonal elements.
             else:
-                result[i, j] = entry
-                result[j, i] = entry
+                result[i, j] = result[j, i] = entry  # Off-diagonal elements.
 
-    return result
+    return result.round(14)
 
 
-def orthogonalize_basis(basis: list, sp: Callable, idop: Optional[Operator] = None):
+def orthogonalize_basis(basis, sp: callable, tol=1e-5):
     """
-    Orthogonalize a `basis` of operators regarding
-    the scalar product `sp`, by looking at the eigenvalues
-    of the Gramm's matrix.
+    Orthogonalize a given basis of operators using the default method.
 
-    If `idop` is given, ensures that the ortogonalized basis
-    has elements orthogonal to the identity operator.
+    Parameters:
+        basis: A list of operators (or matrices) to be orthogonalized.
+        sp: A callable that defines the scalar product function between two
+        operators.
+        tol: A tolerance value (default: 1e-5) for verifying the orthogonality
+        of the resulting basis.
+
+    Returns:
+        orth_basis: A list of orthogonalized operators, normalized with respect
+        to the scalar product `sp`.
+
+    Raises:
+        AssertionError: If the orthogonalized basis does not satisfy
+        orthonormality within the specified tolerance.
     """
+    return orthogonalize_basis_gs(basis, sp, tol)
 
-    if idop:
-        idop = idop * sp(idop, idop) ** (-0.5)
-        basis = [idop] + [op - sp(idop, op) * idop for op in basis]
 
-    normalizations = [np.real(sp(op, op)) for op in basis]
-    basis = [
-        op / (norm) ** 0.5 for op, norm in zip(basis, normalizations) if norm > 1.0e-100
+def orthogonalize_basis_gs(basis, sp: callable, tol=1e-5):
+    """
+    Orthogonalizes a given basis of operators using a scalar product and the
+    Gram-Schmidt method.
+
+    Parameters:
+        basis: A list of operators (or matrices) to be orthogonalized.
+        sp: A callable that defines the scalar product function between two
+        operators.
+        tol: A tolerance value (default: 1e-5) for verifying the orthogonality
+        of the resulting basis.
+
+    Returns:
+        orth_basis: A list of orthogonalized operators, normalized with respect
+        to the scalar product `sp`.
+
+    Raises:
+        AssertionError: If the orthogonalized basis does not satisfy
+        orthonormality within the specified tolerance.
+    """
+    orth_basis = []
+    for op_orig in basis:
+        norm: float = abs(sp(op_orig, op_orig)) ** 0.5
+        if norm < tol:
+            continue
+        changed = False
+        new_op = op_orig / norm
+        for prev_op in orth_basis:
+            overlap = sp(prev_op, new_op)
+            if abs(overlap) > tol:
+                new_op -= prev_op * overlap
+                changed = True
+        if changed:
+            norm = np.real(sp(new_op, new_op) ** 0.5)
+            if norm < tol:
+                continue
+            new_op = new_op / norm
+        orth_basis.append(new_op)
+    return orth_basis
+
+
+def orthogonalize_basis_cholesky(basis, sp: callable, tol=1e-5):
+    """
+    Orthogonalizes a given basis of operators using a scalar product and the
+    Cholesky decomposition
+    method.
+
+    Parameters:
+        basis: A list of operators (or matrices) to be orthogonalized.
+        sp: A callable that defines the scalar product function between two
+        operators.
+        tol: A tolerance value (default: 1e-5) for verifying the orthogonality
+        of the resulting basis.
+
+    Returns:
+        orth_basis: A list of orthogonalized operators, normalized with respect
+        to the scalar product `sp`.
+
+    Raises:
+        AssertionError: If the orthogonalized basis does not satisfy
+        orthonormality within the specified tolerance.
+    """
+    local_basis = basis
+
+    # Compute the inverse Gram matrix for the given basis
+    cholesky_gram_matrix = linalg.cholesky(
+        gram_matrix(basis=local_basis, sp=sp), lower=False
+    )
+    linv_t = linalg.inv(cholesky_gram_matrix).transpose()
+
+    # Construct the orthogonalized basis by linear combinations of
+    # the original basis
+    orth_basis = [
+        sum(local_basis[s] * linv_t[i, s] for s in range(i + 1))
+        for i in range(len(local_basis))
     ]
 
-    for _ in range(1):
-        gs = gram_matrix(basis, sp)
-        _, evals, rvecs = svd(gs)
-        coeffs = [(vec) / (val**0.5) for vec, val in zip(rvecs, evals) if val > 1e-20]
-        basis = [sum(c * op for c, op in zip(w, basis)) for w in coeffs]
-    return basis
+    # Verify the orthogonality by checking that the Gram matrix is
+    # approximately the identity matrix
+    assert (
+        linalg.norm(gram_matrix(basis=orth_basis, sp=sp) - np.identity(len(orth_basis)))
+        < tol
+    ), "Error: Basis not correctly orthogonalized"
+
+    return orth_basis
 
 
-def project_op(op: Operator, orthogonal_basis: list, sp: Callable):
+def orthogonalize_basis_svd(basis, sp: callable, tol=1e-5):
     """
-    Compute the components of the orthogonal projection of
-    `op` over the basis `orthogonal_basis` regarding the scalar
-    product `sp`.
+    Orthogonalizes a given basis of operators using a scalar product and the
+    svd decomposition method.
+
+    Parameters:
+        basis: A list of operators (or matrices) to be orthogonalized.
+        sp: A callable that defines the scalar product function between two
+        operators.
+        tol: A tolerance value (default: 1e-5) for verifying the orthogonality
+        of the resulting basis.
+
+    Returns:
+        orth_basis: A list of orthogonalized operators, normalized with respect
+        to the scalar product `sp`.
+
+    Raises:
+        AssertionError: If the orthogonalized basis does not satisfy
+        orthonormality within the specified tolerance.
+    """
+    local_basis = basis
+
+    # Compute the inverse Gram matrix for the given basis
+    inv_gram_matrix = linalg.inv(gram_matrix(basis=local_basis, sp=sp))
+
+    # Construct the orthogonalized basis by linear combinations of
+    # the original basis
+    orth_basis = [
+        sum(
+            linalg.sqrtm(inv_gram_matrix)[j][i] * local_basis[j]
+            for j in range(len(local_basis))
+        )
+        for i in range(len(local_basis))
+    ]
+
+    # Verify the orthogonality by checking that the Gram matrix is
+    # approximately the identity matrix
+    assert (
+        linalg.norm(gram_matrix(basis=orth_basis, sp=sp) - np.identity(len(orth_basis)))
+        < tol
+    ), "Error: Basis not correctly orthogonalized"
+
+    return orth_basis
+
+
+def project_op(op, orthogonal_basis, sp: Callable):
+    """
+    Projects an operator onto an orthogonal basis using a scalar product.
+
+    This computes the components of the orthogonal projection of `op`
+    over the basis `orthogonal_basis` with respect to the scalar product `sp`.
+
+    Parameters:
+        op: The operator to be projected (e.g., a matrix or quantum operator).
+        orthogonal_basis: A list of orthogonalized operators to serve as the
+        projection basis.
+        sp: A callable that defines the scalar product function between
+        two operators.
+
+    Returns:
+        A NumPy array containing the projection coefficients, where the i-th
+        coefficient represents the projection of `op` onto the i-th element
+        of `orthogonal_basis`.
     """
     return np.array([sp(op2, op) for op2 in orthogonal_basis])
 
