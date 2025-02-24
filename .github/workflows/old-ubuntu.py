@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        python-version: ['3.13', '3.12', '3.10']
+        python-version: ['3.8']
     steps:
     - uses: actions/checkout@v3
     - name: Set up Python ${{ matrix.python-version }}
@@ -24,6 +24,7 @@ jobs:
     - name: Install Alps2Qutip with full dependencies
       run: |
         python -m pip install --upgrade pip
+        pip install qutip=4.1
         pip install pytest
         pip install -e .
     - name: Test Alps2Qutip
