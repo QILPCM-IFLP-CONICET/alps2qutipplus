@@ -184,7 +184,6 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
             else:
                 self.free_energies = {site: 0 for site in k_by_site}
         else:
-            print("processing non normalized entries.")
             f_locals = {
                 site: -np.log((-l_op).expm().tr()) for site, l_op in k_by_site.items()
             }
@@ -259,7 +258,6 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
             subsystem = self.system.subsystem(sites)
 
         k_by_site = {site:localstate for site, localstate in self.k_by_site.items() if site in sites}
-        print({site:localstate.tr() for site, localstate in k_by_site.items() })
         return GibbsProductDensityOperator(
             k_by_site,
             self.prefactor,

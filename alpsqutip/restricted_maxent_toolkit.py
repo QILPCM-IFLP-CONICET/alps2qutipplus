@@ -21,7 +21,7 @@ from alpsqutip.operators.states import (
     GibbsProductDensityOperator,
     ProductDensityOperator,
 )
-from alpsqutip.operators.states.meanfield import mft_state_it
+from alpsqutip.operators.states.meanfield import project_meanfield
 
 # function used to safely and robustly map K-states to states
 from alpsqutip.qutip_tools.tools import schmidt_dec_firsts_last_qutip_operator

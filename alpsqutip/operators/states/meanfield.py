@@ -141,8 +141,26 @@ def one_body_from_qutip_operator(
         system,
     )
 
+def project_meanfield(k_op, sigma0=None, max_it=100):
+    """
+    Look for a one-body operator kmf s.t
+    Tr (k_op-kmf)exp(-kmf)=0
 
-def mft_state_it(k_op, sigma=None, max_it=100):
+    following a self-consistent, iterative process
+    assuming that exp(-kmf)~sigma0
+    
+    If sigma0 is not provided, sigma0 is taken as the
+    maximally mixed state.
+    
+    """
+    sigma0 = self_consistent_project_meanfield(k_op, sigma0, max_it)[1]
+
+    return project_operator_to_m_body(k_op, 1, sigma0)
+
+
+
+
+def self_consistent_project_meanfield(k_op, sigma=None, max_it=100)->Tuple[Operator, Operator]:
     """
     Iteratively computes the one-body component from a QuTip operator and state
     using a self-consistent Mean-Field Projection (MF).
@@ -150,7 +168,8 @@ def mft_state_it(k_op, sigma=None, max_it=100):
     Parameters:
         k_op: The initial operator, a QuTip.Qobj, to be decomposed into
         one-body components.
-        sigma: The referential state to be used in the calculations.
+        sigma: The referential state to be used as the initial guess
+               in the calculations.
         k_0: if given, the logarithm of sigma.
         max_it: Maximum number of iterations.
 
@@ -174,77 +193,17 @@ def mft_state_it(k_op, sigma=None, max_it=100):
     for it in range(max_it):
         k_one_body = project_operator_to_m_body(k_op, 1, sigma)
         new_sigma = GibbsProductDensityOperator(k_one_body)
-        k_one_body = new_sigma.logm()
+        k_one_body = -new_sigma.logm()
         rel_s_new = np.real(sigma.expect(k_op - k_one_body))
         rel_entropy_txt = f"     S(curr||target)={rel_s_new}"
-        logging.debug(rel_entropy_txt)
-        if it > 5 and rel_s_new > 2 * rel_s:
+        # logging.debug(rel_entropy_txt)
+        print(rel_entropy_txt)
+        if it > 20 and rel_s_new > 2 * rel_s:
             break
         rel_s = rel_s_new
         sigma = new_sigma
 
     return k_one_body, sigma
-
-
-def project_meanfield(operator, sigma0=None, **kwargs):
-    """
-    Build a self-consistent meand field approximation
-    of -log(exp(-operator)) as a OneBodyOperator
-    """
-
-    # Operators that are already "self consistent
-    if type(operator) in (LocalOperator, ScalarOperator, OneBodyOperator):
-        return operator
-
-    if sigma0 is None:
-        sigma0 = ProductDensityOperator({}, system=operator.system)
-
-    # cache already computed mean values
-    current_sigma = kwargs.get("current_sigma", None)
-    if sigma0 is not current_sigma:
-        kwargs["current_sigma"] = sigma0
-        kwargs["meanvalues"] = {}
-    meanvalues = kwargs["meanvalues"]
-
-    if isinstance(operator, SumOperator):
-        return sum(project_meanfield(term, sigma0, **kwargs) for term in operator.terms)
-
-    def get_meanvalue(name, op_l):
-        """compute the local mean values regarding sigma0"""
-        key = (name, id(op_l))
-        result = meanvalues.get(key, None)
-        if result is None:
-            sigma_local = sigma0.partial_trace(frozenset((name,))).to_qutip()
-            result = (op_l * sigma_local).tr()
-            meanvalues[key] = result
-        return result
-
-    if isinstance(operator, ProductOperator):
-        system = operator.system
-        # Compute the mean values of each factor
-        factors = {
-            name: get_meanvalue(name, factor)
-            for name, factor in operator.sites_op.items()
-        }
-
-        # The projection for a product operator
-        # o = o_1 ... o_i ... o_j
-        # is given by
-        # prod_i <op_i> + sum_i  (op_i-<op_i> ) * prod_{j\neq i} <op_j>
-
-        # Here we collect these terms. The first term
-        # is the expectation value of the operator
-        terms = [np.prod(list(factors.values()))]
-
-        for name, local_op in operator.sites_op.items():
-            prefactor = np.prod([f for name_f, f in factors.items() if name_f != name])
-            loc_mv = factors[name]
-            terms.append(
-                LocalOperator(name, prefactor * (local_op - loc_mv), system=system)
-            )
-        return sum(terms)
-
-    raise TypeError(f"Unsupported operator type '{type(operator)}'")
 
 
 def project_operator_to_m_body(full_operator: Operator, m_max=2, sigma_0=None):
@@ -286,7 +245,7 @@ def project_operator_to_m_body(full_operator: Operator, m_max=2, sigma_0=None):
         sigma_rest = sigma_0
         if sigma_0 is not None:
             sigma_rest = sigma_rest.partial_trace(frozenset(rest))
-            sigma_first = sigma_0.partial_trace(frozenset(first_site)).to_qutip()
+            sigma_first = sigma_0.partial_trace(frozenset({first_site})).to_qutip()
             weight_first = op_first * sigma_first
         else:
             weight_first = weight_first / op_first.dimensions[0][0]
@@ -382,30 +341,6 @@ def project_qutip_operator_to_m_body(full_operator: Operator, m_max=2, sigma_0=N
             return terms[0]
         return SumOperator(tuple(terms), system).simplify()
     return ScalarOperator(0, full_operator.system)
-
-
-def self_consistent_meanfield(operator, sigma0=None, max_it=100) -> ProductOperator:
-    """
-    Build a self-consistent approximation of
-    rho \\propto \\exp(-operator)
-    as a product operator.
-
-    If sigma0 is given, it is used as the first step.
-    """
-    operator = operator.flat()
-    if sigma0 is None:
-        sigma0 = ProductDensityOperator({}, system=operator.system)
-        sigma0 = sigma0 / sigma0.tr()
-
-    curr_it = max_it
-    while curr_it:
-        curr_it -= 1
-        kappa = project_meanfield(operator, sigma0)
-        # sigma0 = (-kappa).expm()
-        # sigma0 = sigma0 / sigma0.tr()
-        sigma0 = GibbsProductDensityOperator(kappa)
-
-    return sigma0
 
 
 def self_consistent_quadratic_mfa(ham: Operator):
