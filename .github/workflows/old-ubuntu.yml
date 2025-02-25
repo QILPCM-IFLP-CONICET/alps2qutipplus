@@ -25,7 +25,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install --no-build-isolation cython
-        pip install --no-build-isolation qutip==4.2
+        pip install --no-build-isolation qutip==4.0
         pip install pytest
         pip install -e .
     - name: Test Alps2Qutip
