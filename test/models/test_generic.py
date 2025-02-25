@@ -8,7 +8,7 @@ from alpsqutip.model import SystemDescriptor
 from alpsqutip.settings import LATTICE_LIB_FILE, MODEL_LIB_FILE
 from alpsqutip.utils import eval_expr
 
-from .helper import alert
+from test.helper import alert
 
 
 def test_eval_expr():

@@ -8,7 +8,7 @@ from alpsqutip.alpsmodels import list_models_in_alps_xml, model_from_alps_xml
 from alpsqutip.geometry import graph_from_alps_xml, list_geometries_in_alps_xml
 from alpsqutip.settings import FIGURES_DIR, LATTICE_LIB_FILE, MODEL_LIB_FILE
 
-from .helper import alert
+from test.helper import alert
 
 
 def test_load_and_plot_graph():
