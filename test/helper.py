@@ -153,6 +153,10 @@ operator_type_cases = {
     "sum operator, hermitician from non hermitician": splus_A * splus_B
     + sminus_A * sminus_B,
     "sum operator, anti-hermitician": splus_A * splus_B - sminus_A * sminus_B,
+    "sum local operators": splus_A + sminus_A,
+    "sum local qutip operators": 2.*splus_A.to_qutip_operator() + sminus_A.to_qutip_operator()*2.,
+    "sum local qutip operator and local operator": (2.*splus_A.to_qutip_operator() + sminus_A*2. + splus_B.to_qutip_operator()*2 + 2*sminus_B),
+    "sum two-body qutip operators": .25*(splus_A.to_qutip_operator() * splus_B.to_qutip_operator()) + (sminus_A*sminus_B)*.25,
     "qutip operator": hamiltonian.to_qutip_operator(),
     "hermitician quadratic operator": build_quadratic_form_from_operator(hamiltonian),
     "non hermitician quadratic operator": build_quadratic_form_from_operator(
