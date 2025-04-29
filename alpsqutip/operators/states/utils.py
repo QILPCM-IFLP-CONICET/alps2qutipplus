@@ -75,7 +75,13 @@ def k_by_site_from_operator(k: Operator) -> Dict[str, Operator]:
                 result[site] += offset
             return k_by_site_from_operator(ScalarOperator(offset, k.system))
         return result
-    raise TypeError(f"k of {type(k)} not allowed.")
+    if isinstance(k, QutipOperator):
+        acts_over = k.acts_over()
+        if len(acts_over)==1:
+            return {tuple(acts_over)[0]: k.to_qutip(tuple())}
+        else:
+            raise ValueError(f"QutipOperator acting {acts_over} not allowed.")
+    raise TypeError(f"k=\n{k}\n of {type(k)} not allowed.")
 
 
 def safe_exp_and_normalize_localop(operator: LocalOperator):

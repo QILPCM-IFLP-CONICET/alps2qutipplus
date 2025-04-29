@@ -1,9 +1,11 @@
 """
 Basic unit test.
 """
+from functools import reduce
 
 from alpsqutip.operators import (
     LocalOperator,
+    OneBodyOperator,
     Operator,
     ProductOperator,
     QutipOperator,
@@ -15,6 +17,11 @@ from alpsqutip.operators.simplify import group_terms_by_blocks, simplify_sum_ope
 from alpsqutip.operators.states import GibbsDensityOperator, GibbsProductDensityOperator
 
 from .helper import OPERATORS, check_equality, check_operator_equality, full_test_cases
+
+
+def union_set(set_list):
+    """Union of a list of sets"""
+    return reduce(lambda x, y: x.union(y), set_list, set())
 
 
 def compute_size(operator: Operator):
@@ -166,9 +173,29 @@ def test_sum_as_blocks():
         assert check_operator_equality(operator_sab, operator)
         if not isinstance(operator_sab, SumOperator):
             continue
-        acts_over_lst = [frozenset(term.acts_over()) for term in operator_sab.terms]
-        acts_over_set = set(acts_over_lst)
-        assert all(
-            block is None or len(block) != 1 for block in acts_over_set
-        ), f"One body terms should be together. Found {acts_over_set}"
-        assert len(acts_over_set) == len(acts_over_lst), "Repeated blocks found"
+
+        origin_acts_over = operator.acts_over()
+        new_acts_over = operator_sab.acts_over()
+        assert (
+            site in origin_acts_over for site in new_acts_over
+        ), "new acts_over must be a subset of the original"
+
+        if isinstance(operator_sab, OneBodyOperator):
+            assert len(operator_sab.terms) > 1, "Should have more than a single term"
+            assert len(operator_sab.terms) == len(
+                union_set(term.acts_over() for term in operator_sab.terms)
+            ), "each term should act over a different site"
+        else:  # Proper sum operator
+            block_terms = [term.acts_over() for term in operator_sab.terms]
+            assert (
+                len([block for block in block_terms if block and len(block) < 2]) < 2
+            ), (
+                "If more than a single LocalOperator term is present, "
+                "should be inside a OneBodyOperator term"
+            )
+            visited = []
+            for block in block_terms:
+                assert (
+                    block not in visited
+                ), f"{block} is associated to more than a term"
+                visited.append(block)
