@@ -14,7 +14,7 @@ from qutip import (  # type: ignore[import-untyped]
 from qutip.core.qobj import Qobj  # type: ignore[import-untyped]
 
 from alpsqutip.operators.states import safe_exp_and_normalize
-from alpsqutip.scalarprod import gram_matrix, orthogonalize_basis, project_op
+from alpsqutip.scalarprod import gram_matrix, orthogonalize_basis, operator_components
 
 
 def project_K_to_sep(K, maxit=200):

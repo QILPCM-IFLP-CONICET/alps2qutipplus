@@ -257,7 +257,11 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
         else:
             subsystem = self.system.subsystem(sites)
 
-        k_by_site = {site:localstate for site, localstate in self.k_by_site.items() if site in sites}
+        k_by_site = {
+            site: localstate
+            for site, localstate in self.k_by_site.items()
+            if site in sites
+        }
         return GibbsProductDensityOperator(
             k_by_site,
             self.prefactor,

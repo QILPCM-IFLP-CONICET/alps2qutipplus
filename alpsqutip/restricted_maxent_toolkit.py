@@ -60,6 +60,7 @@ def build_hierarchical_basis(generator, seed_op, deep) -> List[Operator]:
             # Generate new operators by computing the commutator
             # of the generator with the last operator.
             basis.append(commutator(generator, 1j * basis[-1]))
+
     return basis
 
 

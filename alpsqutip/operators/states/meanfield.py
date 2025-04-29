@@ -8,9 +8,11 @@ from itertools import combinations
 from typing import Optional, Tuple, Union
 
 import numpy as np
+import qutip
 from qutip import Qobj
 from scipy.optimize import minimize_scalar
 
+from alpsqutip.qutip_tools.tools import schmidt_dec_firsts_last_qutip_operator
 from alpsqutip.operators import (
     ScalarOperator,
     LocalOperator,
@@ -56,7 +58,6 @@ def one_body_from_qutip_operator(
     if isinstance(operator, (ScalarOperator, OneBodyOperator, LocalOperator)):
         return operator
 
-
     # Determine the system and ensure that operator is a QutipOperator.
 
     system = sigma0.system if sigma0 is not None else None
@@ -74,8 +75,10 @@ def one_body_from_qutip_operator(
 
     # Reduce the problem to the subsystem where operator acts:
     sigma0 = sigma0.partial_trace(subsystem)
-    operator = QutipOperator(operator.to_qutip(tuple()),names=site_names, system=subsystem)
-    
+    operator = QutipOperator(
+        operator.to_qutip(tuple()), names=site_names, system=subsystem
+    )
+
     # Scalar term
     scalar_term_value = sigma0.expect(operator)
     scalar_term = ScalarOperator(scalar_term_value, system)
@@ -141,6 +144,7 @@ def one_body_from_qutip_operator(
         system,
     )
 
+
 def project_meanfield(k_op, sigma0=None, max_it=100):
     """
     Look for a one-body operator kmf s.t
@@ -148,19 +152,19 @@ def project_meanfield(k_op, sigma0=None, max_it=100):
 
     following a self-consistent, iterative process
     assuming that exp(-kmf)~sigma0
-    
+
     If sigma0 is not provided, sigma0 is taken as the
     maximally mixed state.
-    
+
     """
     sigma0 = self_consistent_project_meanfield(k_op, sigma0, max_it)[1]
 
     return project_operator_to_m_body(k_op, 1, sigma0)
 
 
-
-
-def self_consistent_project_meanfield(k_op, sigma=None, max_it=100)->Tuple[Operator, Operator]:
+def self_consistent_project_meanfield(
+    k_op, sigma=None, max_it=100
+) -> Tuple[Operator, Operator]:
     """
     Iteratively computes the one-body component from a QuTip operator and state
     using a self-consistent Mean-Field Projection (MF).

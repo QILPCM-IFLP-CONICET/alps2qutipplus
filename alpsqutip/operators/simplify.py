@@ -219,7 +219,6 @@ def simplify_qutip_sums(sum_operator):
     if len(terms) == 1:
         return terms[0]
     if changed:
-        print("changed...")
         return SumOperator(terms, system, simplified=True)
     return sum_operator
 

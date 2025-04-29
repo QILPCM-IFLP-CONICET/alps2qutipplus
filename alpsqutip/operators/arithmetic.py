@@ -368,7 +368,9 @@ class OneBodyOperator(SumOperator):
             elif isinstance(term, QutipOperator):
                 terms.append(
                     LocalOperator(
-                        tuple(term.acts_over())[0], term.operator, system=term.system
+                        tuple(term.acts_over())[0],
+                        term.operator * term.prefactor,
+                        system=term.system,
                     )
                 )
             else:
@@ -445,7 +447,7 @@ def _(x_op: SumOperator, y_value: Number):
 
     terms = tuple(term * y_value for term in x_op.terms)
     isherm = x_op._isherm and (not isinstance(y_value, complex) or y_value.imag == 0)
-    return SumOperator(terms, x_op.system, isherm)
+    return SumOperator(terms, x_op.system, isherm).simplify()
 
 
 @Operator.register_mul_handler(

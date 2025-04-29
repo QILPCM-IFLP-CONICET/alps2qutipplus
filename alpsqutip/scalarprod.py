@@ -309,9 +309,10 @@ def orthogonalize_basis_svd(basis, sp: callable, tol=1e-5):
     return orth_basis
 
 
-def project_op(op, orthogonal_basis, sp: Callable):
+def operator_components(op, orthogonal_basis, sp: Callable):
     """
-    Projects an operator onto an orthogonal basis using a scalar product.
+    Get the components of the projection of an operator onto an orthogonal
+    basis using a scalar product.
 
     This computes the components of the orthogonal projection of `op`
     over the basis `orthogonal_basis` with respect to the scalar product `sp`.

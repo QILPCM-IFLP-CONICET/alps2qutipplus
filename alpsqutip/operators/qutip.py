@@ -46,7 +46,9 @@ class QutipOperator(Operator):
         names: Optional[Dict[str, int]] = None,
         prefactor=1,
     ):
-        assert isinstance(qoperator, Qobj), f"qoperator should be a Qutip Operator. Was {type(qoperator)}"
+        assert isinstance(
+            qoperator, Qobj
+        ), f"qoperator should be a Qutip Operator. Was {type(qoperator)}"
         if system is None:
             dims = qoperator.dims[0]
             model = qutip_model_from_dims(dims)
@@ -95,7 +97,9 @@ class QutipOperator(Operator):
         )
 
     def __repr__(self) -> str:
-        return "qutip interface operator for\n" + repr(self.operator)
+        return f"qutip interface operator for {self.prefactor} x  \n" + repr(
+            self.operator
+        )
 
     def acts_over(self) -> set:
         return frozenset(self.site_names.keys())
