@@ -25,8 +25,18 @@ from alpsqutip.qutip_tools.tools import (
 
 def k_by_site_from_operator(k: Operator) -> Dict[str, Operator]:
     """
-    Return a tuple of a dictionary mapping site names
-    to local generators, and a scalar offset.
+    Maps an operator `k` to a dictionary where keys are site identifiers and 
+    values are corresponding operators.
+
+    Args:
+        k (Operator): The operator to map.
+
+    Returns:
+        Dict[str, Operator]: A dictionary mapping site identifiers to operators.
+
+    Raises:
+        TypeError: If the operator type is not supported.
+        ValueError: If `QutipOperator` acts on multiple sites.
     """
     if isinstance(k, ScalarOperator):
         system = k.system
@@ -77,11 +87,14 @@ def k_by_site_from_operator(k: Operator) -> Dict[str, Operator]:
         return result
     if isinstance(k, QutipOperator):
         acts_over = k.acts_over()
-        if len(acts_over)==1:
-            return {tuple(acts_over)[0]: k.to_qutip(tuple())}
-        else:
-            raise ValueError(f"QutipOperator acting {acts_over} not allowed.")
-    raise TypeError(f"k=\n{k}\n of {type(k)} not allowed.")
+        if acts_over is not None:
+            if len(acts_over)==0:
+                return {}
+            if len(acts_over)==1:
+                site, = acts_over
+                return {site: k.to_qutip(tuple())}
+        raise ValueError(f"Invalid QutipOperator: acts_over={acts_over}. Expected a single act-over site.")
+    raise TypeError(f"Unsupported operator type: {type(k)}.")
 
 
 def safe_exp_and_normalize_localop(operator: LocalOperator):
