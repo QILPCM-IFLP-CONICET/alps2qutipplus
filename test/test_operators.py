@@ -81,6 +81,10 @@ def test_acts_over():
         },
         "log unitary": {"1[0]", "1[3]", "1[2]", "1[1]"},
         "single interaction term": {"1[1]", "1[0]"},
+        "sum local operators": {"1[0]"},
+        "sum local qutip operators": {"1[0]"},
+        "sum local qutip operator and local operator": {"1[0]", "1[1]"},
+        "sum two-body qutip operators": {"1[0]", "1[1]"},
     }
 
     for name, operator in full_test_cases.items():

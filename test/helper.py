@@ -153,6 +153,18 @@ operator_type_cases = {
     "sum operator, hermitician from non hermitician": splus_A * splus_B
     + sminus_A * sminus_B,
     "sum operator, anti-hermitician": splus_A * splus_B - sminus_A * sminus_B,
+    "sum local operators": splus_A + sminus_A,
+    "sum local qutip operators": 2.0 * splus_A.to_qutip_operator()
+    + sminus_A.to_qutip_operator() * 2.0,
+    "sum local qutip operator and local operator": (
+        2.0 * splus_A.to_qutip_operator()
+        + sminus_A * 2.0
+        + splus_B.to_qutip_operator() * 2
+        + 2 * sminus_B
+    ),
+    "sum two-body qutip operators": 0.25
+    * (splus_A.to_qutip_operator() * splus_B.to_qutip_operator())
+    + (sminus_A * sminus_B) * 0.25,
     "qutip operator": hamiltonian.to_qutip_operator(),
     "hermitician quadratic operator": build_quadratic_form_from_operator(hamiltonian),
     "non hermitician quadratic operator": build_quadratic_form_from_operator(
@@ -294,7 +306,6 @@ GIBBS_GENERATOR_TESTS = {
 PRODUCT_GIBBS_GENERATOR_TESTS = {
     key: val for key, val in GIBBS_GENERATOR_TESTS.items() if is_one_body_operator(val)
 }
-
 
 
 print("loaded")
