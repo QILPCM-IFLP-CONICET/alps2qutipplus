@@ -2,9 +2,6 @@
 Test functions that implement the mean field approximation.
 """
 
-
-import pytest
-
 from test.helper import (
     CHAIN_SIZE,
     PRODUCT_GIBBS_GENERATOR_TESTS,
@@ -17,6 +14,7 @@ from test.helper import (
     test_cases_states,
 )
 
+import pytest
 
 from alpsqutip.operators import (
     LocalOperator,
@@ -64,13 +62,11 @@ EXPECTED_PROJECTIONS["sx_total"] = {name: sx_total for name in TEST_STATES}
 #               CHAIN_SIZE/4- <sx>^2(CHAIN_SIZE-1)*CHAIN_SIZE
 
 EXPECTED_PROJECTIONS["sx_total + sx_total^2"] = {
-    name: (sx_total + CHAIN_SIZE * 0.25)
-    for name in TEST_STATES
+    name: (sx_total + CHAIN_SIZE * 0.25) for name in TEST_STATES
 }
 EXPECTED_PROJECTIONS["sx_A*sx_B"] = {
     name: ScalarOperator(0, system) for name in TEST_STATES
 }
-
 
 
 def no_test_nbody_projection():
@@ -88,19 +84,21 @@ def no_test_nbody_projection():
     assert not failed
 
 
-@pytest.mark.parametrize(
-    ["op_name", "op_test"], list(TEST_OPERATORS.items())
-)
+@pytest.mark.parametrize(["op_name", "op_test"], list(TEST_OPERATORS.items()))
 def test_meanfield_projection(op_name, op_test):
     """Test the mean field projection over different states"""
     expected = EXPECTED_PROJECTIONS[op_name]
     for state_name, sigma0 in TEST_STATES.items():
-        print("projecting <<", op_name ,">> in mean field relative to <<"+ state_name +">>")
+        print(
+            "projecting <<",
+            op_name,
+            ">> in mean field relative to <<" + state_name + ">>",
+        )
         result = project_meanfield(op_test, sigma0)
-        print("sigma0",sigma0)
+        print("sigma0", sigma0)
         print("expected:\n", expected[state_name])
         print("result:\n", result)
-        
+
         assert check_operator_equality(
             expected[state_name], result
         ), f"failed projection {state_name} for {op_name}"

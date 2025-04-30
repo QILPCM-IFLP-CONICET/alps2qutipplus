@@ -25,7 +25,7 @@ from alpsqutip.qutip_tools.tools import (
 
 def k_by_site_from_operator(k: Operator) -> Dict[str, Operator]:
     """
-    Maps an operator `k` to a dictionary where keys are site identifiers and 
+    Maps an operator `k` to a dictionary where keys are site identifiers and
     values are corresponding operators.
 
     Args:
@@ -88,12 +88,14 @@ def k_by_site_from_operator(k: Operator) -> Dict[str, Operator]:
     if isinstance(k, QutipOperator):
         acts_over = k.acts_over()
         if acts_over is not None:
-            if len(acts_over)==0:
+            if len(acts_over) == 0:
                 return {}
-            if len(acts_over)==1:
-                site, = acts_over
+            if len(acts_over) == 1:
+                (site,) = acts_over
                 return {site: k.to_qutip(tuple())}
-        raise ValueError(f"Invalid QutipOperator: acts_over={acts_over}. Expected a single act-over site.")
+        raise ValueError(
+            f"Invalid QutipOperator: acts_over={acts_over}. Expected a single act-over site."
+        )
     raise TypeError(f"Unsupported operator type: {type(k)}.")
 
 

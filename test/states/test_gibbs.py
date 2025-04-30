@@ -26,7 +26,6 @@ from alpsqutip.operators.states.utils import safe_exp_and_normalize
 # from alpsqutip.settings import VERBOSITY_LEVEL
 
 
-
 def do_test_expect(rho, sigma_dict):
     """Compare expectation values"""
 

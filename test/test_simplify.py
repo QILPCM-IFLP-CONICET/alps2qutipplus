@@ -1,6 +1,7 @@
 """
 Basic unit test.
 """
+
 from functools import reduce
 
 from alpsqutip.operators import (

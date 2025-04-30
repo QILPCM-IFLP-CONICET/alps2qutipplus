@@ -2,13 +2,13 @@
 Basic unit test.
 """
 
+from test.helper import alert
+
 from alpsqutip.alpsmodels import list_models_in_alps_xml, model_from_alps_xml
 from alpsqutip.geometry import graph_from_alps_xml, list_geometries_in_alps_xml
 from alpsqutip.model import SystemDescriptor
 from alpsqutip.settings import LATTICE_LIB_FILE, MODEL_LIB_FILE
 from alpsqutip.utils import eval_expr
-
-from test.helper import alert
 
 
 def test_eval_expr():
