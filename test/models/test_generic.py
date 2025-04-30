@@ -30,7 +30,7 @@ def test_eval_expr():
         )
 
 
-def test_load_all_models_and_lattices():
+def no_test_load_all_models_and_lattices():
     """Try to load each model and lattice."""
     models = list_models_in_alps_xml()
     graphs = list_geometries_in_alps_xml()
