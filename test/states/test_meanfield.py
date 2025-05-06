@@ -4,14 +4,14 @@ Test functions that implement the mean field approximation.
 
 from test.helper import (
     CHAIN_SIZE,
-    PRODUCT_GIBBS_GENERATOR_TESTS,
-    check_operator_equality,
     OPERATOR_TYPE_CASES,
+    PRODUCT_GIBBS_GENERATOR_TESTS,
+    TEST_CASES_STATES,
+    check_operator_equality,
     sx_A,
     sx_B,
     sx_total,
     system,
-    TEST_CASES_STATES,
 )
 
 import pytest

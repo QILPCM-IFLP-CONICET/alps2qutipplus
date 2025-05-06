@@ -4,7 +4,7 @@ Basic unit test.
 
 from alpsqutip.operators.quadratic import build_quadratic_form_from_operator
 
-from .helper import check_operator_equality, OPERATOR_TYPE_CASES
+from .helper import OPERATOR_TYPE_CASES, check_operator_equality
 
 CHAIN_SIZE = 6
 

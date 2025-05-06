@@ -17,7 +17,7 @@ from alpsqutip.operators.quadratic import QuadraticFormOperator
 from alpsqutip.operators.simplify import group_terms_by_blocks, simplify_sum_operator
 from alpsqutip.operators.states import GibbsDensityOperator, GibbsProductDensityOperator
 
-from .helper import OPERATORS, check_equality, check_operator_equality, FULL_TEST_CASES
+from .helper import FULL_TEST_CASES, OPERATORS, check_equality, check_operator_equality
 
 
 def union_set(set_list):

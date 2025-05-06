@@ -3,13 +3,13 @@ Basic unit test for states.
 """
 
 from test.helper import (
+    OBSERVABLE_CASES,
+    TEST_CASES_STATES,
     alert,
     check_equality,
     expect_from_qutip,
-    OBSERVABLE_CASES,
     subsystems,
     sz_total,
-    TEST_CASES_STATES,
 )
 
 from alpsqutip.operators import OneBodyOperator

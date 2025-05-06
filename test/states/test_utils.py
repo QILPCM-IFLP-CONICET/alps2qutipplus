@@ -1,4 +1,4 @@
-from test.helper import check_operator_equality, OPERATOR_TYPE_CASES
+from test.helper import OPERATOR_TYPE_CASES, check_operator_equality
 
 import numpy as np
 

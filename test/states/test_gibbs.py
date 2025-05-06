@@ -4,11 +4,11 @@ Basic unit test for states.
 
 from test.helper import (
     GIBBS_GENERATOR_TESTS,
+    OPERATOR_TYPE_CASES,
     PRODUCT_GIBBS_GENERATOR_TESTS,
     check_equality,
     check_operator_equality,
     is_one_body_operator,
-    OPERATOR_TYPE_CASES,
     sites,
 )
 

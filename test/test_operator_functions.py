@@ -17,13 +17,13 @@ from alpsqutip.utils import operator_to_wolfram
 from .helper import (
     CHAIN_SIZE,
     OPERATORS,
+    TEST_CASES_STATES,
     check_equality,
     check_operator_equality,
     hamiltonian,
     sites,
     system,
     sz_total,
-    TEST_CASES_STATES,
 )
 
 # from alpsqutip.settings import VERBOSITY_LEVEL

@@ -15,10 +15,10 @@ from alpsqutip.operators.states import DensityOperatorMixin
 
 from .helper import (
     CHAIN_SIZE,
-    check_operator_equality,
     FULL_TEST_CASES,
-    hamiltonian,
     OPERATOR_TYPE_CASES,
+    check_operator_equality,
+    hamiltonian,
     sites,
     sx_A as local_sx_A,
     sy_A,
