@@ -164,34 +164,22 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
             self.system = system
             k_by_site = k_by_site_from_operator(k)
 
-        try:   
-            # Over each site with terms not explicitly given, just set the
-            # normalization times the identity.
-            k_by_site.update(
-                {
-                    site:  system.site_identity(site) * np.log(system.dimensions[site])
-                    for site in system.sites
-                    if site not in k_by_site
-                }
-            )
-        except AttributeError as exc:
-            raise ValueError(
-                    f"k_by_site must be a dictionary or an Operator. Got {type(k)}"
-                ) from exc
-
         if normalized:
-            self.free_energies = {
-                site: 0 for site in system.sites
-            }
+            f_locals = {site: 0 for site in k_by_site}
         else:
             f_locals = {
                 site: -np.log((-l_op).expm().tr()) for site, l_op in k_by_site.items()
             }
-            self.free_energies = f_locals
-            k_by_site = {
-                site: local_k - f_locals[site] for site, local_k in k_by_site.items()
-            }
 
+        # Add missing terms
+        for site in system.sites:
+            if site in k_by_site:
+                continue
+            f_local = np.log(system.dimensions[site])
+            f_locals[site] = -f_local
+            k_by_site[site] = system.site_identity(site) * f_local
+
+        self.free_energies = f_locals
         self.k_by_site = k_by_site
 
     def __mul__(self, operand):
