@@ -122,7 +122,7 @@ subsystems = [
 ]
 
 
-observable_cases = {
+OBSERVABLE_CASES = {
     "Identity": ScalarOperator(1.0, system),
     "sz_total": sz_total,  # OneBodyOperator
     "sx_A": sx_A,  # LocalOperator
@@ -135,7 +135,7 @@ observable_cases = {
 }
 
 
-operator_type_cases = {
+OPERATOR_TYPE_CASES = {
     "scalar, zero": ScalarOperator(0.0, system),
     "product, zero": ProductOperator({}, prefactor=0.0, system=system),
     "product, 1": ProductOperator({}, prefactor=1.0, system=system),
@@ -175,28 +175,28 @@ operator_type_cases = {
 }
 
 
-test_cases_states = {}
+TEST_CASES_STATES = {}
 
-test_cases_states["fully mixed"] = ProductDensityOperator({}, system=system)
+TEST_CASES_STATES["fully mixed"] = ProductDensityOperator({}, system=system)
 
-test_cases_states["z semipolarized"] = ProductDensityOperator(
+TEST_CASES_STATES["z semipolarized"] = ProductDensityOperator(
     {name: 0.5 * qutip.qeye(2) + 0.25 * qutip.sigmaz() for name in system.dimensions},
     1.0,
     system=system,
 )
 
-test_cases_states["x semipolarized"] = ProductDensityOperator(
+TEST_CASES_STATES["x semipolarized"] = ProductDensityOperator(
     {name: 0.5 * qutip.qeye(2) + 0.25 * qutip.sigmax() for name in system.dimensions},
     1.0,
     system=system,
 )
 
 
-test_cases_states["first full polarized"] = ProductDensityOperator(
+TEST_CASES_STATES["first full polarized"] = ProductDensityOperator(
     {sx_A.site: 0.5 * qutip.qeye(2) + 0.5 * qutip.sigmaz()}, 1.0, system=system
 )
 
-test_cases_states[
+TEST_CASES_STATES[
     "mixture of first and second partially polarized"
 ] = 0.5 * ProductDensityOperator(
     {sx_A.site: 0.5 * qutip.qeye(2) + 0.25 * qutip.sigmaz()}, 1.0, system=system
@@ -205,28 +205,28 @@ test_cases_states[
 )
 
 
-test_cases_states["gibbs_sz"] = GibbsProductDensityOperator(sz_total, system=system)
+TEST_CASES_STATES["gibbs_sz"] = GibbsProductDensityOperator(sz_total, system=system)
 
-test_cases_states["gibbs_sz_as_product"] = GibbsProductDensityOperator(
+TEST_CASES_STATES["gibbs_sz_as_product"] = GibbsProductDensityOperator(
     sz_total, system=system
 ).to_product_state()
-test_cases_states["gibbs_sz_bar"] = GibbsProductDensityOperator(
+TEST_CASES_STATES["gibbs_sz_bar"] = GibbsProductDensityOperator(
     sz_total * (-1), system=system
 )
-test_cases_states["gibbs_H"] = GibbsDensityOperator(hamiltonian, system=system)
-test_cases_states["gibbs_H"] = (
-    test_cases_states["gibbs_H"] / test_cases_states["gibbs_H"].tr()
+TEST_CASES_STATES["gibbs_H"] = GibbsDensityOperator(hamiltonian, system=system)
+TEST_CASES_STATES["gibbs_H"] = (
+    TEST_CASES_STATES["gibbs_H"] / TEST_CASES_STATES["gibbs_H"].tr()
 )
-test_cases_states["mixture"] = (
-    0.5 * test_cases_states["gibbs_H"]
-    + 0.25 * test_cases_states["gibbs_sz"]
-    + 0.25 * test_cases_states["gibbs_sz_bar"]
+TEST_CASES_STATES["mixture"] = (
+    0.5 * TEST_CASES_STATES["gibbs_H"]
+    + 0.25 * TEST_CASES_STATES["gibbs_sz"]
+    + 0.25 * TEST_CASES_STATES["gibbs_sz_bar"]
 )
 
 
-full_test_cases = {}
-full_test_cases.update(operator_type_cases)
-full_test_cases.update(test_cases_states)
+FULL_TEST_CASES = {}
+FULL_TEST_CASES.update(OPERATOR_TYPE_CASES)
+FULL_TEST_CASES.update(TEST_CASES_STATES)
 
 
 def alert(verbosity, *args):
@@ -300,7 +300,7 @@ def is_one_body_operator(operator) -> bool:
 
 
 GIBBS_GENERATOR_TESTS = {
-    key: val for key, val in operator_type_cases.items() if val.isherm
+    key: val for key, val in OPERATOR_TYPE_CASES.items() if val.isherm
 }
 
 PRODUCT_GIBBS_GENERATOR_TESTS = {

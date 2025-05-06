@@ -1,4 +1,4 @@
-from test.helper import check_operator_equality, operator_type_cases
+from test.helper import OPERATOR_TYPE_CASES, check_operator_equality
 
 import numpy as np
 
@@ -7,7 +7,7 @@ from alpsqutip.operators.states.utils import safe_exp_and_normalize
 
 def test_safe_exp_and_normalize():
 
-    for name, operator in operator_type_cases.items():
+    for name, operator in OPERATOR_TYPE_CASES.items():
         print("checking safe_exp_and_normalize for", name)
         operator_qutip = operator.to_qutip()
 

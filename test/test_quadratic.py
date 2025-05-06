@@ -4,7 +4,7 @@ Basic unit test.
 
 from alpsqutip.operators.quadratic import build_quadratic_form_from_operator
 
-from .helper import check_operator_equality, operator_type_cases
+from .helper import OPERATOR_TYPE_CASES, check_operator_equality
 
 CHAIN_SIZE = 6
 
@@ -28,7 +28,7 @@ def test_simplify_quadratic_form():
     quadratic forms, and check if simplification
     works in all the cases.
     """
-    test_cases = operator_type_cases
+    test_cases = OPERATOR_TYPE_CASES
     for name, operator in test_cases.items():
         print("\n *******\n\n name: ", name)
         quadratic_form = build_quadratic_form_from_operator(operator, simplify=False)
@@ -46,7 +46,7 @@ def test_build_quadratic():
     No assumptions on the hermiticity of the operator
     are done.
     """
-    test_cases = operator_type_cases
+    test_cases = OPERATOR_TYPE_CASES
 
     for name, operator in test_cases.items():
         print("\n *******\n\n name: ", name)
@@ -67,7 +67,7 @@ def test_build_quadratic_hermitician():
     def self_adjoint_part(op_g):
         return 0.5 * (op_g + op_g.dag())
 
-    test_cases = operator_type_cases
+    test_cases = OPERATOR_TYPE_CASES
     skip_cases = []
     for name, operator in test_cases.items():
         if name in skip_cases:
