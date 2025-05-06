@@ -18,7 +18,7 @@ from alpsqutip.qutip_tools.tools import (
 from .helper import (
     CHAIN_SIZE,
     check_operator_equality,
-    operator_type_cases,
+    OPERATOR_TYPE_CASES,
     sites,
     sx_A as LOCAL_SX_A,
     sy_B as SY_B,
@@ -189,7 +189,7 @@ def test_decompose_qutip_operators():
     test decomposition of qutip operators
     as sums of product operators
     """
-    for name, operator_case in operator_type_cases.items():
+    for name, operator_case in OPERATOR_TYPE_CASES.items():
         print("decomposing ", name)
         acts_over = tuple(sorted(operator_case.acts_over()))
         if acts_over:
@@ -265,7 +265,7 @@ def test_as_sum_of_products():
     operators back and forward
     """
     print("testing QutipOperator.as_sum_of_products")
-    for name, operator_case in operator_type_cases.items():
+    for name, operator_case in OPERATOR_TYPE_CASES.items():
         print("   operator", name, "of type", type(operator_case))
         qutip_op = operator_case.to_qutip_operator()
         # TODO: support handling hermitician operators
@@ -319,7 +319,7 @@ def test_to_qutip_operator():
         "product, zero": ScalarOperator,
         "product, 1": ScalarOperator,
     }
-    for name, op_case in operator_type_cases.items():
+    for name, op_case in OPERATOR_TYPE_CASES.items():
         expected_type = expected_types_to_qutip.get(name, QutipOperator)
         op_tqo = op_case.to_qutip_operator()
         assert isinstance(

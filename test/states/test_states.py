@@ -6,10 +6,10 @@ from test.helper import (
     alert,
     check_equality,
     expect_from_qutip,
-    observable_cases,
+    OBSERVABLE_CASES,
     subsystems,
     sz_total,
-    test_cases_states,
+    TEST_CASES_STATES,
 )
 
 from alpsqutip.operators import OneBodyOperator
@@ -19,11 +19,11 @@ from alpsqutip.operators import OneBodyOperator
 
 def test_mixtures():
     qt_test_cases = {
-        name: operator.to_qutip() for name, operator in test_cases_states.items()
+        name: operator.to_qutip() for name, operator in TEST_CASES_STATES.items()
     }
 
-    for name_rho, rho in test_cases_states.items():
-        for name_sigma, sigma in test_cases_states.items():
+    for name_rho, rho in TEST_CASES_STATES.items():
+        for name_sigma, sigma in TEST_CASES_STATES.items():
             print(".3*", name_rho, " + .7 * ", name_sigma)
             mixture = 0.3 * rho + 0.7 * sigma
             qutip_mixture = (
@@ -44,10 +44,10 @@ def test_states():
     print(80 * "=", "\n")
     assert isinstance(sz_total, OneBodyOperator)
     qt_test_cases = {
-        name: operator.to_qutip() for name, operator in test_cases_states.items()
+        name: operator.to_qutip() for name, operator in TEST_CASES_STATES.items()
     }
 
-    for name, rho in test_cases_states.items():
+    for name, rho in TEST_CASES_STATES.items():
 
         print(
             "\n     ", 120 * "@", "\n testing", name, f"({type(rho)})", "\n", 100 * "@"
@@ -68,8 +68,8 @@ def test_states():
         # Check Expectation Values
         print(" ??????????????? testing expectation values")
         print(rho.expect)
-        expectation_values = rho.expect(observable_cases)
-        qt_expectation_values = expect_from_qutip(qt_test_cases[name], observable_cases)
+        expectation_values = rho.expect(OBSERVABLE_CASES)
+        qt_expectation_values = expect_from_qutip(qt_test_cases[name], OBSERVABLE_CASES)
 
         assert isinstance(expectation_values, dict)
         assert isinstance(qt_expectation_values, dict)

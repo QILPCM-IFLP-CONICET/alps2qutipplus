@@ -8,7 +8,7 @@ from test.helper import (
     check_equality,
     check_operator_equality,
     is_one_body_operator,
-    operator_type_cases,
+    OPERATOR_TYPE_CASES,
     sites,
 )
 
@@ -29,7 +29,7 @@ from alpsqutip.operators.states.utils import safe_exp_and_normalize
 def do_test_expect(rho, sigma_dict):
     """Compare expectation values"""
 
-    for obs_name, obs_op in operator_type_cases.items():
+    for obs_name, obs_op in OPERATOR_TYPE_CASES.items():
         rho_obs_expect = rho.expect(obs_op)
         for name, sigma in sigma_dict.items():
             if sigma is None:

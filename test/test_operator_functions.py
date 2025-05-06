@@ -23,7 +23,7 @@ from .helper import (
     sites,
     system,
     sz_total,
-    test_cases_states,
+    TEST_CASES_STATES,
 )
 
 # from alpsqutip.settings import VERBOSITY_LEVEL
@@ -101,10 +101,10 @@ def test_decompose_hermitician():
 def test_relative_entropy():
 
     qutip_states = {
-        key: operator.to_qutip() for key, operator in test_cases_states.items()
+        key: operator.to_qutip() for key, operator in TEST_CASES_STATES.items()
     }
     clean = True
-    for key1, rho in test_cases_states.items():
+    for key1, rho in TEST_CASES_STATES.items():
 
         if key1 != "mixture of first and second partially polarized":
             continue
@@ -114,7 +114,7 @@ def test_relative_entropy():
         check_equality(
             qutip.entropy_relative(qutip_states[key1], qutip_states[key1]), 0
         )
-        for key2, sigma in test_cases_states.items():
+        for key2, sigma in TEST_CASES_STATES.items():
             if key2 != "fully mixed":
                 continue
             rel_entr = relative_entropy(rho, sigma)
@@ -149,7 +149,7 @@ def test_eigenvalues():
         assert min_err < 1e-6, f"closest eigenvalue at {min_err}"
 
     # Fully mixed operator
-    spectrum = sorted(eigenvalues(test_cases_states["fully mixed"]))
+    spectrum = sorted(eigenvalues(TEST_CASES_STATES["fully mixed"]))
     assert all(abs(s - 0.5**CHAIN_SIZE) < 1e-6 for s in spectrum)
 
     # Ground state energy
@@ -162,7 +162,7 @@ def test_eigenvalues():
     assert abs(e0 - e0_qutip) < 1.0e-6
 
     #  e^(sz)/Tr e^(sz)
-    spectrum = sorted(eigenvalues(test_cases_states["gibbs_sz"]))
+    spectrum = sorted(eigenvalues(TEST_CASES_STATES["gibbs_sz"]))
     expected_local_spectrum = np.array([np.exp(-0.5), np.exp(0.5)])
     expected_local_spectrum = expected_local_spectrum / sum(expected_local_spectrum)
 

@@ -16,9 +16,9 @@ from alpsqutip.operators.states import DensityOperatorMixin
 from .helper import (
     CHAIN_SIZE,
     check_operator_equality,
-    full_test_cases,
+    FULL_TEST_CASES,
     hamiltonian,
-    operator_type_cases,
+    OPERATOR_TYPE_CASES,
     sites,
     sx_A as local_sx_A,
     sy_A,
@@ -87,7 +87,7 @@ def test_acts_over():
         "sum two-body qutip operators": {"1[0]", "1[1]"},
     }
 
-    for name, operator in full_test_cases.items():
+    for name, operator in FULL_TEST_CASES.items():
         print(name)
         acts_over = operator.acts_over()
         print("    acts over ", acts_over)
@@ -104,7 +104,7 @@ def test_product_and_trace():
 
     passed = True
 
-    for name1, operator1 in full_test_cases.items():
+    for name1, operator1 in FULL_TEST_CASES.items():
         if name1 in skip_cases:
             continue
 
@@ -119,7 +119,7 @@ def test_product_and_trace():
             passed = False
             continue
 
-        for name2, operator2 in full_test_cases.items():
+        for name2, operator2 in FULL_TEST_CASES.items():
             if name2 in skip_cases:
                 continue
 
@@ -321,21 +321,21 @@ def test_arithmetic_operators():
     """
     Test consistency of arithmetic expressions
     """
-    operator_type_cases_qutip = {
-        key: operator.to_qutip() for key, operator in operator_type_cases.items()
+    OPERATOR_TYPE_CASES_qutip = {
+        key: operator.to_qutip() for key, operator in OPERATOR_TYPE_CASES.items()
     }
 
-    for key1, test_operator1 in operator_type_cases.items():
-        op1_qutip = operator_type_cases_qutip[key1]
+    for key1, test_operator1 in OPERATOR_TYPE_CASES.items():
+        op1_qutip = OPERATOR_TYPE_CASES_qutip[key1]
         result = -test_operator1
         check_operator_equality(result.to_qutip(), -op1_qutip)
 
         result = test_operator1.dag()
         check_operator_equality(result.to_qutip(), op1_qutip.dag())
 
-        for key2, test_operator2 in operator_type_cases.items():
+        for key2, test_operator2 in OPERATOR_TYPE_CASES.items():
             print("add ", key1, " and ", key2)
-            op2_qutip = operator_type_cases_qutip[key2]
+            op2_qutip = OPERATOR_TYPE_CASES_qutip[key2]
             print(type(test_operator1), "+", type(test_operator2))
             result = test_operator1 + test_operator2
 

@@ -9,8 +9,8 @@ from alpsqutip.operators import ProductOperator
 from alpsqutip.operators.basic import empty_op, is_diagonal_op, is_scalar_op
 
 from .helper import (
-    full_test_cases,
-    observable_cases,
+    FULL_TEST_CASES,
+    OBSERVABLE_CASES,
     sx_A as local_sx_A,
     sy_B,
     sz_C,
@@ -29,7 +29,7 @@ def test_empty_op():
     test for the function that checks if the operator
     is equivalent to 0.
     """
-    for name, value in full_test_cases.items():
+    for name, value in FULL_TEST_CASES.items():
         if value is None:
             continue
         value_qutip = value.to_qutip()
@@ -71,7 +71,7 @@ def test_trace():
     test for the function that checks if the operator
     is equivalent to 0.
     """
-    for name, value in full_test_cases.items():
+    for name, value in FULL_TEST_CASES.items():
         if value is None:
             continue
         # TODO: check the trace of quadratic operators.
@@ -100,7 +100,7 @@ def test_isherm_operator():
 
         assert observable.isherm, f"{key} is not hermitician?"
 
-        ham = observable_cases["hamiltonian"]
+        ham = OBSERVABLE_CASES["hamiltonian"]
         print("***addition***")
         assert (ham + 1.0).isherm
         assert (ham + sz_total).isherm
@@ -113,13 +113,13 @@ def test_isherm_operator():
         assert (sz_total.expm()).isherm
         assert (ham**3).isherm
 
-    for key, observable in observable_cases.items():
+    for key, observable in OBSERVABLE_CASES.items():
         do_test_case(key, observable)
 
 
 def test_isdiagonal():
     """test the isdiag property"""
-    for key, operator in full_test_cases.items():
+    for key, operator in FULL_TEST_CASES.items():
         print("checking diagonality in ", key, type(operator))
         qobj = operator.to_qutip()
         data_qt = qobj.data

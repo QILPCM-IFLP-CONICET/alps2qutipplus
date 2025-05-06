@@ -152,7 +152,6 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
         self.prefactor = prefactor
         if isinstance(k, dict):
             assert system is not None
-            print("k is a dict")
             self.system = system
             k_by_site = k
         else:
@@ -170,6 +169,8 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
             f_locals = {
                 site: -np.log((-l_op).expm().tr()) for site, l_op in k_by_site.items()
             }
+            for site in k_by_site:
+                k_by_site[site] = k_by_site[site] - f_locals[site]
 
         # Add missing terms
         for site in system.sites:

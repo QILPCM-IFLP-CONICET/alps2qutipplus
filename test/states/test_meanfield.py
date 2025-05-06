@@ -6,12 +6,12 @@ from test.helper import (
     CHAIN_SIZE,
     PRODUCT_GIBBS_GENERATOR_TESTS,
     check_operator_equality,
-    operator_type_cases,
+    OPERATOR_TYPE_CASES,
     sx_A,
     sx_B,
     sx_total,
     system,
-    test_cases_states,
+    TEST_CASES_STATES,
 )
 
 import pytest
@@ -34,7 +34,7 @@ from alpsqutip.operators.states.meanfield import (
 TEST_STATES = {"None": None}
 TEST_STATES.update(
     {
-        name: test_cases_states[name]
+        name: TEST_CASES_STATES[name]
         for name in (
             "fully mixed",
             "z semipolarized",
@@ -105,7 +105,7 @@ def test_meanfield_projection(op_name, op_test):
 
 
 @pytest.mark.parametrize(
-    ["operator_case", "operator"], list(operator_type_cases.items())
+    ["operator_case", "operator"], list(OPERATOR_TYPE_CASES.items())
 )
 def test_one_body_from_qutip_operator_1(operator_case, operator):
     print(operator_case, "as scalar + one body + rest")
@@ -132,7 +132,7 @@ def test_one_body_from_qutip_operator_1(operator_case, operator):
 
 
 @pytest.mark.parametrize(
-    ["operator_case", "operator"], list(operator_type_cases.items())
+    ["operator_case", "operator"], list(OPERATOR_TYPE_CASES.items())
 )
 def test_one_body_from_qutip_operator_with_reference(operator_case, operator):
 
