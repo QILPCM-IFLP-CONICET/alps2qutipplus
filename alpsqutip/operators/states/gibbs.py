@@ -151,51 +151,43 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
 
         self.prefactor = prefactor
         if isinstance(k, dict):
+            assert system is not None
+            print("k is a dict")
             self.system = system
             k_by_site = k
         else:
-            try:
-                k = k.simplify()
-                if system:
-                    system = k.system.union(system)
-                else:
-                    system = k.system
-                self.system = system
-                k_by_site = k_by_site_from_operator(k)
-                k_by_site.update(
-                    {
-                        site: system.site_identity(site) / system.dimensions[site]
-                        for site in system.sites
-                        if site not in k_by_site
-                    }
-                )
-            except AttributeError as exc:
-                raise ValueError(
+            k = k.simplify()
+            if system:
+                system = k.system.union(system)
+            else:
+                system = k.system
+            self.system = system
+            k_by_site = k_by_site_from_operator(k)
+
+        try:   
+            # Over each site with terms not explicitly given, just set the
+            # normalization times the identity.
+            k_by_site.update(
+                {
+                    site:  system.site_identity(site) * np.log(system.dimensions[site])
+                    for site in system.sites
+                    if site not in k_by_site
+                }
+            )
+        except AttributeError as exc:
+            raise ValueError(
                     f"k_by_site must be a dictionary or an Operator. Got {type(k)}"
                 ) from exc
 
-        assert system is not None
         if normalized:
-            if system:
-                self.free_energies = {
-                    site: 0 if site in k_by_site else np.log(dimension)
-                    for site, dimension in system.dimensions.items()
-                }
-            else:
-                self.free_energies = {site: 0 for site in k_by_site}
+            self.free_energies = {
+                site: 0 for site in system.sites
+            }
         else:
             f_locals = {
                 site: -np.log((-l_op).expm().tr()) for site, l_op in k_by_site.items()
             }
-
-            if system:
-                self.free_energies = {
-                    site: f_locals.get(site, np.log(dimension))
-                    for site, dimension in system.dimensions.items()
-                }
-            else:
-                self.free_energies = f_locals
-
+            self.free_energies = f_locals
             k_by_site = {
                 site: local_k - f_locals[site] for site, local_k in k_by_site.items()
             }

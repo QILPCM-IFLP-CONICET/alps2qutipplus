@@ -12,7 +12,9 @@ import qutip
 from qutip import Qobj
 from scipy.optimize import minimize_scalar
 
+from alpsqutip.qutip_tools.tools import schmidt_dec_firsts_last_qutip_operator
 from alpsqutip.operators import (
+    ScalarOperator,
     LocalOperator,
     OneBodyOperator,
     Operator,
@@ -26,7 +28,6 @@ from alpsqutip.operators.states.basic import (
     ProductDensityOperator,
 )
 from alpsqutip.operators.states.gibbs import GibbsProductDensityOperator
-from alpsqutip.qutip_tools.tools import schmidt_dec_firsts_last_qutip_operator
 
 
 def one_body_from_qutip_operator(
