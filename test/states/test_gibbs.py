@@ -8,7 +8,6 @@ from test.helper import (
     PRODUCT_GIBBS_GENERATOR_TESTS,
     check_equality,
     check_operator_equality,
-    is_one_body_operator,
     sites,
 )
 

@@ -2,7 +2,7 @@
 Module that implements a meanfield approximation of a Gibbsian state
 """
 
-import logging
+# import logging
 from functools import reduce
 from itertools import combinations
 from typing import Optional, Tuple, Union
@@ -119,7 +119,7 @@ def one_body_from_qutip_operator(
         else:
             local_term_qutip = local_term.to_qutip(block)
             local_average = (local_term_qutip * local_states[name]).tr()
-            assert abs(local_average) < 1e-9, f"{abs(local_average)} " "should be 0."
+            assert abs(local_average) < 1e-9, f"{abs(local_average)} should be 0."
             local_terms.append(LocalOperator(name, local_term_qutip, system))
 
     one_body_term = OneBodyOperator(tuple(local_terms), system=system)

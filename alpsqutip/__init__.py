@@ -16,6 +16,7 @@ from alpsqutip.geometry import graph_from_alps_xml, list_geometries_in_alps_xml
 from alpsqutip.model import build_system
 
 __all__ = [
+    "alpsqutip",
     "build_system",
     "geometry",
     "graph_from_alps_xml",

@@ -25,11 +25,6 @@ def union_set(set_list):
     return reduce(lambda x, y: x.union(y), set_list, set())
 
 
-def union_set(set_list):
-    """Union of a list of sets"""
-    return reduce(lambda x, y: x.union(y), set_list, set())
-
-
 def compute_size(operator: Operator):
     """
     compute the initial number of
