@@ -3,8 +3,9 @@ Basic unit test.
 """
 
 import os
-import pytest
 from test.helper import alert
+
+import pytest
 
 from alpsqutip.alpsmodels import list_models_in_alps_xml, model_from_alps_xml
 from alpsqutip.geometry import graph_from_alps_xml, list_geometries_in_alps_xml
@@ -31,9 +32,8 @@ def test_eval_expr():
             f"!= {result} of {type(result)}"
         )
 
-@pytest.mark.skipif(
-not os.environ.get("ALPSQUTIP_ALLTESTS"), reason="shorter tests"
-)
+
+@pytest.mark.skipif(not os.environ.get("ALPSQUTIP_ALLTESTS"), reason="shorter tests")
 def test_load_all_models_and_lattices():
     """Try to load each model and lattice."""
     models = list_models_in_alps_xml()

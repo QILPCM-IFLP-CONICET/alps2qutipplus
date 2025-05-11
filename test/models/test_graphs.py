@@ -1,20 +1,19 @@
 """
 Basic unit test.
 """
-import os
-import pytest
-import matplotlib.pyplot as plt
 
+import os
 from test.helper import alert
+
+import matplotlib.pyplot as plt
+import pytest
 
 from alpsqutip.alpsmodels import list_models_in_alps_xml, model_from_alps_xml
 from alpsqutip.geometry import graph_from_alps_xml, list_geometries_in_alps_xml
 from alpsqutip.settings import FIGURES_DIR, LATTICE_LIB_FILE, MODEL_LIB_FILE
 
 
-@pytest.mark.skipif(
-not os.environ.get("ALPSQUTIP_ALLTESTS"), reason="shorter tests"
-)
+@pytest.mark.skipif(not os.environ.get("ALPSQUTIP_ALLTESTS"), reason="shorter tests")
 def test_load_and_plot_graph():
     for name in list_geometries_in_alps_xml():
         try:

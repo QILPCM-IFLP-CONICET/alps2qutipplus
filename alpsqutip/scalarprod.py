@@ -243,9 +243,7 @@ def orthogonalize_basis_cholesky(basis, sp: callable, tol=1e-5):
     local_basis = basis
 
     # Compute the inverse Gram matrix for the given basis
-    cholesky_gram_matrix = cholesky(
-        gram_matrix(basis=local_basis, sp=sp), lower=False
-    )
+    cholesky_gram_matrix = cholesky(gram_matrix(basis=local_basis, sp=sp), lower=False)
     linv_t = inv(cholesky_gram_matrix).transpose()
 
     # Construct the orthogonalized basis by linear combinations of
@@ -258,8 +256,7 @@ def orthogonalize_basis_cholesky(basis, sp: callable, tol=1e-5):
     # Verify the orthogonality by checking that the Gram matrix is
     # approximately the identity matrix
     assert (
-        norm(gram_matrix(basis=orth_basis, sp=sp) - np.identity(len(orth_basis)))
-        < tol
+        norm(gram_matrix(basis=orth_basis, sp=sp) - np.identity(len(orth_basis))) < tol
     ), "Error: Basis not correctly orthogonalized"
 
     return orth_basis
@@ -303,8 +300,7 @@ def orthogonalize_basis_svd(basis, sp: callable, tol=1e-5):
     # Verify the orthogonality by checking that the Gram matrix is
     # approximately the identity matrix
     assert (
-        norm(gram_matrix(basis=orth_basis, sp=sp) - np.identity(len(orth_basis)))
-        < tol
+        norm(gram_matrix(basis=orth_basis, sp=sp) - np.identity(len(orth_basis))) < tol
     ), "Error: Basis not correctly orthogonalized"
 
     return orth_basis

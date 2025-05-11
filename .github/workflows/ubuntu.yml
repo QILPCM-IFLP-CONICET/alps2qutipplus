@@ -28,4 +28,4 @@ jobs:
         pip install -e .
     - name: Test Alps2Qutip
       run: |
-        python -m pytest test
+        ALPSQUTIP_ALLTESTS=1 python -m pytest test

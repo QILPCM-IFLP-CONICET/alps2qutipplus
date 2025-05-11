@@ -1,5 +1,5 @@
 import logging
-from typing import Callable
+from typing import Callable, List
 
 import numpy as np
 
@@ -13,11 +13,24 @@ from qutip import (  # type: ignore[import-untyped]
 )
 from qutip.core.qobj import Qobj  # type: ignore[import-untyped]
 
+from alpsqutip.operators import Operator
 from alpsqutip.operators.states import safe_exp_and_normalize
-from alpsqutip.scalarprod import gram_matrix, operator_components, orthogonalize_basis
+from alpsqutip.scalarprod import gram_matrix, orthogonalize_basis
 
 
-def project_K_to_sep(K, maxit=200):
+def estimate_log_of_partial_trace(K0, local_sigmas, sites):
+    return (
+        tensor(
+            [
+                qeye(dim) if i in sites else local_sigmas[i]
+                for i, dim in enumerate(K0.dims[0])
+            ]
+        )
+        * K0
+    ).ptrace(sites)
+
+
+def project_k_to_sep(K, maxit=200):
     length = len(K.dims[0])
     phis = 2 * np.random.rand(length, 3) - 1.0
     loc_ops = jmat(0.5)
@@ -40,16 +53,15 @@ def project_K_to_sep(K, maxit=200):
     return local_sigmas
 
 
-def estimate_log_of_partial_trace(K0, local_sigmas, sites):
-    return (
-        tensor(
-            [
-                qeye(dim) if i in sites else local_sigmas[i]
-                for i, dim in enumerate(K0.dims[0])
-            ]
-        )
-        * K0
-    ).ptrace(sites)
+def project_operator(
+    operator: Operator, basis: List[Operator], sp: Callable
+) -> Operator:
+    """
+    Build the projection of `operator` over the space generated
+    by the orthonormal  `basis` of hermitician operators regarding the scalar product `sp`.
+    """
+    coeffs = (sp(basis_op, operator) for basis_op in basis)
+    return sum(basis_op * coeff for coeff, basis_op in zip(coeffs, basis)).simplify()
 
 
 class ProjectedEvolver:
@@ -124,7 +136,7 @@ class ProjectedEvolver:
         K = sum((-c) * op for c, op in zip(phi, self.orth_basis))
         return safe_exp_and_normalize(K)
 
-    def evol_K_averages(self, K0, ts) -> dict:
+    def evol_k_averages(self, K0, ts) -> dict:
         """
         Evolve the state exp(-K0) and compute
         the expectation values for the observables in
@@ -135,7 +147,7 @@ class ProjectedEvolver:
         op_basis = self.op_basis
         result: dict = {key: [] for key in op_basis}
         result["entropy"] = []
-        phi_t = self.evol_K_orth_components(K0, ts)
+        phi_t = self.evol_k_orth_components(K0, ts)
         # Expensive step.
         # TODO: Reimplement me in terms of local operators
         for phi in phi_t:
@@ -148,15 +160,15 @@ class ProjectedEvolver:
 
         return result
 
-    def evol_K_orth_components(self, K0, ts):
+    def evol_k_orth_components(self, k0, ts):
         """
         Compute `phi_t`, a list with the components of K(t),
         regarding self.orth_basis, for each `t` in `ts`,
         provided K(0)=K0.
         """
-        Htensor = self.Htensor
-        phi0 = project_op(K0, self.orth_basis, self.sp).real
-        evals, evecs = np.linalg.eig(Htensor)
+        h_tensor = self.Htensor
+        phi0 = project_operator(k0, self.orth_basis, self.sp).real
+        evals, evecs = np.linalg.eig(h_tensor)
         phi0 = np.linalg.inv(evecs).dot(phi0)
         phi_t = np.array(
             [[np.exp(la * t) * c for la, c in zip(evals, phi0)] for t in ts]

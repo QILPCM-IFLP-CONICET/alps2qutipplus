@@ -69,7 +69,8 @@ EXPECTED_PROJECTIONS["sx_A*sx_B"] = {
 }
 
 
-def no_test_nbody_projection():
+@pytest.mark.skip("Still not working")
+def test_nbody_projection():
     """Test the mean field projection over different states"""
     failed = False
     for op_name, op_test in TEST_OPERATORS.items():
