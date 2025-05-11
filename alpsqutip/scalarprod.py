@@ -3,11 +3,11 @@ Routines to compute generalized scalar products over the algebra of operators.
 """
 
 # from datetime import datetime
-from typing import Callable, Optional
+from typing import Callable
 
 import numpy as np
 from numpy import real
-from numpy.linalg import svd
+from numpy.linalg import cholesky, inv, norm, sqrtm, svd
 
 from alpsqutip.operators import Operator
 from alpsqutip.operators.functions import anticommutator
@@ -242,10 +242,10 @@ def orthogonalize_basis_cholesky(basis, sp: callable, tol=1e-5):
     local_basis = basis
 
     # Compute the inverse Gram matrix for the given basis
-    cholesky_gram_matrix = linalg.cholesky(
+    cholesky_gram_matrix = cholesky(
         gram_matrix(basis=local_basis, sp=sp), lower=False
     )
-    linv_t = linalg.inv(cholesky_gram_matrix).transpose()
+    linv_t = inv(cholesky_gram_matrix).transpose()
 
     # Construct the orthogonalized basis by linear combinations of
     # the original basis
@@ -257,7 +257,7 @@ def orthogonalize_basis_cholesky(basis, sp: callable, tol=1e-5):
     # Verify the orthogonality by checking that the Gram matrix is
     # approximately the identity matrix
     assert (
-        linalg.norm(gram_matrix(basis=orth_basis, sp=sp) - np.identity(len(orth_basis)))
+        norm(gram_matrix(basis=orth_basis, sp=sp) - np.identity(len(orth_basis)))
         < tol
     ), "Error: Basis not correctly orthogonalized"
 
@@ -287,13 +287,13 @@ def orthogonalize_basis_svd(basis, sp: callable, tol=1e-5):
     local_basis = basis
 
     # Compute the inverse Gram matrix for the given basis
-    inv_gram_matrix = linalg.inv(gram_matrix(basis=local_basis, sp=sp))
+    inv_gram_matrix = inv(gram_matrix(basis=local_basis, sp=sp))
 
     # Construct the orthogonalized basis by linear combinations of
     # the original basis
     orth_basis = [
         sum(
-            linalg.sqrtm(inv_gram_matrix)[j][i] * local_basis[j]
+            sqrtm(inv_gram_matrix)[j][i] * local_basis[j]
             for j in range(len(local_basis))
         )
         for i in range(len(local_basis))
@@ -302,7 +302,7 @@ def orthogonalize_basis_svd(basis, sp: callable, tol=1e-5):
     # Verify the orthogonality by checking that the Gram matrix is
     # approximately the identity matrix
     assert (
-        linalg.norm(gram_matrix(basis=orth_basis, sp=sp) - np.identity(len(orth_basis)))
+        norm(gram_matrix(basis=orth_basis, sp=sp) - np.identity(len(orth_basis)))
         < tol
     ), "Error: Basis not correctly orthogonalized"
 

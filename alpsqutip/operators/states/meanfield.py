@@ -2,7 +2,7 @@
 Module that implements a meanfield approximation of a Gibbsian state
 """
 
-import logging
+# import logging
 from functools import reduce
 from itertools import combinations
 from typing import Optional, Tuple, Union
@@ -14,7 +14,6 @@ from scipy.optimize import minimize_scalar
 
 from alpsqutip.qutip_tools.tools import schmidt_dec_firsts_last_qutip_operator
 from alpsqutip.operators import (
-    ScalarOperator,
     LocalOperator,
     OneBodyOperator,
     Operator,
