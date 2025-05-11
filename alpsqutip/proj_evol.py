@@ -15,7 +15,7 @@ from qutip.core.qobj import Qobj  # type: ignore[import-untyped]
 
 from alpsqutip.operators import Operator
 from alpsqutip.operators.states import safe_exp_and_normalize
-from alpsqutip.scalarprod import gram_matrix, orthogonalize_basis
+from alpsqutip.scalarprod import gram_matrix, operator_components, orthogonalize_basis
 
 
 def estimate_log_of_partial_trace(K0, local_sigmas, sites):
