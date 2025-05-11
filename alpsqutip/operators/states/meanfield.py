@@ -113,13 +113,13 @@ def one_body_from_qutip_operator(
         # Split the zero-average part from the average
 
         if isinstance(local_term, ScalarOperator):
-            assert (
-                abs(local_term.prefactor) < 1e-6
-            ), f"{abs(local_term.prefactor)} should be 0."
+            assert abs(local_term.prefactor) < 1e-6, (
+                f"{abs(local_term.prefactor)} should be 0."
+            )
         else:
             local_term_qutip = local_term.to_qutip(block)
             local_average = (local_term_qutip * local_states[name]).tr()
-            assert abs(local_average) < 1e-9, f"{abs(local_average)} " "should be 0."
+            assert abs(local_average) < 1e-9, f"{abs(local_average)} should be 0."
             local_terms.append(LocalOperator(name, local_term_qutip, system))
 
     one_body_term = OneBodyOperator(tuple(local_terms), system=system)
@@ -310,9 +310,9 @@ def project_qutip_operator_to_m_body(full_operator: Operator, m_max=2, sigma_0=N
     sigma_last_qutip = sigma_0.partial_trace(frozenset({last_site})).to_qutip()
     averages = [qutip.expect(sigma_last_qutip, op_loc) for op_loc in qutip_ops_last]
     sigma_firsts = sigma_0.partial_trace(frozenset(rest_sitenames))
-    assert hasattr(
-        sigma_firsts, "expect"
-    ), f"{type(sigma_0)}->{type(sigma_firsts)} is invalid."
+    assert hasattr(sigma_firsts, "expect"), (
+        f"{type(sigma_0)}->{type(sigma_firsts)} is invalid."
+    )
 
     firsts_ops = [
         QutipOperator(op_c, names=rest_sitenames, system=system)

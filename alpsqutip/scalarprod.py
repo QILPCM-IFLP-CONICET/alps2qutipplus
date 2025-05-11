@@ -7,7 +7,8 @@ from typing import Callable
 
 import numpy as np
 from numpy import real
-from numpy.linalg import cholesky, inv, norm, sqrtm, svd
+from numpy.linalg import cholesky, inv, norm, svd
+from scipy.linalg import sqrtm
 
 from alpsqutip.operators import Operator
 from alpsqutip.operators.functions import anticommutator
