@@ -123,8 +123,12 @@ def test_one_body_from_qutip_operator_1(operator_case, operator):
     if not isinstance(terms[-1], (ScalarOperator, OneBodyOperator, LocalOperator)):
         last = terms[-1]
         terms = terms[:-1]
-        assert abs(last.tr()) < ALPSQUTIP_TOLERANCE, "Reminder term should have zero trace."
-        assert abs(terms[-1].tr()) < ALPSQUTIP_TOLERANCE, "One-body term should have zero trace."
+        assert (
+            abs(last.tr()) < ALPSQUTIP_TOLERANCE
+        ), "Reminder term should have zero trace."
+        assert (
+            abs(terms[-1].tr()) < ALPSQUTIP_TOLERANCE
+        ), "One-body term should have zero trace."
 
     assert (
         isinstance(result, (ScalarOperator, OneBodyOperator, LocalOperator))
