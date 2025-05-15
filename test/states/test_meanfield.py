@@ -24,10 +24,14 @@ from alpsqutip.operators import (
     ScalarOperator,
     SumOperator,
 )
-from alpsqutip.operators.states import GibbsProductDensityOperator
+from alpsqutip.operators.states import (
+    GibbsProductDensityOperator,
+    ProductDensityOperator,
+)
 from alpsqutip.operators.states.meanfield import (
     one_body_from_qutip_operator,
     project_meanfield,
+    project_operator_to_m_body,
     project_to_n_body_operator,
 )
 
@@ -69,17 +73,79 @@ EXPECTED_PROJECTIONS["sx_A*sx_B"] = {
 }
 
 
-@pytest.mark.parametrize(["op_name"], [(name,) for name in TEST_OPERATORS])
-def test_nbody_projection(op_name):
+@pytest.mark.parametrize(
+    ["state_name", "state", "projection_name", "projection_function"],
+    [
+        (state_name, state, proj_name, proj_func)
+        for state_name, state in TEST_CASES_STATES.items()
+        for proj_name, proj_func in (
+            ("project_to_n_body_operator", project_to_n_body_operator),
+            ("project_operator_to_m_body", project_operator_to_m_body),
+        )
+        if isinstance(state, (GibbsProductDensityOperator, ProductDensityOperator))
+    ],
+)
+def test_2body_to_1body_projection(
+    state_name, state, projection_name, projection_function
+):
+    print(
+        "Check that two-body operators project correctly to one body operators for the state",
+        state_name,
+    )
+    for op_name, op_prod in TEST_OPERATORS.items():
+        if not isinstance(op_prod, ProductOperator):
+            continue
+        if len(op_prod.acts_over()) != 2:
+            continue
+        print("* testing against", op_name)
+        site1, site2 = op_prod.sites_op
+        op1, op2 = op_prod.sites_op[site1], op_prod.sites_op[site2]
+        rho_1 = state.partial_trace(frozenset([site1]))
+        rho_2 = state.partial_trace(frozenset([site2]))
+        op1_expect = (rho_1.to_qutip() * op1).tr()
+        op2_expect = (rho_2.to_qutip() * op2).tr()
+        projected_operator_analytical = (
+            ScalarOperator(op1_expect * op2_expect, SYSTEM)
+            + LocalOperator(site1, (op1 - op1_expect) * op2_expect, SYSTEM)
+            + LocalOperator(site2, (op2 - op2_expect) * op1_expect, SYSTEM)
+        )
+        projected_operator = projection_function(op_prod, 1, state)
+        if not check_operator_equality(
+            projected_operator, projected_operator_analytical
+        ):
+            print("projections are different:\n")
+            print("function:\n", projected_operator)
+            print("analytical:\n", projected_operator_analytical)
+            print(
+                "difference:\n",
+                (projected_operator - projected_operator_analytical).to_qutip(
+                    tuple([site1, site2])
+                ),
+            )
+            assert False, "Projection mismatches"
+
+
+@pytest.mark.parametrize(
+    ["op_name", "projection_name", "projection_function"],
+    [
+        (name, proj_name, proj_func)
+        for name in TEST_OPERATORS
+        for proj_name, proj_func in (
+            ("project_to_n_body_operator", project_to_n_body_operator),
+            ("project_operator_to_m_body", project_operator_to_m_body),
+        )
+    ],
+)
+def test_nbody_projection(op_name, projection_name, projection_function):
     """Test the mean field projection over different states"""
     op_test = TEST_OPERATORS[op_name]
     print("testing the consistency of projection in", op_name)
     op_sq = op_test * op_test
-    proj_sq_3 = project_to_n_body_operator(op_sq, 3)
-    proj_sq_2 = project_to_n_body_operator(op_sq, 2)
-    proj_sq_3_2 = project_to_n_body_operator(proj_sq_3, 2)
+    proj_sq_3 = projection_function(op_sq, 3)
+    proj_sq_2 = projection_function(op_sq, 2)
+    proj_sq_3_2 = projection_function(proj_sq_3, 2)
     assert check_operator_equality(proj_sq_2, proj_sq_3_2), (
-        "Projections on two-body manifold does not match for "
+        "Projections on two-body manifold using {projection_name} does not match for "
         f"{op_name} and {op_name} projected on the three body manyfold"
     )
 

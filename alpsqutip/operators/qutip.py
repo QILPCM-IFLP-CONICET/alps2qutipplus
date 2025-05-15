@@ -471,7 +471,17 @@ def mul_qutip_operator_qutip_operator(x_op: QutipOperator, y_op: QutipOperator):
     )
 )
 def _(x_op: QutipOperator, y_op: Operator):
+    from alpsqutip.operators.arithmetic import SumOperator
+
     if y_op:
+        # For sum operators, distribute
+        if isinstance(y_op, SumOperator):
+            return SumOperator(
+                tuple((x_op * term.to_qutip_operator() for term in y_op.terms)),
+                x_op.system,
+            )
+
+        # Otherwise, convert it to qutip.
         y_op_qutip = y_op.to_qutip_operator()
         if isinstance(y_op_qutip, ScalarOperator):
             return x_op * y_op_qutip.prefactor
@@ -486,7 +496,16 @@ def _(x_op: QutipOperator, y_op: Operator):
     )
 )
 def _(x_op: Operator, y_op: QutipOperator):
+    from alpsqutip.operators.arithmetic import SumOperator
+
     if x_op:
+        # For sum operators, distribute
+        if isinstance(x_op, SumOperator):
+            return SumOperator(
+                tuple((term.to_qutip_operator() * y_op for term in x_op.terms)),
+                x_op.system,
+            )
+        # Otherwise, convert it to qutip
         x_op_qutip = x_op.to_qutip_operator()
         if isinstance(x_op_qutip, ScalarOperator):
             return y_op * x_op_qutip.prefactor

@@ -237,6 +237,10 @@ def project_operator_to_m_body(full_operator: Operator, m_max=2, sigma_0=None):
                 for term in full_operator.terms
             )
         )
+        if len(terms) == 0:
+            return ScalarOperator(0, system)
+        if len(terms) == 1:
+            return terms[0]
         return SumOperator(terms, system).simplify()
 
     if isinstance(full_operator, ProductOperator):
@@ -254,7 +258,7 @@ def project_operator_to_m_body(full_operator: Operator, m_max=2, sigma_0=None):
             sigma_first = sigma_0.partial_trace(frozenset({first_site})).to_qutip()
             weight_first = op_first * sigma_first
         else:
-            weight_first = weight_first / op_first.dimensions[0][0]
+            weight_first = weight_first / op_first.dims[0][0]
 
         first_av = weight_first.tr()
         delta_op = LocalOperator(first_site, op_first - first_av, system)
