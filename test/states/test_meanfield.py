@@ -30,6 +30,7 @@ from alpsqutip.operators.states.meanfield import (
     project_meanfield,
     project_to_n_body_operator,
 )
+from alpsqutip.settings import ALPSQUTIP_TOLERANCE
 
 TEST_STATES = {"None": None}
 TEST_STATES.update(
@@ -122,8 +123,8 @@ def test_one_body_from_qutip_operator_1(operator_case, operator):
     if not isinstance(terms[-1], (ScalarOperator, OneBodyOperator, LocalOperator)):
         last = terms[-1]
         terms = terms[:-1]
-        assert abs(last.tr()) < 1e-10, "Reminder term should have zero trace."
-        assert abs(terms[-1].tr()) < 1e-10, "One-body term should have zero trace."
+        assert abs(last.tr()) < ALPSQUTIP_TOLERANCE, "Reminder term should have zero trace."
+        assert abs(terms[-1].tr()) < ALPSQUTIP_TOLERANCE, "One-body term should have zero trace."
 
     assert (
         isinstance(result, (ScalarOperator, OneBodyOperator, LocalOperator))
@@ -165,10 +166,10 @@ def test_one_body_from_qutip_operator_with_reference(operator_case, operator):
             last = terms[-1]
             terms = terms[:-1]
             assert (
-                abs(sigma.expect(last)) < 1e-10
+                abs(sigma.expect(last)) < ALPSQUTIP_TOLERANCE
             ), "Reminder term should have zero mean."
             assert (
-                abs(sigma.expect(terms[-1])) < 1e-10
+                abs(sigma.expect(terms[-1])) < ALPSQUTIP_TOLERANCE
             ), "One-body term should have zero mean."
             # TODO: check also the orthogonality between last and one-body terms.
 
@@ -214,16 +215,16 @@ def test_one_body_from_qutip_operator_2():
         # Check that the remainder and the one body terms have
         # zero mean:
         if state is None:
-            assert abs(one_body.to_qutip().tr()) < 1.0e-9
-            assert abs((remainder.to_qutip()).tr()) < 1.0e-9
+            assert abs(one_body.to_qutip().tr()) < ALPSQUTIP_TOLERANCE
+            assert abs((remainder.to_qutip()).tr()) < ALPSQUTIP_TOLERANCE
         else:
             error_one_body_tr = abs((one_body.to_qutip() * state.to_qutip()).tr())
-            if error_one_body_tr > 1.0e-9:
+            if error_one_body_tr > ALPSQUTIP_TOLERANCE:
                 failed.setdefault((operator_name, state_name), {})[
                     "one body tr"
                 ] = error_one_body_tr
             remainder_tr = abs((remainder.to_qutip() * state.to_qutip()).tr())
-            if remainder_tr > 1.0e-9:
+            if remainder_tr > ALPSQUTIP_TOLERANCE:
                 failed.setdefault((operator_name, state_name), {})[
                     "remainder tr"
                 ] = remainder_tr
