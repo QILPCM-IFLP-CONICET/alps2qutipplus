@@ -164,6 +164,9 @@ class SumOperator(Operator):
             isherm = True
             for term in nh_sum.terms:
                 term_isherm = term.isherm
+                # if term_isherm could not determine by itself if the
+                # term is hermitician, try harder looking at the frobenious norm
+                # of its anti-hermitician part. This step can be very costly...
                 if term_isherm is None:
                     # Last resource:
                     ah_part = term - term.dag()
