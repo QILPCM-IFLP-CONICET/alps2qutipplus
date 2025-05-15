@@ -143,8 +143,8 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
     def __init__(
         self,
         k: Union[Operator, dict],
-        prefactor: float = 1,
         system: Optional[SystemDescriptor] = None,
+        prefactor: float = 1,
         normalized: bool = False,
     ):
         assert prefactor > 0.0
@@ -187,7 +187,7 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
         if isinstance(operand, (int, float)):
             if operand > 0:
                 return GibbsProductDensityOperator(
-                    self.k_by_site, self.prefactor * operand, self.system, True
+                    self.k_by_site, self.system, self.prefactor * operand,  True
                 )
         return self.to_product_state() * operand
 
@@ -198,7 +198,7 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
         if isinstance(operand, (int, float)):
             if operand > 0:
                 return GibbsProductDensityOperator(
-                    self.k_by_site, self.prefactor * operand, self.system, True
+                    self.k_by_site, self.system, self.prefactor * operand,  True
                 )
         return operand * self.to_product_state()
 
@@ -245,8 +245,8 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
         }
         return GibbsProductDensityOperator(
             k_by_site,
-            self.prefactor,
             subsystem,
+            self.prefactor,
             True,
         )
 

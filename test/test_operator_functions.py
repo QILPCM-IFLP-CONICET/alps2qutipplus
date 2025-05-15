@@ -3,6 +3,7 @@ Basic unit test for operator functions.
 """
 
 import numpy as np
+import pytest
 import qutip
 
 from alpsqutip.operators import SumOperator
@@ -21,23 +22,23 @@ from .helper import (
     check_equality,
     check_operator_equality,
     hamiltonian,
-    sites,
-    system,
+    SITES,
+    SYSTEM,
     sz_total,
 )
 
 # from alpsqutip.settings import VERBOSITY_LEVEL
 
 
-splus0 = system.site_operator(f"Splus@{sites[0]}")
-splus1 = system.site_operator(f"Splus@{sites[1]}")
+splus0 = SYSTEM.site_operator(f"Splus@{SITES[0]}")
+splus1 = SYSTEM.site_operator(f"Splus@{SITES[1]}")
 
 spsp_hc = SumOperator(
     (
         splus0 * splus1,
         (splus0 * splus1).dag(),
     ),
-    system,
+    SYSTEM,
     True,
 )
 
@@ -98,47 +99,50 @@ def test_decompose_hermitician():
         assert check_operator_equality(op_im.to_qutip(), op_im_qutip)
 
 
-def test_relative_entropy():
+QUTIP_TEST_CASES_STATES = {
+    key: operator.to_qutip() for key, operator in TEST_CASES_STATES.items()
+}
 
-    qutip_states = {
-        key: operator.to_qutip() for key, operator in TEST_CASES_STATES.items()
-    }
-    clean = True
-    for key1, rho in TEST_CASES_STATES.items():
 
-        if key1 != "mixture of first and second partially polarized":
-            continue
-
-        assert abs(rho.tr() - 1) < 1e-6 and abs(qutip_states[key1].tr() - 1) < 1e-6
-        check_equality(relative_entropy(rho, rho), 0)
-        check_equality(
-            qutip.entropy_relative(qutip_states[key1], qutip_states[key1]), 0
+@pytest.mark.parametrize(
+    ["key_rho", "key_sigma"],
+    [
+        (
+            key_rho,
+            key_sigma,
         )
-        for key2, sigma in TEST_CASES_STATES.items():
-            if key2 != "fully mixed":
-                continue
-            rel_entr = relative_entropy(rho, sigma)
-            rel_entr_qutip = qutip_relative_entropy(
-                qutip_states[key1], qutip_states[key2]
-            )
-            # infinity quantities cannot be compared...
-            if rel_entr_qutip == np.inf and rel_entr > 10:
-                continue
-            if abs(rel_entr - rel_entr_qutip) > 1.0e-6:
-                if clean:
-                    print("Relative entropy mismatch")
-                clean = False
-                print("  ", [key1, key2])
+        for key_rho in TEST_CASES_STATES
+        for key_sigma in TEST_CASES_STATES
+    ],
+)
+def test_relative_entropy(key_rho, key_sigma):
+    qutip_states = QUTIP_TEST_CASES_STATES
+    rho = TEST_CASES_STATES[key_rho]
+    sigma = TEST_CASES_STATES[key_sigma]
+    rho_qutip = qutip_states[key_rho]
+    sigma_qutip = qutip_states[key_sigma]
 
-                print(key1, operator_to_wolfram(rho))
-                print(key1, operator_to_wolfram(rho.to_qutip()))
+    if key_rho == key_sigma:
+        assert abs(rho.tr() - 1) < 1e-6 and abs(rho_qutip.tr() - 1) < 1e-6
+        check_equality(relative_entropy(rho, rho), 0)
+        check_equality(qutip.entropy_relative(rho_qutip, rho_qutip), 0)
 
-                print(key2, operator_to_wolfram(sigma))
-                print(key2, operator_to_wolfram(sigma.to_qutip()))
+    rel_entr = relative_entropy(rho, sigma)
+    rel_entr_qutip = qutip_relative_entropy(rho_qutip, sigma_qutip)
+    # infinity quantities cannot be compared...
+    if rel_entr_qutip == np.inf and rel_entr > 10:
+        return
+    if abs(rel_entr - rel_entr_qutip) > 1.0e-6:
+        print("  ", [key_rho, key_sigma])
 
-                print(f"   {rel_entr} (alps2qutip) !=   {rel_entr_qutip} (qutip)")
+        print(key_rho, operator_to_wolfram(rho))
+        print(key_rho, operator_to_wolfram(rho.to_qutip()))
 
-                assert clean
+        print(key_sigma, operator_to_wolfram(sigma))
+        print(key_sigma, operator_to_wolfram(sigma.to_qutip()))
+        assert (
+            False
+        ), f" in S({key_rho}|{key_sigma}),  {rel_entr} (alps2qutip) !=   {rel_entr_qutip} (qutip)"
 
 
 def test_eigenvalues():

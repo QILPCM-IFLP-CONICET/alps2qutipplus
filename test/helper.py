@@ -30,33 +30,33 @@ np.set_printoptions(
 
 CHAIN_SIZE = 4
 
-system: SystemDescriptor = build_spin_chain(CHAIN_SIZE)
-sites: tuple = tuple(s for s in system.sites.keys())
+SYSTEM: SystemDescriptor = build_spin_chain(CHAIN_SIZE)
+SITES: tuple = tuple(s for s in SYSTEM.sites.keys())
 
 
-global_identity: ScalarOperator = ScalarOperator(1.0, system)
+global_identity: ScalarOperator = ScalarOperator(1.0, SYSTEM)
 
 
-sx_A = system.site_operator(f"Sx@{sites[0]}")
-sx_B = system.site_operator(f"Sx@{sites[1]}")
+sx_A = SYSTEM.site_operator(f"Sx@{SITES[0]}")
+sx_B = SYSTEM.site_operator(f"Sx@{SITES[1]}")
 sx_AB = 0.7 * sx_A + 0.3 * sx_B
 
 
-sy_A = system.site_operator(f"Sy@{sites[0]}")
-sy_B = system.site_operator(f"Sy@{sites[1]}")
+sy_A = SYSTEM.site_operator(f"Sy@{SITES[0]}")
+sy_B = SYSTEM.site_operator(f"Sy@{SITES[1]}")
 
 assert isinstance(sx_A * sx_B + sy_A * sy_B, Operator)
 
 
-splus_A = system.site_operator(f"Splus@{sites[0]}")
-splus_B = system.site_operator(f"Splus@{sites[1]}")
-sminus_A = system.site_operator(f"Sminus@{sites[0]}")
-sminus_B = system.site_operator(f"Sminus@{sites[1]}")
+splus_A = SYSTEM.site_operator(f"Splus@{SITES[0]}")
+splus_B = SYSTEM.site_operator(f"Splus@{SITES[1]}")
+sminus_A = SYSTEM.site_operator(f"Sminus@{SITES[0]}")
+sminus_B = SYSTEM.site_operator(f"Sminus@{SITES[1]}")
 
 
-sz_A = system.site_operator(f"Sz@{sites[0]}")
-sz_B = system.site_operator(f"Sz@{sites[1]}")
-sz_C = system.site_operator(f"Sz@{sites[2]}")
+sz_A = SYSTEM.site_operator(f"Sz@{SITES[0]}")
+sz_B = SYSTEM.site_operator(f"Sz@{SITES[1]}")
+sz_C = SYSTEM.site_operator(f"Sz@{SITES[2]}")
 sz_AB = 0.7 * sz_A + 0.3 * sz_B
 
 
@@ -65,27 +65,27 @@ sh_B = 0.25 * sx_B + 0.5 * sz_B
 sh_AB = 0.7 * sh_A + 0.3 * sh_B
 
 
-sz_total: OneBodyOperator = system.global_operator("Sz")
+sz_total: OneBodyOperator = SYSTEM.global_operator("Sz")
 assert isinstance(sz_total, OneBodyOperator)
 
-sx_total: OneBodyOperator = sum(system.site_operator("Sx", s) for s in sites)
-sy_total: OneBodyOperator = sum(system.site_operator("Sy", s) for s in sites)
-hamiltonian: SumOperator = system.global_operator("Hamiltonian")
+sx_total: OneBodyOperator = sum(SYSTEM.site_operator("Sx", s) for s in SITES)
+sy_total: OneBodyOperator = sum(SYSTEM.site_operator("Sy", s) for s in SITES)
+hamiltonian: SumOperator = SYSTEM.global_operator("Hamiltonian")
 
 assert hamiltonian is not None
 
 assert (sminus_A * sminus_B) is not None
 
 
-splus0 = system.site_operator(f"Splus@{sites[0]}")
-splus1 = system.site_operator(f"Splus@{sites[1]}")
+splus0 = SYSTEM.site_operator(f"Splus@{SITES[0]}")
+splus1 = SYSTEM.site_operator(f"Splus@{SITES[1]}")
 
 spsp_hc = SumOperator(
     (
         splus0 * splus1,
         (splus0 * splus1).dag(),
     ),
-    system,
+    SYSTEM,
     True,
 )
 
@@ -103,27 +103,27 @@ OPERATORS = {
 }
 
 
-subsystems = [
-    (sites[0],),
-    (sites[1],),
-    (sites[2],),
+SUBSYSTEMS = [
+    (SITES[0],),
+    (SITES[1],),
+    (SITES[2],),
     (
-        sites[0],
-        sites[1],
+        SITES[0],
+        SITES[1],
     ),
     (
-        sites[0],
-        sites[2],
+        SITES[0],
+        SITES[2],
     ),
     (
-        sites[2],
-        sites[3],
+        SITES[2],
+        SITES[3],
     ),
 ]
 
 
 OBSERVABLE_CASES = {
-    "Identity": ScalarOperator(1.0, system),
+    "Identity": ScalarOperator(1.0, SYSTEM),
     "sz_total": sz_total,  # OneBodyOperator
     "sx_A": sx_A,  # LocalOperator
     "sy_A": sy_A,  # Local Operator
@@ -136,11 +136,11 @@ OBSERVABLE_CASES = {
 
 
 OPERATOR_TYPE_CASES = {
-    "scalar, zero": ScalarOperator(0.0, system),
-    "product, zero": ProductOperator({}, prefactor=0.0, system=system),
-    "product, 1": ProductOperator({}, prefactor=1.0, system=system),
-    "scalar, real": ScalarOperator(1.0, system),
-    "scalar, complex": ScalarOperator(1.0 + 3j, system),
+    "scalar, zero": ScalarOperator(0.0, SYSTEM),
+    "product, zero": ProductOperator({}, prefactor=0.0, system=SYSTEM),
+    "product, 1": ProductOperator({}, prefactor=1.0, system=SYSTEM),
+    "scalar, real": ScalarOperator(1.0, SYSTEM),
+    "scalar, complex": ScalarOperator(1.0 + 3j, SYSTEM),
     "local operator, hermitician": sx_A,  # LocalOperator
     "local operator, non hermitician": sx_A + sy_A * 1j,
     "One body, hermitician": sz_total,
@@ -177,43 +177,43 @@ OPERATOR_TYPE_CASES = {
 
 TEST_CASES_STATES = {}
 
-TEST_CASES_STATES["fully mixed"] = ProductDensityOperator({}, system=system)
+TEST_CASES_STATES["fully mixed"] = ProductDensityOperator({}, system=SYSTEM)
 
 TEST_CASES_STATES["z semipolarized"] = ProductDensityOperator(
-    {name: 0.5 * qutip.qeye(2) + 0.25 * qutip.sigmaz() for name in system.dimensions},
+    {name: 0.5 * qutip.qeye(2) + 0.25 * qutip.sigmaz() for name in SYSTEM.dimensions},
     1.0,
-    system=system,
+    system=SYSTEM,
 )
 
 TEST_CASES_STATES["x semipolarized"] = ProductDensityOperator(
-    {name: 0.5 * qutip.qeye(2) + 0.25 * qutip.sigmax() for name in system.dimensions},
+    {name: 0.5 * qutip.qeye(2) + 0.25 * qutip.sigmax() for name in SYSTEM.dimensions},
     1.0,
-    system=system,
+    system=SYSTEM,
 )
 
 
 TEST_CASES_STATES["first full polarized"] = ProductDensityOperator(
-    {sx_A.site: 0.5 * qutip.qeye(2) + 0.5 * qutip.sigmaz()}, 1.0, system=system
+    {sx_A.site: 0.5 * qutip.qeye(2) + 0.5 * qutip.sigmaz()}, 1.0, system=SYSTEM
 )
 
 TEST_CASES_STATES[
     "mixture of first and second partially polarized"
 ] = 0.5 * ProductDensityOperator(
-    {sx_A.site: 0.5 * qutip.qeye(2) + 0.25 * qutip.sigmaz()}, 1.0, system=system
+    {sx_A.site: 0.5 * qutip.qeye(2) + 0.25 * qutip.sigmaz()}, 1.0, system=SYSTEM
 ) + 0.5 * ProductDensityOperator(
-    {sx_B.site: 0.5 * qutip.qeye(2) + 0.25 * qutip.sigmaz()}, 1.0, system=system
+    {sx_B.site: 0.5 * qutip.qeye(2) + 0.25 * qutip.sigmaz()}, 1.0, system=SYSTEM
 )
 
 
-TEST_CASES_STATES["gibbs_sz"] = GibbsProductDensityOperator(sz_total, system=system)
+TEST_CASES_STATES["gibbs_sz"] = GibbsProductDensityOperator(sz_total, system=SYSTEM)
 
 TEST_CASES_STATES["gibbs_sz_as_product"] = GibbsProductDensityOperator(
-    sz_total, system=system
+    sz_total, system=SYSTEM
 ).to_product_state()
 TEST_CASES_STATES["gibbs_sz_bar"] = GibbsProductDensityOperator(
-    sz_total * (-1), system=system
+    sz_total * (-1), system=SYSTEM
 )
-TEST_CASES_STATES["gibbs_H"] = GibbsDensityOperator(hamiltonian, system=system)
+TEST_CASES_STATES["gibbs_H"] = GibbsDensityOperator(hamiltonian, system=SYSTEM)
 TEST_CASES_STATES["gibbs_H"] = (
     TEST_CASES_STATES["gibbs_H"] / TEST_CASES_STATES["gibbs_H"].tr()
 )
@@ -307,5 +307,14 @@ PRODUCT_GIBBS_GENERATOR_TESTS = {
     key: val for key, val in GIBBS_GENERATOR_TESTS.items() if is_one_body_operator(val)
 }
 
+
+
+for key, val in GIBBS_GENERATOR_TESTS.items():
+    name = "Gibbs from " + key
+    TEST_CASES_STATES[name] = GibbsDensityOperator(val, SYSTEM)
+
+for key, val in PRODUCT_GIBBS_GENERATOR_TESTS.items():
+    name = "ProductGibbs from " + key
+    TEST_CASES_STATES[name] = GibbsProductDensityOperator(val, SYSTEM)
 
 print("loaded")

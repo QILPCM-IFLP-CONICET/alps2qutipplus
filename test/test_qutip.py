@@ -19,7 +19,7 @@ from .helper import (
     CHAIN_SIZE,
     OPERATOR_TYPE_CASES,
     check_operator_equality,
-    sites,
+    SITES,
     sx_A as LOCAL_SX_A,
     sy_B as SY_B,
     sz_C as SZ_C,
@@ -53,19 +53,19 @@ LX_QUTIP, LY_QUTIP, LZ_QUTIP = jmat(1.0)
 
 
 SUBSYSTEMS = [
-    frozenset((sites[0],)),
-    frozenset((sites[1],)),
-    frozenset((sites[3],)),
+    frozenset((SITES[0],)),
+    frozenset((SITES[1],)),
+    frozenset((SITES[3],)),
     frozenset(
         (
-            sites[0],
-            sites[1],
+            SITES[0],
+            SITES[1],
         )
     ),
     frozenset(
         (
-            sites[1],
-            sites[2],
+            SITES[1],
+            SITES[2],
         )
     ),
 ]
@@ -298,15 +298,15 @@ def test_detached_operators():
 
     # sites with names
     detached_qutip_operator = QutipOperator(
-        qutip_repr, names={s: i for i, s in enumerate(sites)}
+        qutip_repr, names={s: i for i, s in enumerate(SITES)}
     )
     assert test_op_tr == detached_qutip_operator.tr()
     assert test_op_sq_tr == (detached_qutip_operator * detached_qutip_operator).tr()
     assert (
-        test_op_tr == detached_qutip_operator.partial_trace(frozenset(sites[0:1])).tr()
+        test_op_tr == detached_qutip_operator.partial_trace(frozenset(SITES[0:1])).tr()
     )
     assert (
-        test_op_tr == detached_qutip_operator.partial_trace(frozenset(sites[0:2])).tr()
+        test_op_tr == detached_qutip_operator.partial_trace(frozenset(SITES[0:2])).tr()
     )
 
 
