@@ -15,13 +15,14 @@ from alpsqutip.alpsmodels import qutip_model_from_dims
 from alpsqutip.geometry import GraphDescriptor
 from alpsqutip.model import SystemDescriptor
 from alpsqutip.operators.basic import (
+    LocalOperator,
     Operator,
     ProductOperator,
     ScalarOperator,
     empty_op,
     is_diagonal_op,
 )
-from alpsqutip.qutip_tools.tools import decompose_qutip_operator
+from alpsqutip.qutip_tools.tools import decompose_qutip_operator, scalar_value
 
 
 class QutipOperator(Operator):
@@ -115,15 +116,19 @@ class QutipOperator(Operator):
         site_names = self.site_names
         sites = sorted(site_names, key=lambda x: site_names[x])
         decomposition = decompose_qutip_operator(self.operator)
-        terms = (
-            ProductOperator(
-                dict(zip(sites, term)),
-                prefactor=1.0,
-                system=self.system,
-            ).simplify()
-            for term in decomposition
+        terms = tuple(
+            (
+                ProductOperator(
+                    dict(zip(sites, term)),
+                    prefactor=1.0,
+                    system=self.system,
+                ).simplify()
+                for term in decomposition
+            )
         )
-        return SumOperator(tuple(terms), self.system, isherm=isherm)
+        if len(terms) == 0:
+            terms = tuple((ScalarOperator(0, self.system),))
+        return SumOperator(terms, self.system, isherm=isherm)
 
     def dag(self):
         prefactor = self.prefactor
@@ -235,6 +240,28 @@ class QutipOperator(Operator):
             names=new_site_names,
             prefactor=new_prefactor,
         )
+
+    def simplify(self):
+        """Simplify the operator"""
+        names = self.site_names
+        qt_operator = self.operator
+        assert len(names) > 0
+
+        # If is an empty op, return a ScalarOperator
+        if empty_op(qt_operator):
+            return ScalarOperator(0.0, self.system)
+
+        if len(names) > 1:
+            return self
+
+        # The operator acts on a single site. Check if is an scalar
+        s_val = scalar_value(qt_operator.data)
+        if s_val is not None:
+            return ScalarOperator(s_val, self.system)
+        # Otherwise, return a local operator:
+        (site,) = names.keys()
+        operator = self.operator.tidyup() * self.prefactor
+        return LocalOperator(site, operator, self.system)
 
     def tidyup(self, atol=None):
         """Removes small elements from the quantum object."""
