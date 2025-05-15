@@ -590,7 +590,6 @@ def build_quadratic_form_from_operator(
 
     # Process hermitician operators
 
-
     # Classify terms
     system = operator.system
     terms_by_2body_block, linear_terms, offset_terms = classify_terms(operator)
