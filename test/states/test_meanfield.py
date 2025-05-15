@@ -6,12 +6,12 @@ from test.helper import (
     CHAIN_SIZE,
     OPERATOR_TYPE_CASES,
     PRODUCT_GIBBS_GENERATOR_TESTS,
+    SYSTEM,
     TEST_CASES_STATES,
     check_operator_equality,
     sx_A,
     sx_B,
     sx_total,
-    system,
 )
 
 import pytest
@@ -65,24 +65,24 @@ EXPECTED_PROJECTIONS["sx_total + sx_total^2"] = {
     name: (sx_total + CHAIN_SIZE * 0.25) for name in TEST_STATES
 }
 EXPECTED_PROJECTIONS["sx_A*sx_B"] = {
-    name: ScalarOperator(0, system) for name in TEST_STATES
+    name: ScalarOperator(0, SYSTEM) for name in TEST_STATES
 }
 
 
-@pytest.mark.skip("Still not working")
-def test_nbody_projection():
+@pytest.mark.skip("Still failing")
+@pytest.mark.parametrize(["op_name"], [(name,) for name in TEST_OPERATORS])
+def test_nbody_projection(op_name):
     """Test the mean field projection over different states"""
-    failed = False
-    for op_name, op_test in TEST_OPERATORS.items():
-        print("testing the consistency of projection in", op_name)
-        op_sq = op_test * op_test
-        proj_sq_3 = project_to_n_body_operator(op_sq, 3)
-        proj_sq_2 = project_to_n_body_operator(op_sq, 2)
-        proj_sq_3_2 = project_to_n_body_operator(proj_sq_3, 2)
-        if not check_operator_equality(proj_sq_2, proj_sq_3_2):
-            print(" Projections do not match.")
-            failed = True
-    assert not failed
+    op_test = TEST_OPERATORS[op_name]
+    print("testing the consistency of projection in", op_name)
+    op_sq = op_test * op_test
+    proj_sq_3 = project_to_n_body_operator(op_sq, 3)
+    proj_sq_2 = project_to_n_body_operator(op_sq, 2)
+    proj_sq_3_2 = project_to_n_body_operator(proj_sq_3, 2)
+    assert check_operator_equality(proj_sq_2, proj_sq_3_2), (
+        "Projections on two-body manifold does not match for "
+        f"{op_name} and {op_name} projected on the three body manyfold"
+    )
 
 
 @pytest.mark.parametrize(["op_name", "op_test"], list(TEST_OPERATORS.items()))

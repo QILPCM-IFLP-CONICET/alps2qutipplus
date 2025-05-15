@@ -17,9 +17,9 @@ from .helper import (
     CHAIN_SIZE,
     FULL_TEST_CASES,
     OPERATOR_TYPE_CASES,
+    SITES,
     check_operator_equality,
     hamiltonian,
-    sites,
     sx_A as local_sx_A,
     sy_A,
     sy_B,
@@ -288,10 +288,10 @@ def test_local_operator():
 
     assert sx_A_qt.tr() == 0
     assert (sx_A2_qt).tr() == 0.5 * 2 ** (CHAIN_SIZE - 1)
-    assert sx_A.partial_trace(frozenset((sites[0],))).tr() == 0.0
-    assert sx_A.partial_trace(frozenset((sites[1],))).tr() == 0.0
-    assert sx_A.partial_trace(frozenset((sites[0], sites[1]))).tr() == 0.0
-    assert sx_A.partial_trace(frozenset((sites[1], sites[2]))).tr() == 0.0
+    assert sx_A.partial_trace(frozenset((SITES[0],))).tr() == 0.0
+    assert sx_A.partial_trace(frozenset((SITES[1],))).tr() == 0.0
+    assert sx_A.partial_trace(frozenset((SITES[0], SITES[1]))).tr() == 0.0
+    assert sx_A.partial_trace(frozenset((SITES[1], SITES[2]))).tr() == 0.0
 
 
 def test_product_operator():

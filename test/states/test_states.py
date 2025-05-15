@@ -4,11 +4,11 @@ Basic unit test for states.
 
 from test.helper import (
     OBSERVABLE_CASES,
+    SUBSYSTEMS,
     TEST_CASES_STATES,
     alert,
     check_equality,
     expect_from_qutip,
-    subsystems,
     sz_total,
 )
 
@@ -57,7 +57,7 @@ def test_states():
             abs(1 - qt_test_cases[name].tr()) < 1.0e-10
         ), "la traza de rho.qutip no es 1"
 
-        for subsystem in subsystems:
+        for subsystem in SUBSYSTEMS:
             print("   subsystem", subsystem)
             local_rho = rho.partial_trace(frozenset(subsystem))
             print(" type", local_rho)

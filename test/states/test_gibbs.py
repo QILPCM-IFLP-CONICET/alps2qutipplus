@@ -6,9 +6,9 @@ from test.helper import (
     GIBBS_GENERATOR_TESTS,
     OPERATOR_TYPE_CASES,
     PRODUCT_GIBBS_GENERATOR_TESTS,
+    SITES,
     check_equality,
     check_operator_equality,
-    sites,
 )
 
 import pytest
@@ -60,7 +60,7 @@ def do_test_instance(rho) -> None:
     rho_qutip = rho.to_qutip()
     assert abs(rho.tr() - 1) < 1e-10
     assert abs(rho_qutip.tr() - 1) < 1e-10
-    rho_0 = rho.partial_trace(frozenset({sites[0]}))
+    rho_0 = rho.partial_trace(frozenset({SITES[0]}))
     print("rho_0", type(rho_0))
     assert isinstance(rho_0, DensityOperatorMixin)
     check_equality(rho_0.to_qutip(), rho_qutip.ptrace([0]))
