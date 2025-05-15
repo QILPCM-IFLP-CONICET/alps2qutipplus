@@ -187,7 +187,7 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
         if isinstance(operand, (int, float)):
             if operand > 0:
                 return GibbsProductDensityOperator(
-                    self.k_by_site, self.system, self.prefactor * operand,  True
+                    self.k_by_site, self.system, self.prefactor * operand, True
                 )
         return self.to_product_state() * operand
 
