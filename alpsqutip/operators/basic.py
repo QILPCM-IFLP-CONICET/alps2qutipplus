@@ -13,6 +13,7 @@ from qutip import Qobj
 
 from alpsqutip.model import SystemDescriptor
 from alpsqutip.qutip_tools.tools import data_is_diagonal, data_is_scalar, data_is_zero
+from alpsqutip.settings import ALPSQUTIP_TOLERANCE
 
 
 def check_multiplication(a, b, result, func=None) -> bool:
@@ -37,7 +38,7 @@ def check_multiplication(a, b, result, func=None) -> bool:
         where = func
     else:
         where = f"{func}@{func.__module__}:{func.__code__.co_firstlineno}"
-    assert abs(q_trace - tr_val) < 1e-8, (
+    assert abs(q_trace - tr_val) < ALPSQUTIP_TOLERANCE, (
         f"{type(a)}*{type(b)}->{type(result)} ({where}) "
         "failed: traces are different  {tr}!={q_trace}"
     )
@@ -201,7 +202,7 @@ class Operator:
     @property
     def isherm(self) -> bool:
         """Check if the operator is hermitician"""
-        return self.to_qutip().isherm
+        return self.to_qutip(tuple()).tidyup().isherm
 
     @property
     def isdiagonal(self) -> bool:
@@ -635,6 +636,8 @@ class ProductOperator(Operator):
         # Remove multiples of the identity
         nontrivial_factors = {}
         prefactor = self.prefactor
+        if prefactor == 0:
+            return ScalarOperator(0, self.system)
         for site, op_factor in self.sites_op.items():
             if is_scalar_op(op_factor):
                 prefactor *= op_factor[0, 0]
@@ -744,7 +747,9 @@ class ScalarOperator(ProductOperator):
     @property
     def isherm(self):
         prefactor = self.prefactor
-        return not (isinstance(prefactor, complex) and prefactor.imag != 0)
+        return not (
+            isinstance(prefactor, complex) and abs(prefactor.imag) > ALPSQUTIP_TOLERANCE
+        )
 
     @property
     def isdiagonal(self) -> bool:

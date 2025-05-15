@@ -19,6 +19,7 @@ from alpsqutip.operators.basic import (
     ScalarOperator,
 )
 from alpsqutip.operators.qutip import QutipOperator
+from alpsqutip.settings import ALPSQUTIP_TOLERANCE
 
 
 class SumOperator(Operator):
@@ -38,6 +39,7 @@ class SumOperator(Operator):
     ):
         assert system is not None
         assert isinstance(term_tuple, tuple)
+        assert len(term_tuple) > 0
         assert self not in term_tuple, "cannot be a term of myself."
         self.terms = term_tuple
         if system is None and term_tuple:
@@ -134,6 +136,9 @@ class SumOperator(Operator):
                 changed = True
             else:
                 new_term = term.flat()
+                assert isinstance(
+                    new_term, Operator
+                ), f"{type(term)} produces type({new_term})"
                 terms.append(new_term)
                 if term is not new_term:
                     changed = True
@@ -156,25 +161,27 @@ class SumOperator(Operator):
                 return self._isherm
 
             # Hermitician until the opposite is shown:
+            isherm = True
             for term in nh_sum.terms:
-                if isinstance(term, OneBodyOperator) or not isinstance(
-                    term, SumOperator
-                ):
-                    if not term.isherm:
-                        self._isherm = False
-                        return False
-                # If the term is a sum of many-body terms acting on a site,
-                # check if the HS norm of the antihermitician part is not zero.
-                ah_part = term - term.dag()
-                if abs((ah_part * ah_part).tr()) > 1e-10:
-                    self._isherm = False
-                    return False
-            self._isherm = True
-            return True
+                term_isherm = term.isherm
+                # if term_isherm could not determine by itself if the
+                # term is hermitician, try harder looking at the frobenious norm
+                # of its anti-hermitician part. This step can be very costly...
+                if term_isherm is None:
+                    # Last resource:
+                    ah_part = term - term.dag()
+                    term_isherm = abs((ah_part * ah_part).tr()) < ALPSQUTIP_TOLERANCE
+                if not term_isherm:
+                    isherm = False
+                    break
+            self._isherm = isherm
+            return isherm
 
         if isherm is None:
-            # First, try with the less aggressive test:
+            # First, collect the non-hermitician terms
             non_hermitian = tuple((term for term in self.terms if not term.isherm))
+            # If there are non-hermitician terms, try the more aggresive strategy
+            # over these terms.
             if non_hermitian:
                 return aggresive_hermitician_test(non_hermitian)
 
@@ -197,8 +204,12 @@ class SumOperator(Operator):
     def is_zero(self) -> bool:
         simplify_self = self if self._simplified else self.simplify()
         if hasattr(simplify_self, "terms"):
-            return all(term.is_zero for term in simplify_self.terms)
-        return simplify_self.is_zero
+            result = all(term.is_zero for term in simplify_self.terms)
+        else:
+            result = simplify_self.is_zero
+        if result:
+            self._isherm = True
+        return result
 
     def partial_trace(self, sites: Union[frozenset, SystemDescriptor]):
         if not isinstance(sites, SystemDescriptor):
@@ -212,6 +223,8 @@ class SumOperator(Operator):
 
         if self._simplified:
             return self
+        if len(self.terms) == 1:
+            return self.terms[0].simplify()
 
         return group_terms_by_blocks(self.flat().tidyup())
 
@@ -285,6 +298,8 @@ class OneBodyOperator(SumOperator):
             system = collect_systems(terms, system)
             terms, system = self._simplify_terms(terms, system)
             simplified = True
+            if len(terms) == 0:
+                terms = tuple((ScalarOperator(0.0, system),))
 
         super().__init__(
             terms, system=system, isherm=isherm, isdiag=isdiag, simplified=simplified
@@ -386,8 +401,7 @@ class OneBodyOperator(SumOperator):
             elif isinstance(term, LocalOperator):
                 terms_by_subsystem.setdefault(term.site, []).append(term)
 
-        if scalar_term_value == 0:
-            scalar_term = None
+        if scalar_term is None:
             terms = []
         elif scalar_term_value == scalar_term.prefactor:
             terms = [scalar_term]
