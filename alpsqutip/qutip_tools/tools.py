@@ -45,26 +45,6 @@ if int(qutip_version[0]) < 5:
             return True
         return all(val == 0 for val, a, b in zip(data.data, *data.nonzero()) if a != b)
 
-    def data_is_scalar(data) -> bool:
-        """
-        Check if data is a multiple of the identity matrix.
-        """
-        if data.nnz == 0:
-            return True
-        if all(a == b for a, b in zip(*data.nonzero())):
-            dim1, _ = data.shape
-            elems = data.data
-            if len(elems) < dim1:
-                return False
-            val = elems[0]
-            return all(val == elem for elem in elems)
-
-        if any(val for val, a, b in zip(data.data, *data.nonzero()) if a != b):
-            return False
-        vals = [val for val, a, b in zip(data.data, *data.nonzero()) if a == b]
-        elem = vals[0]
-        return all(elem == val for val in vals)
-
     def data_is_zero(data) -> bool:
         """
         check if the matrix is empty
@@ -72,6 +52,27 @@ if int(qutip_version[0]) < 5:
         if data.nnz == 0:
             return True
         return not any(data.data)
+
+    def scalar_value(data):
+        """
+        If data is a scalar matrix, return any
+        of its diagonal elements. Otherwise, return `None`
+        """
+        if data.nnz == 0:
+            return 0.0
+        if all(a == b for a, b in zip(*data.nonzero())):
+            dim1, _ = data.shape
+            elems = data.data
+            if len(elems) < dim1:
+                return None
+            val = elems[0]
+            return val if all(val == elem for elem in elems) else None
+
+        if any(val for val, a, b in zip(data.data, *data.nonzero()) if a != b):
+            return None
+        vals = [val for val, a, b in zip(data.data, *data.nonzero()) if a == b]
+        elem = vals[0]
+        return elem if all(elem == val for val in vals) else None
 
 else:
 
@@ -159,34 +160,54 @@ else:
             if i_idx != j_idx
         )
 
-    def data_is_scalar(data) -> bool:
+    def data_is_zero(data) -> bool:
         """
-        Check if data is a multiple of the identity matrix.
+        check if the matrix is empty
         """
+        if hasattr(data, "num_diag"):
+            return data.num_diag == 0
+        if hasattr(data, "as_scipy"):
+            return data.as_scipy().nnz == 0
+        return not bool(data.as_ndarray().any())
+
+    def scalar_value(data):
+        """
+        If data is a scalar matrix, return any
+        of its diagonal elements. Otherwise, return `None`
+        """
+
         dim1, _ = data.shape
         if hasattr(data, "num_diag"):
             if data.num_diag == 0:
-                return True
+                return 0.0
             if data.num_diag > 1:
-                return False
+                return None
             data = data.as_scipy()
             offsets = data.offsets
             if bool(offsets[0] != 0):
-                return False
+                return None
             diagonal = data.diagonal(0)
             scalar = diagonal[0]
-            return len(diagonal) == dim1 and all(elem == scalar for elem in diagonal)
+            return (
+                scalar
+                if len(diagonal) == dim1 and all(elem == scalar for elem in diagonal)
+                else None
+            )
 
         if hasattr(data, "as_scipy"):
             data = data.as_scipy()
             if data.nnz == 0:
-                return True
+                return 0.0
             if not all(a == b for a, b in zip(*data.nonzero())):
-                return False
+                return None
             dim = data.shape[0]
             data = data.data
             scalar = data[0]
-            return len(data) == dim and all(value == scalar for value in data)
+            return (
+                scalar
+                if len(data) == dim and all(value == scalar for value in data)
+                else None
+            )
 
         # Must be dense...
         data = data.as_ndarray()
@@ -197,19 +218,18 @@ else:
             for j_idx in range(dim_j)
             if i_idx != j_idx
         ):
-            return False
+            return None
         scalar = data[0, 0]
-        return all(scalar == data[i, i] for i in range(data.shape[0]))
+        return (
+            scalar if all(scalar == data[i, i] for i in range(data.shape[0])) else None
+        )
 
-    def data_is_zero(data) -> bool:
-        """
-        check if the matrix is empty
-        """
-        if hasattr(data, "num_diag"):
-            return data.num_diag == 0
-        if hasattr(data, "as_scipy"):
-            return data.as_scipy().nnz == 0
-        return not bool(data.as_ndarray().any())
+
+def data_is_scalar(data) -> bool:
+    """
+    Check if data is a multiple of the identity matrix.
+    """
+    return scalar_value(data) is not None
 
 
 def is_scalar_op(op: Qobj) -> bool:

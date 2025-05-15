@@ -20,6 +20,7 @@ from alpsqutip.operators.qutip import QutipOperator
 from alpsqutip.operators.states import DensityOperatorMixin
 from alpsqutip.qutip_tools.tools import data_is_diagonal, decompose_qutip_operator
 from alpsqutip.scalarprod import orthogonalize_basis
+from alpsqutip.settings import ALPSQUTIP_TOLERANCE
 
 
 def collect_nbody_terms(operator: Operator) -> dict:
@@ -341,11 +342,13 @@ def rewrite_nbody_term_using_orthogonal_decomposition(
 
     gram_matrix = np.array([[sp(op1, op2) for op2 in basis] for op1 in basis])
     u_mat, s_diag, uh_mat = svd(gram_matrix, full_matrices=False, overwrite_a=True)
-    nontrivial = s_diag > 1e-12
+    nontrivial = s_diag > ALPSQUTIP_TOLERANCE
     u_mat, uh_mat = u_mat[:, nontrivial], uh_mat[nontrivial]
     coeffs = sum(u_mat.dot(uh_mat))
     new_terms = (
-        op_i * coeff for coeff, op_i in zip(coeffs, basis) if abs(coeff) > 1e-10
+        op_i * coeff
+        for coeff, op_i in zip(coeffs, basis)
+        if abs(coeff) > ALPSQUTIP_TOLERANCE
     )
     return SumOperator(
         tuple(new_terms),
