@@ -69,7 +69,6 @@ EXPECTED_PROJECTIONS["sx_A*sx_B"] = {
 }
 
 
-@pytest.mark.skip("Still failing")
 @pytest.mark.parametrize(["op_name"], [(name,) for name in TEST_OPERATORS])
 def test_nbody_projection(op_name):
     """Test the mean field projection over different states"""
