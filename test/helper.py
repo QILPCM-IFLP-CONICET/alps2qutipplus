@@ -308,7 +308,6 @@ PRODUCT_GIBBS_GENERATOR_TESTS = {
 }
 
 
-
 for key, val in GIBBS_GENERATOR_TESTS.items():
     name = "Gibbs from " + key
     TEST_CASES_STATES[name] = GibbsDensityOperator(val, SYSTEM)

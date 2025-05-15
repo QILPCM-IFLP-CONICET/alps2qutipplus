@@ -85,12 +85,6 @@ def test_nbody_projection(op_name):
     )
 
 
-
-
-
-
-
-    
 @pytest.mark.parametrize(["op_name", "op_test"], list(TEST_OPERATORS.items()))
 def test_meanfield_projection(op_name, op_test):
     """Test the mean field projection over different states"""
