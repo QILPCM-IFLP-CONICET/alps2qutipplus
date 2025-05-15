@@ -18,12 +18,12 @@ from alpsqutip.utils import operator_to_wolfram
 from .helper import (
     CHAIN_SIZE,
     OPERATORS,
+    SITES,
+    SYSTEM,
     TEST_CASES_STATES,
     check_equality,
     check_operator_equality,
     hamiltonian,
-    SITES,
-    SYSTEM,
     sz_total,
 )
 

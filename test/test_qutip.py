@@ -18,8 +18,8 @@ from alpsqutip.qutip_tools.tools import (
 from .helper import (
     CHAIN_SIZE,
     OPERATOR_TYPE_CASES,
-    check_operator_equality,
     SITES,
+    check_operator_equality,
     sx_A as LOCAL_SX_A,
     sy_B as SY_B,
     sz_C as SZ_C,

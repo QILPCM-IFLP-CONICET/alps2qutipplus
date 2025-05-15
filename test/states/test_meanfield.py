@@ -6,12 +6,12 @@ from test.helper import (
     CHAIN_SIZE,
     OPERATOR_TYPE_CASES,
     PRODUCT_GIBBS_GENERATOR_TESTS,
+    SYSTEM,
     TEST_CASES_STATES,
     check_operator_equality,
     sx_A,
     sx_B,
     sx_total,
-    SYSTEM,
 )
 
 import pytest

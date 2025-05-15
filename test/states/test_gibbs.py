@@ -6,9 +6,9 @@ from test.helper import (
     GIBBS_GENERATOR_TESTS,
     OPERATOR_TYPE_CASES,
     PRODUCT_GIBBS_GENERATOR_TESTS,
+    SITES,
     check_equality,
     check_operator_equality,
-    SITES,
 )
 
 import pytest
