@@ -248,7 +248,6 @@ class QuadraticFormOperator(Operator):
                 return isherm
 
         weights = self.weights
-        print("checking if isherm using weights", weights)
         if len(weights) == 0:
             return True
         return all(abs(np.imag(weight)) < ALPSQUTIP_TOLERANCE for weight in weights)
@@ -536,7 +535,6 @@ def build_quadratic_form_from_operator(
             return max((ob_op.operator**2).eigenenergies()) ** 0.5
         raise TypeError(f"spectral_norm can not be computed for {type(ob_op)}")
 
-    print("building quadratic operator from ", type(operator), "herm=", isherm)
     if simplify:
         operator = operator.simplify()
 
@@ -563,9 +561,6 @@ def build_quadratic_form_from_operator(
     # Already a quadratic form:
     if isinstance(operator, QuadraticFormOperator):
         if isherm and not operator.isherm:
-            print("    forcing hermiticity", type(operator))
-
-            print(" rebuild the operator with real coefficients")
             operator = QuadraticFormOperator(
                 operator.basis,
                 tuple((np.real(w) for w in operator.weights)),
@@ -573,7 +568,6 @@ def build_quadratic_form_from_operator(
                 force_hermitic_t(operator.linear_term),
                 force_hermitic_t(operator.offset),
             )
-            print("OK")
         return operator
 
     # SumOperators, and operators acting on at least size 2 blocks:
@@ -595,8 +589,7 @@ def build_quadratic_form_from_operator(
         return real_part + imag_part
 
     # Process hermitician operators
-    if isherm and not operator.isherm:
-        print("   Guarda! el operador no es hermítico!")
+
 
     # Classify terms
     system = operator.system
@@ -814,7 +807,6 @@ def simplify_quadratic_form(
     such that the original operator is
     sum(w * op**2 for w,op in zip(weights,ops))
     """
-    print(" @@ Simplifying", "hermitic=", hermitic)
     changed = False
     system = operator.system
     if not operator.isherm and hermitic:
@@ -851,10 +843,7 @@ def simplify_quadratic_form(
     offset = simplify_other_terms(operator.offset)
 
     if not changed:
-        print(operator.isherm, "?", hermitic)
         return operator
-    else:
-        print("   changed=", changed, "qf_op.isherm", qf_op.isherm, qf_op.weights)
 
     if qf_op.linear_term:
         linear_term = (
@@ -867,12 +856,6 @@ def simplify_quadratic_form(
         offset = (
             (offset + qf_op.offset).simplify() if offset is not None else qf_op.offset
         )
-
-    if offset is not None:
-        print("  offset isherm?", offset.isherm)
-    if linear_term is not None:
-        print(linear_term)
-        print("linear term isherm?", linear_term.isherm)
 
     return QuadraticFormOperator(
         qf_op.basis, qf_op.weights, system, linear_term, offset
