@@ -323,7 +323,7 @@ class SystemDescriptor:
         """Build a site term from a site term specification"""
         # Import here to avoid circular dependency
         # pylint: disable=import-outside-toplevel
-        from alpsqutip.operators import OneBodyOperator
+        from alpsqutip.operators import OneBodyOperator, ScalarOperator
 
         expr = term_spec["expr"]
         site_type = term_spec.get("type", None)
@@ -356,13 +356,17 @@ class SystemDescriptor:
                 )
             term_ops.append(term_op)
 
+        if len(term_ops) == 0:
+            return ScalarOperator(0, self)
+        if len(term_ops) == 1:
+            return term_ops[0]
         return OneBodyOperator(tuple(term_ops), self)
 
     def bond_term_from_descriptor(self, term_spec, graph, model, parms):
         """Build a bond term from a bond term specification"""
         # Import here to avoid circular dependency
         # pylint: disable=import-outside-toplevel
-        from alpsqutip.operators import SumOperator
+        from alpsqutip.operators import ScalarOperator, SumOperator
 
         def process_edge(e_expr, bond, model, t_parm):
             edge_type, src, dst = bond
@@ -425,6 +429,10 @@ class SystemDescriptor:
 
                 result_terms.append(term_op)
 
+        if len(result_terms) == 0:
+            return ScalarOperator(0.0, self)
+        if len(result_terms) == 1:
+            return result_terms[0]
         return SumOperator(tuple(result_terms), self, True)
 
     def global_operator(self, name):
