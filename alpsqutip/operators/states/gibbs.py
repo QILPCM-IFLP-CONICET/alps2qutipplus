@@ -162,7 +162,6 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
                 system = k.system
             self.system = system
             k_by_site = k_by_site_from_operator(k)
-            print("k by site:", k_by_site)
 
         if normalized:
             f_locals = {site: 0 for site in k_by_site}

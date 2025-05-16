@@ -61,7 +61,6 @@ def k_by_site_from_operator(k: Operator) -> Dict[str, Operator]:
             return {site: op for site, op in sites_op.items()}
         return {site: op * prefactor for site, op in sites_op.items()}
     if isinstance(k, SumOperator):
-        print("collecting terms")
         result = {}
         offset = 0
         for term in getattr(k, "terms"):
