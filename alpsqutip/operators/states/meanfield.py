@@ -229,6 +229,7 @@ def project_operator_to_m_body(full_operator: Operator, m_max=2, sigma_0=None):
     ):
         return full_operator
 
+    full_operator = full_operator.simplify()
     system = full_operator.system
     if isinstance(full_operator, SumOperator):
         terms = tuple(
@@ -422,7 +423,6 @@ def project_product_operator_as_n_body_operator(
     sites_op = operator.sites_op
     prefactor = operator.prefactor
     system = operator.system
-
     if prefactor == 0.0:
         return ScalarOperator(0, system)
 
@@ -445,11 +445,11 @@ def project_product_operator_as_n_body_operator(
         # subterms = terms_by_factors.setdefault(n_factors, [])
         for subcomb in combinations(sites_op, n_factors):
             num_factors = (val for site, val in averages.items() if site not in subcomb)
-            prefactor = reduce(mul_func, num_factors, prefactor)
+            term_prefactor = reduce(mul_func, num_factors, prefactor)
             if prefactor == 0:
                 continue
             sub_site_ops = {site: fluct_op[site] for site in subcomb}
-            terms.append(ProductOperator(sub_site_ops, prefactor, system))
+            terms.append(ProductOperator(sub_site_ops, term_prefactor, system))
 
     if len(terms) == 0:
         return ScalarOperator(0, system)
