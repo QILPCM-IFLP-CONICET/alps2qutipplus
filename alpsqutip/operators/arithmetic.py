@@ -180,7 +180,7 @@ class SumOperator(Operator):
         if isherm is None:
             # First, collect the non-hermitician terms
             non_hermitian = tuple((term for term in self.terms if not term.isherm))
-            # If there are non-hermitician terms, try the more aggresive strategy
+            # If there are non-hermitician terms, try the more aggressive strategy
             # over these terms.
             if non_hermitian:
                 return aggresive_hermitician_test(non_hermitian)
