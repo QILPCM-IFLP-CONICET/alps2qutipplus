@@ -3,6 +3,7 @@ Basic unit test.
 """
 
 import numpy as np
+import pytest
 
 from alpsqutip.operators import (
     LocalOperator,
@@ -32,6 +33,8 @@ np.set_printoptions(
     edgeitems=30, linewidth=100000, formatter=dict(float=lambda x: "%.3g" % x)
 )
 
+
+QUTIP_OPS_CACHE = {}
 
 sx_A = ProductOperator({local_sx_A.site: local_sx_A.operator}, 1.0, local_sx_A.system)
 sx_A2 = sx_A * sx_A
@@ -94,60 +97,60 @@ def test_acts_over():
         assert acts_over == results[name]
 
 
-def test_product_and_trace():
+@pytest.mark.parametrize(
+    ("name1", "operator1", "name2", "operator2"),
+    [
+        (
+            name1,
+            operator1,
+            name2,
+            operator2,
+        )
+        for name1, operator1 in FULL_TEST_CASES.items()
+        for name2, operator2 in FULL_TEST_CASES.items()
+    ],
+)
+def test_product_and_trace(name1, operator1, name2, operator2):
     """Check acts_over method"""
-    qutip_ops = {}
     skip_cases = {
         "hermitician quadratic operator",
         "non hermitician quadratic operator",
     }
+    if name1 in skip_cases or name2 in skip_cases:
+        return
+    op_qutip_1 = QUTIP_OPS_CACHE.get(name1, None)
+    if op_qutip_1 is None:
+        op_qutip_1 = operator1.to_qutip()
+        QUTIP_OPS_CACHE[name1] = op_qutip_1
 
-    passed = True
-
-    for name1, operator1 in FULL_TEST_CASES.items():
-        if name1 in skip_cases:
-            continue
-
+    if name1 == name2:
         print("checking the trace of ", name1)
-        op_qutip_1 = qutip_ops.get(name1, None)
-        if op_qutip_1 is None:
-            op_qutip_1 = operator1.to_qutip()
-            qutip_ops[name1] = op_qutip_1
 
         if not abs(operator1.tr() - op_qutip_1.tr()) < 1.0e-10:
-            print("   failed:", "\033[91mtraces should match.\033[0m")
-            passed = False
-            continue
+            assert False, ("   failed:", "\033[91mtraces should match.\033[0m")
 
-        for name2, operator2 in FULL_TEST_CASES.items():
-            if name2 in skip_cases:
-                continue
+    # Mix of two
+    print("checking the trace of the product of ", name1, "and", name2)
+    op_qutip_2 = QUTIP_OPS_CACHE.get(name2, None)
+    if op_qutip_2 is None:
+        op_qutip_2 = operator2.to_qutip()
+        QUTIP_OPS_CACHE[name2] = op_qutip_2
+    # The trace of the products should match
+    prod = operator1 * operator2
+    if isinstance(prod, DensityOperatorMixin):
+        assert False, (
+            "\033[91m  failed: \033[0m",
+            f"Product of {type(operator1)}*{type(operator2)} is a density matrix.",
+        )
 
-            print("checking the trace of the product of ", name1, "and", name2)
-            op_qutip_2 = qutip_ops.get(name2, None)
-            if op_qutip_2 is None:
-                op_qutip_2 = operator2.to_qutip()
-                qutip_ops[name2] = op_qutip_2
-            # The trace of the products should match
-            prod = operator1 * operator2
-            if isinstance(prod, DensityOperatorMixin):
-                passed = False
-                print(
-                    "\033[91m  failed: \033[0m",
-                    f"Product of {type(operator1)}*{type(operator2)} is a density matrix.",
-                )
-                continue
-            alps_trace = (prod).tr()
-            qutip_trace = (op_qutip_1 * op_qutip_2).tr()
-            if not abs(alps_trace - qutip_trace) < 1.0e-10:
-                passed = False
-                print(
-                    "\033[91m  failed:\033[0m",
-                    f"the traces of the products should match. {type(operator1)}*{type(operator2)}->{type(prod)}, {alps_trace}!={qutip_trace}",
-                )
-                continue
-            print("\033[92m  passed.\033[0m")
-        assert passed, "there are inconsistencies"
+    alps_trace = (prod).tr()
+    qutip_trace = (op_qutip_1 * op_qutip_2).tr()
+    if not abs(alps_trace - qutip_trace) < 1.0e-10:
+        assert False, (
+            "\033[91m  failed:\033[0m",
+            f"the traces of the products should match. {type(operator1)}*{type(operator2)}->{type(prod)}, {alps_trace}!={qutip_trace}",
+        )
+    print("\033[92m  passed.\033[0m")
 
 
 def test_build_hamiltonian():
