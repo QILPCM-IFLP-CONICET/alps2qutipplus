@@ -61,6 +61,7 @@ def k_by_site_from_operator(k: Operator) -> Dict[str, Operator]:
             return {site: op for site, op in sites_op.items()}
         return {site: op * prefactor for site, op in sites_op.items()}
     if isinstance(k, SumOperator):
+        print("collecting terms")
         result = {}
         offset = 0
         for term in getattr(k, "terms"):
@@ -81,9 +82,10 @@ def k_by_site_from_operator(k: Operator) -> Dict[str, Operator]:
 
         if offset:
             if result:
-                site = next(iter(result))
-                result[site] += offset
-            return k_by_site_from_operator(ScalarOperator(offset, k.system))
+                offset = offset / len(result)
+                result = {site: op - offset for site, op in result.items()}
+            else:
+                return k_by_site_from_operator(ScalarOperator(offset, k.system))
         return result
     if isinstance(k, QutipOperator):
         acts_over = k.acts_over()
