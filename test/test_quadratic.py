@@ -64,7 +64,7 @@ def test_build_quadratic(name):
 
     check_operator_equality(quadratic_form.to_qutip(), qutip_operator)
     assert quadratic_form.isherm == qutip_operator.isherm, (
-        "operator and its convertion to qutip "
+        "operator and its conversion to qutip "
         "should have the same hermitician character."
     )
 
