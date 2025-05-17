@@ -81,9 +81,10 @@ def k_by_site_from_operator(k: Operator) -> Dict[str, Operator]:
 
         if offset:
             if result:
-                site = next(iter(result))
-                result[site] += offset
-            return k_by_site_from_operator(ScalarOperator(offset, k.system))
+                offset = offset / len(result)
+                result = {site: op - offset for site, op in result.items()}
+            else:
+                return k_by_site_from_operator(ScalarOperator(offset, k.system))
         return result
     if isinstance(k, QutipOperator):
         acts_over = k.acts_over()
