@@ -72,7 +72,7 @@ EXPECTED_PROJECTIONS["sx_total"] = {name: sx_total for name in TEST_STATES}
 #               CHAIN_SIZE/4- <sx>^2(CHAIN_SIZE-1)*CHAIN_SIZE
 
 
-SX_MF_AV = 0.5 * (1 + 0.0758 - 3.43e-05)
+SX_MF_AV = 0.5 * 1.0757657
 # SX_MF_AV=.5
 EXPECTED_PROJECTIONS["sx_total - sx_total^2/(N-1)"] = {
     name: (sx_total * SX_MF_AV + (0.1197810663) * 3 / 4 * CHAIN_SIZE / (CHAIN_SIZE - 1))
@@ -177,6 +177,38 @@ def test_meanfield_projection(op_name, op_test):
         ):
             failed[state_name] = 4 * (
                 result.to_qutip() - expected[state_name].to_qutip()
+            )
+    if failed:
+        for fail in failed:
+            print(f" failed with <<{fail}>> as state seed. ")
+            print(failed[fail])
+        assert False, "Self-consistency failed for some seeds."
+        # assert check_operator_equality(
+        #    expected[state_name].to_qutip(), result.to_qutip()
+        # ), f"failed projection {state_name} for {op_name}"
+
+
+
+@pytest.mark.parametrize(["op_name", "op_test"], list(TEST_OPERATORS.items()))
+def test_meanfield_projection_2(op_name, op_test):
+    """
+    Compare the results of the self-consistent mean field projection from
+    both n-body projections routines.
+    """
+    failed = {}
+    print(f"projecting <<{op_name}>> in mean field")
+
+    for state_name, sigma0 in TEST_STATES.items():
+        if state_name in SKIP_MEANFIELD_SEEDS.get(op_name, []):
+            continue
+        result_m = project_meanfield(op_test, sigma0, proj_func=project_operator_to_m_body)
+        result_n = project_meanfield(op_test, sigma0, proj_func=project_to_n_body_operator)
+
+        if not check_operator_equality(
+            result_m.to_qutip(), result_n.to_qutip()
+        ):
+            failed[state_name] = 4 * (
+                result_m.to_qutip() - result_n.to_qutip()
             )
     if failed:
         for fail in failed:
