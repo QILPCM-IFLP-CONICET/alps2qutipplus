@@ -2,7 +2,7 @@
 Module that implements a meanfield approximation of a Gibbsian state
 """
 
-# import logging
+import logging
 from functools import reduce
 from itertools import combinations
 from typing import Optional, Tuple, Union
@@ -160,8 +160,9 @@ def project_meanfield(k_op, sigma0=None, max_it=100):
 
     """
     sigma0 = self_consistent_project_meanfield(k_op, sigma0, max_it)[1]
-
-    return project_operator_to_m_body(k_op, 1, sigma0)
+    result = project_operator_to_m_body(k_op, 1, sigma0).simplify()
+    # result = project_to_n_body_operator(k_op, 1, sigma0).simplify()
+    return result
 
 
 def self_consistent_project_meanfield(
@@ -195,21 +196,30 @@ def self_consistent_project_meanfield(
             sigma = GibbsProductDensityOperator(neg_log_sigma)
 
     rel_s = 10000
+    opt_sigma = sigma
 
     for it in range(max_it):
-        k_one_body = project_operator_to_m_body(k_op, 1, sigma)
+        # k_one_body = project_operator_to_m_body(k_op, 1, sigma)
+        k_one_body = project_to_n_body_operator(k_op, 1, sigma).simplify()
         new_sigma = GibbsProductDensityOperator(k_one_body)
-        k_one_body = -new_sigma.logm()
-        rel_s_new = np.real(sigma.expect(k_op - k_one_body))
+
+        log_k_one_body = new_sigma.logm()
+        rel_s_new = np.real(sigma.expect(k_op + log_k_one_body))
         rel_entropy_txt = f"     S(curr||target)={rel_s_new}"
-        # logging.debug(rel_entropy_txt)
-        print(rel_entropy_txt)
+        logging.debug(rel_entropy_txt)
+        # print(rel_entropy_txt)
         if it > 20 and rel_s_new > 2 * rel_s:
             break
-        rel_s = rel_s_new
-        sigma = new_sigma
 
-    return k_one_body, sigma
+        if rel_s_new < rel_s:
+            rel_s = rel_s_new
+            opt_sigma = new_sigma
+            sigma = new_sigma
+        else:
+            sigma = new_sigma
+
+    k_one_body = project_to_n_body_operator(k_op, 1, opt_sigma).simplify()
+    return k_one_body, opt_sigma
 
 
 def project_operator_to_m_body(full_operator: Operator, m_max=2, sigma_0=None):
