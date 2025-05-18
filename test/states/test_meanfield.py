@@ -73,7 +73,6 @@ EXPECTED_PROJECTIONS["sx_total"] = {name: sx_total for name in TEST_STATES}
 
 
 SX_MF_AV = 0.5 * 1.0757657
-# SX_MF_AV=.5
 EXPECTED_PROJECTIONS["sx_total - sx_total^2/(N-1)"] = {
     name: (sx_total * SX_MF_AV + (0.1197810663) * 3 / 4 * CHAIN_SIZE / (CHAIN_SIZE - 1))
     for name in TEST_STATES
@@ -183,9 +182,6 @@ def test_meanfield_projection(op_name, op_test):
             print(f" failed with <<{fail}>> as state seed. ")
             print(failed[fail])
         assert False, "Self-consistency failed for some seeds."
-        # assert check_operator_equality(
-        #    expected[state_name].to_qutip(), result.to_qutip()
-        # ), f"failed projection {state_name} for {op_name}"
 
 
 @pytest.mark.parametrize(["op_name", "op_test"], list(TEST_OPERATORS.items()))
