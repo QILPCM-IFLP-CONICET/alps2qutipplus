@@ -182,7 +182,9 @@ def test_meanfield_projection(op_name, op_test):
         for fail in failed:
             print(f" failed with <<{fail}>> as state seed. ")
             print(failed[fail])
-        assert False, f"Self-consistency failed for some seeds:  {"".join(tuple(failed))}."
+        assert (
+            False
+        ), f"Self-consistency failed for some seeds:  {"".join(tuple(failed))}."
 
 
 @pytest.mark.parametrize(["op_name", "op_test"], list(TEST_OPERATORS.items()))
