@@ -188,7 +188,6 @@ def test_meanfield_projection(op_name, op_test):
         # ), f"failed projection {state_name} for {op_name}"
 
 
-
 @pytest.mark.parametrize(["op_name", "op_test"], list(TEST_OPERATORS.items()))
 def test_meanfield_projection_2(op_name, op_test):
     """
@@ -201,15 +200,15 @@ def test_meanfield_projection_2(op_name, op_test):
     for state_name, sigma0 in TEST_STATES.items():
         if state_name in SKIP_MEANFIELD_SEEDS.get(op_name, []):
             continue
-        result_m = project_meanfield(op_test, sigma0, proj_func=project_operator_to_m_body)
-        result_n = project_meanfield(op_test, sigma0, proj_func=project_to_n_body_operator)
+        result_m = project_meanfield(
+            op_test, sigma0, proj_func=project_operator_to_m_body
+        )
+        result_n = project_meanfield(
+            op_test, sigma0, proj_func=project_to_n_body_operator
+        )
 
-        if not check_operator_equality(
-            result_m.to_qutip(), result_n.to_qutip()
-        ):
-            failed[state_name] = 4 * (
-                result_m.to_qutip() - result_n.to_qutip()
-            )
+        if not check_operator_equality(result_m.to_qutip(), result_n.to_qutip()):
+            failed[state_name] = 4 * (result_m.to_qutip() - result_n.to_qutip())
     if failed:
         for fail in failed:
             print(f" failed with <<{fail}>> as state seed. ")
