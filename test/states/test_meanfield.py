@@ -59,6 +59,7 @@ TEST_OPERATORS = {
 }
 
 
+# TODO: Study why the convergency fails for these cases.
 SKIP_MEANFIELD_SEEDS = {
     "sx_total - sx_total^2/(N-1)": ["x semipolarized"],
     "sx_A*sx_B": ["x semipolarized"],
@@ -68,10 +69,7 @@ EXPECTED_PROJECTIONS = {}
 # sx_total is not modified
 EXPECTED_PROJECTIONS["sx_total"] = {name: sx_total for name in TEST_STATES}
 
-# sx_total^2-> sx_total * <sx>*2*(CHAIN_SIZE-1) +
-#               CHAIN_SIZE/4- <sx>^2(CHAIN_SIZE-1)*CHAIN_SIZE
-
-
+# TODO: build this analytically
 SX_MF_AV = 0.5 * 1.0757657
 EXPECTED_PROJECTIONS["sx_total - sx_total^2/(N-1)"] = {
     name: (sx_total * SX_MF_AV + (0.1197810663) * 3 / 4 * CHAIN_SIZE / (CHAIN_SIZE - 1))
@@ -181,7 +179,12 @@ def test_meanfield_projection(op_name, op_test):
         for fail in failed:
             print(f" failed with <<{fail}>> as state seed. ")
             print(failed[fail])
-        assert False, "Self-consistency failed for some seeds."
+        fail_msg = (
+            f"Self-consistency failed for some seeds:"
+            + "".join(key for key in failed)
+            + "."
+        )
+        assert False, fail_msg
 
 
 @pytest.mark.parametrize(["op_name", "op_test"], list(TEST_OPERATORS.items()))

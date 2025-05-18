@@ -480,7 +480,7 @@ def classify_terms(operator):
 def build_quadratic_form_matrix(terms_by_block, local_basis):
     sizes = {site: len(local_base) for site, local_base in local_basis.items()}
     sorted_sites = sorted(sizes)
-    offsets = {
+    positions = {
         site: sum(sizes[site_] for site_ in sorted_sites[:pos])
         for pos, site in enumerate(sorted_sites)
     }
@@ -493,8 +493,8 @@ def build_quadratic_form_matrix(terms_by_block, local_basis):
     )
     for block, terms in terms_by_block.items():
         site1, site2 = block
-        offset1 = offsets[site1]
-        offset2 = offsets[site2]
+        position_1 = positions[site1]
+        position_2 = positions[site2]
         basis1 = local_basis[site1]
         basis2 = local_basis[site2]
         for term in terms:
@@ -502,13 +502,13 @@ def build_quadratic_form_matrix(terms_by_block, local_basis):
             op1, op2 = (term.sites_op[site] for site in block)
             for mu, b1 in enumerate(basis1):
                 for nu, b2 in enumerate(basis2):
-                    i = offset1 + mu
-                    j = offset2 + nu
+                    i = position_1 + mu
+                    j = position_2 + nu
                     result_array[i, j] += np.real(
                         prefactor * (op1 * b1).tr() * (op2 * b2).tr()
                     )
                     result_array[j, i] = result_array[i, j]
-    return result_array, offsets
+    return result_array, positions
 
 
 def build_quadratic_form_from_operator(
@@ -589,7 +589,6 @@ def build_quadratic_form_from_operator(
         return real_part + imag_part
 
     # Process hermitician operators
-
     # Classify terms
     system = operator.system
     terms_by_2body_block, linear_terms, offset_terms = classify_terms(operator)
@@ -609,6 +608,7 @@ def build_quadratic_form_from_operator(
 
     # Decompose the matrix in the eigenbasis, and build the generators
     e_vals, e_vecs = eigh(qf_array)
+
     qf_basis = sorted(
         [
             (
