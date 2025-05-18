@@ -116,11 +116,12 @@ class QutipOperator(Operator):
         site_names = self.site_names
         sites = sorted(site_names, key=lambda x: site_names[x])
         decomposition = decompose_qutip_operator(self.operator)
+        prefactor = self.prefactor
         terms = tuple(
             (
                 ProductOperator(
                     dict(zip(sites, term)),
-                    prefactor=1.0,
+                    prefactor=prefactor,
                     system=self.system,
                 ).simplify()
                 for term in decomposition

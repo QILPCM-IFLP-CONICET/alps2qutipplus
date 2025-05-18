@@ -267,7 +267,7 @@ def test_as_sum_of_products():
     print("testing QutipOperator.as_sum_of_products")
     for name, operator_case in OPERATOR_TYPE_CASES.items():
         print("   operator", name, "of type", type(operator_case))
-        qutip_op = operator_case.to_qutip_operator()
+        qutip_op = 3*(operator_case.to_qutip_operator())
         # TODO: support handling hermitician operators
         if not qutip_op.isherm:
             continue

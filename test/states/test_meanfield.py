@@ -59,6 +59,7 @@ TEST_OPERATORS = {
 }
 
 
+# TODO: Study why the convergency fails for these cases.
 SKIP_MEANFIELD_SEEDS = {
     "sx_total - sx_total^2/(N-1)": ["x semipolarized"],
     "sx_A*sx_B": ["x semipolarized"],
@@ -181,7 +182,7 @@ def test_meanfield_projection(op_name, op_test):
         for fail in failed:
             print(f" failed with <<{fail}>> as state seed. ")
             print(failed[fail])
-        assert False, "Self-consistency failed for some seeds."
+        assert False, f"Self-consistency failed for some seeds:  {"".join(tuple(failed))}."
 
 
 @pytest.mark.parametrize(["op_name", "op_test"], list(TEST_OPERATORS.items()))
