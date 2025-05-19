@@ -2,11 +2,9 @@
 Module that implements a meanfield approximation of a Gibbsian state
 """
 
-
 from functools import reduce
 from itertools import combinations
 from typing import Optional, Tuple, Union
-
 
 import qutip
 from qutip import Qobj
@@ -145,7 +143,9 @@ def one_body_from_qutip_operator(
     )
 
 
-def project_operator_to_m_body(full_operator: Operator, m_max=2, sigma_0=None)->Operator:
+def project_operator_to_m_body(
+    full_operator: Operator, m_max=2, sigma_0=None
+) -> Operator:
     """
     Project a Operator onto a m_max - body operators sub-algebra
     relative to the local states `local_sigmas`.
@@ -221,7 +221,9 @@ def project_operator_to_m_body(full_operator: Operator, m_max=2, sigma_0=None)->
     )
 
 
-def project_qutip_operator_to_m_body(full_operator: Operator, m_max=2, sigma_0=None)->Operator:
+def project_qutip_operator_to_m_body(
+    full_operator: Operator, m_max=2, sigma_0=None
+) -> Operator:
     """
     Specialized version for QutipOperators.
     """
@@ -291,7 +293,7 @@ def project_product_operator_as_n_body_operator(
     operator: ProductOperator,
     nmax: Optional[int] = 1,
     sigma: Optional[ProductDensityOperator] = None,
-)->Operator:
+) -> Operator:
     """
     Project a product operator to the manifold of n-body operators
     """
@@ -336,7 +338,7 @@ def project_product_operator_as_n_body_operator(
 
 def project_quadraticform_operator_as_n_body_operator(
     operator, nmax: Optional[int] = 1, sigma: Optional[ProductDensityOperator] = None
-)->Operator:
+) -> Operator:
     """
     Project a product operator to the manifold of n-body operators
     """
@@ -356,7 +358,7 @@ def project_quadraticform_operator_as_n_body_operator(
 
 def project_qutip_operator_as_n_body_operator(
     operator, nmax: Optional[int] = 1, sigma: Optional[ProductDensityOperator] = None
-)->Operator:
+) -> Operator:
     """
     Project a qutip operator to the manifold of n-body operators
     """
@@ -415,7 +417,7 @@ def project_qutip_operator_as_n_body_operator(
     return SumOperator(tuple(terms), system)
 
 
-def project_to_n_body_operator(operator, nmax=1, sigma=None)->Operator:
+def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
     """
     Approximate `operator` by a sum of (up to) nmax-body
     terms, relative to the state sigma.
@@ -512,5 +514,3 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None)->Operator:
     if len(terms) == 1:
         return terms[0]
     return SumOperator(tuple(terms), system)
-
-

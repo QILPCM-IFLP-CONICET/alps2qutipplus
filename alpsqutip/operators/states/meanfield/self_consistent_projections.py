@@ -6,10 +6,13 @@ import logging
 from typing import Tuple
 
 import numpy as np
-from alpsqutip.operators import Operator
 
+from alpsqutip.operators import Operator
 from alpsqutip.operators.states.gibbs import GibbsProductDensityOperator
-from alpsqutip.operators.states.meanfield.projections import project_operator_to_m_body, project_to_n_body_operator
+from alpsqutip.operators.states.meanfield.projections import (
+    project_operator_to_m_body,
+    project_to_n_body_operator,
+)
 
 
 def self_consistent_project_meanfield(
