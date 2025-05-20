@@ -31,7 +31,11 @@ def variational_quadratic_mfa(
 ):
     r"""
     Find the Mean field approximation for the exponential
-    of a quadratic form.
+    of an operator using a variational algorithm.
+
+    
+
+
 
     Decompose ham as a quadratic form
 
@@ -46,9 +50,11 @@ def variational_quadratic_mfa(
     for real values of `phi_a`.
 
     Returns `sigma` as a GibbsProductOperator.
-    """
-
+    """    
     ham_proj = project_to_n_body_operator(ham, nmax=2, sigma=sigma_ref)
+    if isinstance(ham, OneBodyOperator):
+        return ham
+
     qf_op = build_quadratic_form_from_operator(ham_proj)
     generators_and_weights = sorted(
         zip(qf_op.weights, qf_op.basis), key=lambda x: x[0]
@@ -57,8 +63,25 @@ def variational_quadratic_mfa(
         -weight * base_op.tidyup()
         for weight, base_op in generators_and_weights
         if weight < 0
-    ]
-    k0 = qf_op.linear_term.tidyup() or None
+    ] 
+    # TODO: if the generators do not acts over the whole system, consider
+    # adding more generators.
+   
+    k0 = qf_op.linear_term
+    if k0:
+        k0 = k0.tidyup() or None
+
+    # If there are not any two-body terms,
+    # try a self-consistent step:
+    if len(generators)==0:
+        if k0:
+            # Self consistent step
+            sigma_ref = GibbsProductDensityOperator(k0)
+            if its:
+                return variational_quadratic_mfa(ham, numfields, sigma_ref,
+                                                 its-1, method, callback)
+            return sigma_ref
+        return ProductDensityOperator({}, system=ham.system)
 
     def build_test_state(coeffs):
         terms = tuple((coef * gen for coef, gen in zip(coeffs, generators)))

@@ -285,6 +285,8 @@ class OneBodyOperator(SumOperator):
 
         def collect_systems(terms, system):
             for term in terms:
+                if not hasattr(term, "system"):
+                    continue
                 term_system = term.system
                 if term_system is None:
                     continue
@@ -296,6 +298,8 @@ class OneBodyOperator(SumOperator):
 
         if check_and_convert:
             system = collect_systems(terms, system)
+            # Ensure that all the terms are operators.
+            terms = [term if isinstance(term, Operator) else ScalarOperator(term, system) for term in terms]
             terms, system = self._simplify_terms(terms, system)
             simplified = True
             if len(terms) == 0:
