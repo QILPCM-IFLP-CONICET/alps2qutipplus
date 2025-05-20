@@ -75,7 +75,7 @@ def variational_quadratic_mfa(
     # phis = np.zeros(numfields)
     result = minimize(test_state_re, phis, method=method, callback=callback)
     sigma_ref = build_test_state(result.x)
-    error = abs(sigma_ref.expect(qf_op - ham_proj))
+    error = abs(sigma_ref.expect(qf_op - ham_proj)) if ham_proj is not ham else 0.
     if its == 0:
         logging.info(f"<delta H>={error}")
         return sigma_ref

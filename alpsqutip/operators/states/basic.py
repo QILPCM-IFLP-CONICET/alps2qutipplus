@@ -82,6 +82,7 @@ class DensityOperatorMixin:
         self, obs_objs: Union[Operator, Iterable]
     ) -> Union[np.ndarray, dict, Number]:
         """Compute the expectation value of an observable"""
+        from alpsqutip.operators.quadratic import QuadraticFormOperator
 
         # TODO: expode that expectation values of operators just requires the
         # state where the operators acts.
@@ -103,6 +104,9 @@ class DensityOperatorMixin:
 
             if isinstance(obs, (tuple, list)):
                 return np.array([do_evaluate_expect(operator) for operator in obs])
+
+            if isinstance(obs, QuadraticFormOperator):
+                obs = obs.to_sum_operator()
 
             if isinstance(obs, SumOperator):
                 return sum(do_evaluate_expect(term) for term in obs.terms)

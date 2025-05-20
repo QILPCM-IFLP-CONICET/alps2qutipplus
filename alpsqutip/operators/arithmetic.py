@@ -111,7 +111,7 @@ class SumOperator(Operator):
         for term in self.terms:
             term_acts_over = term.acts_over()
             result = result.union(term_acts_over)
-        return result
+        return frozenset(result)
 
     def dag(self):
         """return the adjoint operator"""
