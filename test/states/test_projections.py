@@ -33,7 +33,6 @@ from alpsqutip.operators.states.meanfield import (
     project_meanfield,
     project_operator_to_m_body,
     project_to_n_body_operator,
-    variational_quadratic_mfa,
 )
 from alpsqutip.settings import ALPSQUTIP_TOLERANCE
 
@@ -181,7 +180,7 @@ def test_meanfield_projection(op_name, op_test):
             print(f" failed with <<{fail}>> as state seed. ")
             print(failed[fail])
         fail_msg = (
-            f"Self-consistency failed for some seeds:"
+            "Self-consistency failed for some seeds:"
             + "".join(key for key in failed)
             + "."
         )

@@ -2,36 +2,16 @@
 Test functions that implement the mean field approximation.
 """
 
-from test.helper import (
-    CHAIN_SIZE,
-    OPERATOR_TYPE_CASES,
-    PRODUCT_GIBBS_GENERATOR_TESTS,
-    SYSTEM,
-    TEST_CASES_STATES,
-    check_operator_equality,
-    sx_A,
-    sx_B,
-    sx_total,
-)
+from test.helper import CHAIN_SIZE, SYSTEM, TEST_CASES_STATES, sx_A, sx_B, sx_total
 
 import pytest
 
-from alpsqutip.operators import (
-    LocalOperator,
-    OneBodyOperator,
-    ProductOperator,
-    QutipOperator,
-    ScalarOperator,
-    SumOperator,
-)
+from alpsqutip.operators import ScalarOperator
 from alpsqutip.operators.states import (
     GibbsProductDensityOperator,
     ProductDensityOperator,
 )
 from alpsqutip.operators.states.meanfield import (
-    one_body_from_qutip_operator,
-    project_meanfield,
-    project_operator_to_m_body,
     project_to_n_body_operator,
     variational_quadratic_mfa,
 )
@@ -105,10 +85,8 @@ def test_variational_meanfield(state_name, state, generator_name, generator):
     sigma_var = variational_quadratic_mfa(generator, sigma_ref=state)
     generator_1b_1st = project_to_n_body_operator(generator, 1, sigma_var)
     sigma_sc = GibbsProductDensityOperator(generator_1b_1st)
-    generator_1b_2nd = project_to_n_body_operator(generator, 1, sigma_sc)
     rel_entropy_var = sigma_var.expect(sigma_var.logm() + generator)
     rel_entropy_sc = sigma_var.expect(sigma_sc.logm() + generator)
     assert (
-        abs(rel_entropy_var - rel_entropy_sc) < 1e-6
+        abs(rel_entropy_var - rel_entropy_sc) < ALPSQUTIP_TOLERANCE**0.5
     ), f"{rel_entropy_var}!={rel_entropy_sc}"
-    # assert check_operator_equality(generator_1b_1st, generator_1b_2nd), "sigma_var should satisfy self-consistency"

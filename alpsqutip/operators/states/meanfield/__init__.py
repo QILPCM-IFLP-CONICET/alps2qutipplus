@@ -6,7 +6,7 @@ from .projections import (
 )
 from .variational import variational_quadratic_mfa
 
-ALL = [
+__all__ = [
     "one_body_from_qutip_operator",
     "project_meanfield",
     "project_operator_to_m_body",
