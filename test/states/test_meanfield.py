@@ -1,7 +1,6 @@
 """
 Test functions that implement the mean field approximation.
 """
-import pytest
 
 from test.helper import (
     CHAIN_SIZE,
@@ -14,6 +13,8 @@ from test.helper import (
     sx_B,
     sx_total,
 )
+
+import pytest
 
 from alpsqutip.operators import (
     LocalOperator,
@@ -62,7 +63,7 @@ TEST_OPERATORS = {
 # TODO: Study why the convergency fails for these cases.
 SKIP_MEANFIELD_SEEDS = {
     "sx_total - sx_total^2/(N-1)": [],
-    "sx_A*sx_B": [], # "x semipolarized"
+    "sx_A*sx_B": [],  # "x semipolarized"
 }
 
 EXPECTED_PROJECTIONS = {}
@@ -89,15 +90,25 @@ EXPECTED_PROJECTIONS["sx_A*sx_B"] = {
         if isinstance(state, (GibbsProductDensityOperator, ProductDensityOperator))
     ],
 )
-def test_variational_meanfield(
-        state_name, state, generator_name, generator
-):
+def test_variational_meanfield(state_name, state, generator_name, generator):
     print(
         "Check that the variational mean field for ",
-        generator_name, "of type", type(generator),
-        "converges to a self-consistent "
-        "state starting from",
-        state_name, "of type", type(state)
+        generator_name,
+        "of type",
+        type(generator),
+        "converges to a self-consistent " "state starting from",
+        state_name,
+        "of type",
+        type(state),
     )
 
-    sigma = variational_quadratic_mfa(generator, sigma_ref=state)
+    sigma_var = variational_quadratic_mfa(generator, sigma_ref=state)
+    generator_1b_1st = project_to_n_body_operator(generator, 1, sigma_var)
+    sigma_sc = GibbsProductDensityOperator(generator_1b_1st)
+    generator_1b_2nd = project_to_n_body_operator(generator, 1, sigma_sc)
+    rel_entropy_var = sigma_var.expect(sigma_var.logm() + generator)
+    rel_entropy_sc = sigma_var.expect(sigma_sc.logm() + generator)
+    assert (
+        abs(rel_entropy_var - rel_entropy_sc) < 1e-6
+    ), f"{rel_entropy_var}!={rel_entropy_sc}"
+    # assert check_operator_equality(generator_1b_1st, generator_1b_2nd), "sigma_var should satisfy self-consistency"

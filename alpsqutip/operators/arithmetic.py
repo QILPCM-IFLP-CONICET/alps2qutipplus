@@ -299,7 +299,10 @@ class OneBodyOperator(SumOperator):
         if check_and_convert:
             system = collect_systems(terms, system)
             # Ensure that all the terms are operators.
-            terms = [term if isinstance(term, Operator) else ScalarOperator(term, system) for term in terms]
+            terms = [
+                term if isinstance(term, Operator) else ScalarOperator(term, system)
+                for term in terms
+            ]
             terms, system = self._simplify_terms(terms, system)
             simplified = True
             if len(terms) == 0:

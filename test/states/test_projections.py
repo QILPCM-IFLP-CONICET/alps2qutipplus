@@ -1,7 +1,6 @@
 """
 Test functions that implement n-body projections
 """
-import pytest
 
 from test.helper import (
     CHAIN_SIZE,
@@ -14,6 +13,8 @@ from test.helper import (
     sx_B,
     sx_total,
 )
+
+import pytest
 
 from alpsqutip.operators import (
     LocalOperator,
@@ -62,7 +63,7 @@ TEST_OPERATORS = {
 # TODO: Study why the convergency fails for these cases.
 SKIP_MEANFIELD_SEEDS = {
     "sx_total - sx_total^2/(N-1)": ["x semipolarized"],
-    "sx_A*sx_B": ["x semipolarized"], # "x semipolarized"
+    "sx_A*sx_B": ["x semipolarized"],  # "x semipolarized"
 }
 
 EXPECTED_PROJECTIONS = {}

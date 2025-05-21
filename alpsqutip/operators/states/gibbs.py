@@ -180,6 +180,12 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
             f_locals[site] = -f_local
             k_by_site[site] = system.site_identity(site) * f_local
 
+        for site, op_qutip in k_by_site.items():
+            eig_vals = op_qutip.eigenenergies()
+            probs = np.exp(-eig_vals)
+            assert abs(sum(probs) - 1) < 1e-8, f"{probs} from {eig_vals}"
+            assert all(p >= 0 for p in probs)
+
         self.free_energies = f_locals
         self.k_by_site = k_by_site
 
