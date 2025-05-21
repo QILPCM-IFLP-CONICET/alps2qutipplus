@@ -1,9 +1,11 @@
 from distutils.core import setup
+from setuptools import find_packages
 
 setup(
     name="Alps2Qutip",
     version="1.0",
-    packages=["alpsqutip"],
+    # packages=["alpsqutip"],
+    packages=find_packages(),
     package_data={
         "alpsqutip": [
             "lib/models.xml",
