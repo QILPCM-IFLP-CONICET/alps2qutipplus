@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "alps2qutipplus"
+version = "1.0.0"
+authors = [
+    { name="Juan Mauricio Matera", email="matera@fisica.unlp.edu.ar" }
+]
+description = "A qutip-5 based library to build simulations of quantum systems from ALPSs specification files."
+readme = "README.rst"
+requires-python = ">=3.7"
+license = { file = "LICENSE.txt" }
+dependencies = [
+    "matplotlib",
+    "qutip",
+]
+
+[project.urls]
+Homepage = "http://www.fisica.unlp.edu.ar/Members/matera/english-version/mauricio-materas-personal-home-page"
