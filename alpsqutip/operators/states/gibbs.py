@@ -167,7 +167,8 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
             f_locals = {site: 0 for site in k_by_site}
         else:
             f_locals = {
-                site: -np.log((-l_op).expm().tr()) for site, l_op in k_by_site.items()
+                site: -safe_exp_and_normalize(-l_op)[1]
+                for site, l_op in k_by_site.items()
             }
             for site in k_by_site:
                 k_by_site[site] = k_by_site[site] - f_locals[site]
