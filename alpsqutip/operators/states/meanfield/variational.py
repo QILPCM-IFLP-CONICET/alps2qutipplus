@@ -1,7 +1,7 @@
 """
 Variational Mean-field
 
-Build variational approximations to a Gibbsian statate.
+Build variational approximations to a Gibbsian state.
 
 """
 
