@@ -11,5 +11,6 @@ License
 
 Alps2Qutip is released under the GNU General Public License Version 3 (GPL3).
 
-.. |Travis| image:: https://secure.travis-ci.org/mmatera/alps2qutipplus.svg?branch=master
-.. _Travis: https://travis-ci.org/Mathics3/alps2qutipplus
+
+-.. |Travis| image:: https://secure.travis-ci.org/mmatera/alps2qutipplus.svg?branch=master
+-.. _Travis: https://travis-ci.org/mmatera/alps2qutipplus
