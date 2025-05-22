@@ -127,9 +127,15 @@ def mf_quadratic_form_exponential(
 
     # Generate a initial guess for the coefficients.
     phis = 2 * random_sample(len(generators)) - 1
-    # phis = np.zeros(numfields)
-    result = minimize(test_state_re, phis, method=method, callback=callback_optimizer)
-    sigma_ref = build_test_state(result.x)
+    try:
+        result = minimize(
+            test_state_re, phis, method=method, callback=callback_optimizer
+        )
+        phis = result.x
+    except ValueError as val_exc:
+        logging.info("Optimization failed with exception %s", val_exc)
+
+    sigma_ref = build_test_state(phis)
     return sigma_ref
 
 
@@ -152,6 +158,7 @@ def reduced_quadratic_form_operator(
     A new `QuadraticFormOperator` with all its weights equal to 1.
 
     """
+    assert num_terms > 0, f"num_terms must be an integer number >0. Got {num_terms}."
     weights, basis = qf_op.weights, qf_op.basis
     if len(weights) == 0:
         return qf_op
@@ -174,7 +181,10 @@ def reduced_quadratic_form_operator(
 
 
 def self_consistent_mf(
-    ham, sigma_ref, max_steps=10, callback=None
+    ham: Operator,
+    sigma_ref: Optional[GibbsProductDensityOperator] = None,
+    max_steps: int = 10,
+    callback: Callable = None,
 ) -> Tuple[GibbsProductDensityOperator, float]:
     """
     Starting from `sigma_ref` compute an approximation of
@@ -185,8 +195,9 @@ def self_consistent_mf(
     ham : Operator
         The generator of the exact state rho=exp(-ham).
     sigma_ref : DensityOperatorMixin, optional
-        The initial reference state to project `ham` to a quadratic form.
-        The default is None.
+        The initial state to begin the self-consistent loop.
+        The default is None. In that case, the initial state is
+        the fully mixed state.
     max_steps : int, optional
         Maximum number of self-consistent steps used to improve the solution.
         The default is 10.
@@ -200,6 +211,9 @@ def self_consistent_mf(
     and the corresponding relative entropy.
 
     """
+    if sigma_ref is None:
+        sigma_ref = GibbsProductDensityOperator({}, system=ham.system)
+
     rel_entropy = compute_rel_entropy(sigma_ref, ham)
 
     for curr_step in range(max_steps):
@@ -267,7 +281,7 @@ def variational_quadratic_mfa(
     Returns
     -------
     GibbsProductDensityOperator
-        A Gibbs product operators that approxates exp(-ham).
+        A Gibbs product operators that approximates exp(-ham).
 
     """
 
@@ -280,22 +294,26 @@ def variational_quadratic_mfa(
     )
 
     current_rel_entropy = None
+    if isinstance(ham, OneBodyOperator):
+        return GibbsProductDensityOperator(ham)
+
     for _ in range(its):
         # We start by projecting the generator `ham` to the two-body sector
         # relative to `sigma_ref`:
 
         ham_proj = project_to_n_body_operator(ham, nmax=2, sigma=sigma_ref)
-        if isinstance(ham, OneBodyOperator):
-            return GibbsProductDensityOperator(ham)
+        if isinstance(ham_proj, OneBodyOperator):
+            sigma_ref = GibbsProductDensityOperator(ham_proj)
+        else:
+            # Now, write the projected operator as a QuadraticFormOperator
+            # ham_proj = k_0 + sum_a w_a Q_a^2
+            # with |Q_a|_{infty}=1 and
+            # w_1 <= w_2 <=... <=w_l < 0 <= w_{k+1} <= ... w_n
+            qf_op = build_quadratic_form_from_operator(ham_proj)
+            sigma_ref = mf_quadratic_form_exponential(
+                qf_op, numfields, method, callback_optimizer, ham
+            )
 
-        # Now, write the projected operator as a QuadraticFormOperator
-        # ham_proj = k_0 + sum_a w_a Q_a^2
-        # with |Q_a|_{infty}=1 and
-        # w_1 <= w_2 <=... <=w_l < 0 <= w_{k+1} <= ... w_n
-        qf_op = build_quadratic_form_from_operator(ham_proj)
-        sigma_ref = mf_quadratic_form_exponential(
-            qf_op, numfields, method, callback_optimizer, ham
-        )
         if current_rel_entropy is None:
             current_rel_entropy = compute_rel_entropy(sigma_ref, ham)
 
@@ -307,9 +325,9 @@ def variational_quadratic_mfa(
             callback=callback_self_consistent_step,
         )
 
-        if (
-            current_rel_entropy - rel_s + ALPSQUTIP_TOLERANCE
-        ) > 0 or ham_proj is ham:
+        # If the relative entropy have not improved, or
+        # the ham==ham_proj
+        if (current_rel_entropy - rel_s + ALPSQUTIP_TOLERANCE) > 0 or ham_proj is ham:
             break
         current_rel_entropy = rel_s
 
