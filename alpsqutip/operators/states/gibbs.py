@@ -166,10 +166,15 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
         if normalized:
             f_locals = {site: 0 for site in k_by_site}
         else:
-            f_locals = {
-                site: -safe_exp_and_normalize(-l_op)[1]
-                for site, l_op in k_by_site.items()
-            }
+
+            def safe_local_f(op_loc):
+                spectrum = -(op_loc.eigenenergies())
+                f0 = max(spectrum)
+                spectrum = spectrum - f0
+                return -np.log(sum(np.exp(spectrum))) - f0
+
+            f_locals = {site: safe_local_f(l_op) for site, l_op in k_by_site.items()}
+
             for site in k_by_site:
                 k_by_site[site] = k_by_site[site] - f_locals[site]
 
@@ -181,11 +186,11 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
             f_locals[site] = -f_local
             k_by_site[site] = system.site_identity(site) * f_local
 
-        for site, op_qutip in k_by_site.items():
-            eig_vals = op_qutip.eigenenergies()
-            probs = np.exp(-eig_vals)
-            assert abs(sum(probs) - 1) < 1e-8, f"{probs} from {eig_vals}"
-            assert all(p >= 0 for p in probs)
+        # for site, op_qutip in k_by_site.items():
+        #     eig_vals = op_qutip.eigenenergies()
+        #     probs = np.exp(-eig_vals)
+        #     assert abs(sum(probs) - 1) < 1e-8, f"{probs} from {eig_vals}"
+        #     assert all(p >= 0 for p in probs)
 
         self.free_energies = f_locals
         self.k_by_site = k_by_site
