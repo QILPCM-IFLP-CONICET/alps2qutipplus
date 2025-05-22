@@ -48,9 +48,17 @@ class SystemDescriptor:
         if sites:
             self.sites = sites
         else:
-            self.sites = {
-                node: site_basis[attr["type"]] for node, attr in graph.nodes.items()
-            }
+            try:
+                self.sites = {
+                    node: site_basis[attr["type"]] for node, attr in graph.nodes.items()
+                }
+            except KeyError as ex:
+                raise ValueError(
+                    (
+                        f"Model <<{model.name}>> does not provide the specification "
+                        f"for site of type <<{ex.args[0]}>> used in nodes of <<{graph.name}>>."
+                    )
+                )
 
         self.dimensions = {name: site["dimension"] for name, site in self.sites.items()}
         self.operators = {
