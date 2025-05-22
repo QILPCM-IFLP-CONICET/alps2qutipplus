@@ -175,6 +175,10 @@ def project_operator_to_m_body(
             return ScalarOperator(0, system)
         if len(terms) == 1:
             return terms[0]
+        if len(full_operator.terms) == len(terms) and all(
+            t1 is t2 for t1, t2 in zip(full_operator.terms, terms)
+        ):
+            return full_operator
         return SumOperator(terms, system).simplify()
 
     if isinstance(full_operator, ProductOperator):
@@ -183,6 +187,9 @@ def project_operator_to_m_body(
         #         Delta op1 (x) Proj_{m-1}(op2 (x) op3)
         # and sum the result.
         sites_op = full_operator.sites_op
+        if len(sites_op) <= m_max:
+            return full_operator
+
         first_site, *rest = tuple(sites_op)
         op_first = sites_op[first_site]
         weight_first = op_first
@@ -434,6 +441,8 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
     if nmax == 0:
         return ScalarOperator(sigma.expect(operator), system)
 
+    untouched_operator = operator
+
     if isinstance(operator, SumOperator):
         operator = operator.simplify().flat()
     # If still a sum operator
@@ -494,7 +503,7 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
             dispatch_term(term)
 
     if not changed:
-        return operator
+        return untouched_operator
 
     scalar = sum(
         term.prefactor for term in one_body_terms if isinstance(term, ScalarOperator)
