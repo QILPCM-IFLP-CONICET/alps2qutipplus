@@ -82,7 +82,7 @@ def test_variational_meanfield(state_name, state, generator_name, generator):
         type(state),
     )
 
-    sigma_var = variational_quadratic_mfa(generator, sigma_ref=state)
+    sigma_var = variational_quadratic_mfa(generator, sigma_ref=state,max_self_consistent_steps=100)
     generator_1b_1st = project_to_n_body_operator(generator, 1, sigma_var)
     sigma_sc = GibbsProductDensityOperator(generator_1b_1st)
     rel_entropy_var = sigma_var.expect(sigma_var.logm() + generator)
