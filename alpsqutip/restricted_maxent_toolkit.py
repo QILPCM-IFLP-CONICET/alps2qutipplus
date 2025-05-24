@@ -51,7 +51,7 @@ def build_hierarchical_basis(
 
     generator = generator * 1j
     basis = []
-    if seed_op is not None and deep > 0:
+    if deep > 0:
         basis += [seed_op]  # Include the seed operator in the basis.
         for _ in range(deep):
             # Generate new operators by computing the commutator
@@ -235,4 +235,6 @@ def m_th_partial_sum(phi: np.ndarray, m: int) -> float:
         in `phi`.
 
     """
+    if m>=len(phi) or m<-len(phi):
+        return sum(abs(phi_n) ** 2 for phi_n in phi)
     return sum(abs(phi_n) ** 2 for phi_n in phi[-m:])
