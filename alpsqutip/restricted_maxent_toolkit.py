@@ -12,11 +12,9 @@ from alpsqutip.operators.functions import commutator
 # function used to safely and robustly map K-states to states
 
 
-def build_hierarchical_basis(generator: Operator,
-                             seed_op: Operator,
-                             deep: int,
-                             to_qutip_operator: bool = False
-                             ) -> List[Operator]:
+def build_hierarchical_basis(
+    generator: Operator, seed_op: Operator, deep: int, to_qutip_operator: bool = False
+) -> List[Operator]:
     """
     Constructs a hierarchical basis of operators, formed from iterated
     commutators of a seed operator.
@@ -51,23 +49,21 @@ def build_hierarchical_basis(generator: Operator,
         seed_op = seed_op.to_qutip_operator()
         generator = generator.to_qutip_operator()
 
+    generator = generator * 1j
     basis = []
     if seed_op is not None and deep > 0:
-        basis += [
-            seed_op
-        ]  # Include the seed operator in the basis.
+        basis += [seed_op]  # Include the seed operator in the basis.
         for _ in range(deep):
             # Generate new operators by computing the commutator
             # of the generator with the last operator.
-            basis.append(commutator(generator, 1j * basis[-1]))
+            basis.append(commutator(generator, basis[-1]))
 
     return basis
 
 
-def fn_hij_tensor(basis: List[Operator],
-                  sp: Callable,
-                  generator: Operator
-                  ) -> np.ndarray:
+def fn_hij_tensor(
+    basis: List[Operator], sp: Callable, generator: Operator
+) -> np.ndarray:
     """
     Computes the Hij-tensor, a local matrix representation of the Hamiltonian
     onto the given basis.
@@ -97,16 +93,14 @@ def fn_hij_tensor(basis: List[Operator],
 
     generator_j = -1j * generator
     local_h_ij = np.array(
-        [[sp(op1, commutator(generator_j, op2))
-          for op2 in basis] for op1 in basis]
+        [[sp(op1, commutator(generator_j, op2)) for op2 in basis] for op1 in basis]
     )
     return np.real(local_h_ij)
 
 
-def fn_hij_tensor_with_errors(basis: List[Operator],
-                              sp: Callable,
-                              generator: Operator
-                              ) -> Tuple[np.ndarray, np.ndarray]:
+def fn_hij_tensor_with_errors(
+    basis: List[Operator], sp: Callable, generator: Operator
+) -> Tuple[np.ndarray, np.ndarray]:
     """
     Computes the Hij-tensor, a local matrix representation of the Hamiltonian
     onto the given basis, and the norm of the orthogonal projector.
@@ -212,8 +206,7 @@ def slice_times(tlist: np.array, tcuts: List[float]) -> List[np.ndarray]:
     sliced_times = [np.array([t for t in tlist if t <= tcuts[1]])]
 
     for d in range(2, len(tcuts)):
-        local_tlist = np.array(
-            [t for t in tlist if tcuts[d - 1] <= t <= tcuts[d]])
+        local_tlist = np.array([t for t in tlist if tcuts[d - 1] <= t <= tcuts[d]])
         sliced_times.append(local_tlist)
 
     if tlist[-1] > tcuts[-1]:
