@@ -4,9 +4,10 @@ Functions for operators.
 
 # from collections.abc import Iterable
 # from typing import Callable, List, Optional, Tuple
-from typing import Tuple
+from typing import Tuple, Union
 
 from numpy import imag, ndarray, real
+from qutip import Qobj
 
 from alpsqutip.operators.arithmetic import OneBodyOperator, SumOperator
 from alpsqutip.operators.basic import (
@@ -20,7 +21,9 @@ from alpsqutip.operators.qutip import QutipOperator
 # from alpsqutip.operators.simplify import simplify_sum_operator
 
 
-def anticommutator(op1, op2):
+def anticommutator(
+    op_1: Union[Qobj, Operator], op_2: Union[Qobj, Operator]
+) -> Union[Qobj, Operator]:
     """
     Computes the anticommutator of two operators, defined as {op1, op2} = op1 * op2 + op2 * op1.
 
@@ -30,21 +33,81 @@ def anticommutator(op1, op2):
     Returns:
         The anticommutator of op1 and op2.
     """
-    return op1 * op2 + op2 * op1
+    if isinstance(op_1, Qobj):
+        if not isinstance(op_2, QObj):
+            op_2 = op_2.to_qutip()
+        return op_1 * op_2 + op_2 * op_1
+    if isinstance(op_2, Qobj):
+        op_1 = op_1.to_qutip()
+        return op_1 * op_2 + op_2 * op_1
+
+    return anticommutator_alps2qutip(op_1, op_2)
 
 
-def commutator(op_1: Operator, op_2: Operator) -> Operator:
+def anticommutator_alps2qutip(op_1: Operator, op_2: Operator) -> Operator:
     """
-    The commutator of two operators
+    Computes the anticommutator of two operators, defined as {op1, op2} = op1 * op2 + op2 * op1.
+
+    Parameters:
+        op1, op2: operators (can be a matrix or a quantum operator object).
+
+    Returns:
+        The anticommutator of op1 and op2.
     """
     system = op_1.system or op_2.system
     if isinstance(op_1, SumOperator):
         return SumOperator(
-            tuple((commutator(term, op_2) for term in op_1.terms)), system
+            tuple((anticommutator_alps2qutip(term, op_2) for term in op_1.terms)),
+            system,
         ).simplify()
     if isinstance(op_2, SumOperator):
         return SumOperator(
-            tuple((commutator(op_1, term) for term in op_2.terms)), system
+            tuple((anticommutator_alps2qutip(op_1, term) for term in op_2.terms)),
+            system,
+        ).simplify()
+
+    # TODO: Handle fermions...
+    acts_over_1, acts_over_2 = op_1.acts_over(), op_2.acts_over()
+    if acts_over_1 is not None:
+        if len(acts_over_1) == 0:
+            return op_2 * (op_1 * 2)
+        if acts_over_2 is not None:
+            if len(acts_over_2) == 0:
+                return op_1 * (op_2 * 2)
+            elif len(acts_over_1.intersection(acts_over_2)) == 0:
+                return (op_1 * op_2).simplify() * 2
+    return (op_1 * op_2 + op_2 * op_1).simplify()
+
+
+def commutator(
+    op_1: Union[Operator, Qobj], op_2: Union[Operator, Qobj]
+) -> Union[Qobj, Operator]:
+    """
+    Commutator of two operators
+    """
+    if isinstance(op_1, Qobj):
+        if not isinstance(op_2, QObj):
+            op_2 = op_2.to_qutip()
+        return op_1 * op_2 - op_2 * op_1
+    if isinstance(op_2, Qobj):
+        op_1 = op_1.to_qutip()
+        return op_1 * op_2 - op_2 * op_1
+
+    return commutator_alps2qutip(op_1, op_2)
+
+
+def commutator_alps2qutip(op_1: Operator, op_2: Operator) -> Operator:
+    """
+    The commutator of two Ooperator objects
+    """
+    system = op_1.system or op_2.system
+    if isinstance(op_1, SumOperator):
+        return SumOperator(
+            tuple((commutator_alps2qutip(term, op_2) for term in op_1.terms)), system
+        ).simplify()
+    if isinstance(op_2, SumOperator):
+        return SumOperator(
+            tuple((commutator_alps2qutip(op_1, term) for term in op_2.terms)), system
         ).simplify()
 
     acts_over_1, acts_over_2 = op_1.acts_over(), op_2.acts_over()
@@ -167,15 +230,28 @@ def spectral_norm(operator: Operator) -> float:
     Compute the spectral norm of the operator `op`
     """
 
+    if isinstance(operator, ScalarOperator):
+        return abs(operator.prefactor)
     if isinstance(operator, LocalOperator):
-        return max(operator.operator.eigenenergies() ** 2) ** 0.5
+        if operator.isherm:
+            return max(abs(operator.operator.eigenenergies()))
+        op_qutip = operator.operator
+        return max(abs((op_qutip.dag() * op_qutip).eigenenergies())) ** 0.5
     if isinstance(operator, ProductOperator):
-        result = operator.prefactor
+        result = abs(operator.prefactor)
         for loc_op in operator.sites_op.values():
-            result *= max(loc_op.eigenenergies() ** 2) ** 0.5
+            if loc_op.isherm:
+                result *= max(abs(loc_op.eigenenergies()))
+            else:
+                result *= max((loc_op.dag() * loc_op).eigenenergies()) ** 0.5
         return real(result)
 
-    return max(eigenvalues(operator) ** 2) ** 0.5
+    if operator.isherm:
+        if isinstance(operator, OneBodyOperator):
+            operator = operator.simplify()
+            return sum(spectral_norm(term) for term in operator.terms)
+        return max(abs(eigenvalues(operator)))
+    return max(eigenvalues(operator.dag() * operator)) ** 0.5
 
 
 def log_op(operator: Operator) -> Operator:

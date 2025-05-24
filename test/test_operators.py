@@ -17,16 +17,16 @@ from alpsqutip.operators.states import DensityOperatorMixin
 from .helper import (
     CHAIN_SIZE,
     FULL_TEST_CASES,
+    HAMILTONIAN,
     OPERATOR_TYPE_CASES,
     SITES,
+    SX_A as local_SX_A,
+    SY_A,
+    SY_B,
+    SZ_A,
+    SZ_C,
+    SZ_TOTAL,
     check_operator_equality,
-    hamiltonian,
-    sx_A as local_sx_A,
-    sy_A,
-    sy_B,
-    sz_A,
-    sz_C,
-    sz_total,
 )
 
 np.set_printoptions(
@@ -36,11 +36,11 @@ np.set_printoptions(
 
 QUTIP_OPS_CACHE = {}
 
-sx_A = ProductOperator({local_sx_A.site: local_sx_A.operator}, 1.0, local_sx_A.system)
-sx_A2 = sx_A * sx_A
-sx_Asy_B = sx_A * sy_B
-sx_AsyB_times_2 = 2 * sx_Asy_B
-opglobal = sz_C + sx_AsyB_times_2
+SX_A = ProductOperator({local_SX_A.site: local_SX_A.operator}, 1.0, local_SX_A.system)
+SX_A2 = SX_A * SX_A
+SX_ASY_B = SX_A * SY_B
+SX_AsyB_times_2 = 2 * SX_ASY_B
+opglobal = SZ_C + SX_AsyB_times_2
 
 
 def test_acts_over():
@@ -155,52 +155,52 @@ def test_product_and_trace(name1, operator1, name2, operator2):
 
 def test_build_hamiltonian():
     """build ham"""
-    assert sz_total is not None
-    assert hamiltonian is not None
-    hamiltonian_with_field = hamiltonian + sz_total
+    assert SZ_TOTAL is not None
+    assert HAMILTONIAN is not None
+    hamiltonian_with_field = HAMILTONIAN + SZ_TOTAL
     assert check_operator_equality(
         (hamiltonian_with_field).to_qutip(),
-        (hamiltonian.to_qutip() + sz_total.to_qutip()),
+        (HAMILTONIAN.to_qutip() + SZ_TOTAL.to_qutip()),
     )
 
 
 def test_type_operator():
     """Tests for operator types"""
-    assert isinstance(sx_A, ProductOperator)
-    assert isinstance(sy_B, LocalOperator)
-    assert isinstance(sz_C, LocalOperator)
-    assert isinstance(2 * sy_B, LocalOperator)
-    assert isinstance(sy_B * 2, LocalOperator)
-    assert isinstance(sx_A + sy_B, OneBodyOperator)
+    assert isinstance(SX_A, ProductOperator)
+    assert isinstance(SY_B, LocalOperator)
+    assert isinstance(SZ_C, LocalOperator)
+    assert isinstance(2 * SY_B, LocalOperator)
+    assert isinstance(SY_B * 2, LocalOperator)
+    assert isinstance(SX_A + SY_B, OneBodyOperator)
     assert isinstance(
-        sx_A + sy_B + sz_C, OneBodyOperator
-    ), f"{type(sx_A + sy_B + sz_C)} is not OneBodyOperator"
-    assert isinstance(sx_A + sy_B + sx_A * sz_C, SumOperator)
-    assert isinstance((sx_A + sy_B), OneBodyOperator)
+        SX_A + SY_B + SZ_C, OneBodyOperator
+    ), f"{type(SX_A + SY_B + SZ_C)} is not OneBodyOperator"
+    assert isinstance(SX_A + SY_B + SX_A * SZ_C, SumOperator)
+    assert isinstance((SX_A + SY_B), OneBodyOperator)
     assert isinstance(
-        (sx_A + sy_B) * 3, OneBodyOperator
-    ), f"{type((sx_A + sy_B)*3.)} is not OneBodyOperator"
+        (SX_A + SY_B) * 3, OneBodyOperator
+    ), f"{type((SX_A + SY_B)*3.)} is not OneBodyOperator"
     assert isinstance(
-        3.0 * (sx_A + sy_B), OneBodyOperator
-    ), f"{type(3.0*(sx_A + sy_B))} is not OneBodyOperator"
+        3.0 * (SX_A + SY_B), OneBodyOperator
+    ), f"{type(3.0*(SX_A + SY_B))} is not OneBodyOperator"
 
-    assert isinstance((sx_A + sy_B) * 2.0, OneBodyOperator)
-    assert isinstance(sy_B + sx_A, OneBodyOperator)
-    assert isinstance(sx_Asy_B, ProductOperator)
-    assert len(sx_Asy_B.sites_op) == 2
-    assert isinstance(sx_AsyB_times_2, ProductOperator)
+    assert isinstance((SX_A + SY_B) * 2.0, OneBodyOperator)
+    assert isinstance(SY_B + SX_A, OneBodyOperator)
+    assert isinstance(SX_ASY_B, ProductOperator)
+    assert len(SX_ASY_B.sites_op) == 2
+    assert isinstance(SX_AsyB_times_2, ProductOperator)
     assert isinstance(opglobal, SumOperator)
-    assert isinstance(sx_A + sy_B, SumOperator)
-    assert len(sx_AsyB_times_2.sites_op) == 2
+    assert isinstance(SX_A + SY_B, SumOperator)
+    assert len(SX_AsyB_times_2.sites_op) == 2
 
     opglobal.prefactor = 2
-    assert sx_A2.prefactor == 1
+    assert SX_A2.prefactor == 1
     assert opglobal.prefactor == 2
 
-    assert check_operator_equality(sx_A, sx_A.to_qutip())
-    terms = [sx_A, sy_A, sz_A]
+    assert check_operator_equality(SX_A, SX_A.to_qutip())
+    terms = [SX_A, SY_A, SZ_A]
     assert check_operator_equality(sum(terms), sum(t.to_qutip() for t in terms))
-    assert check_operator_equality(sx_A.inv(), sx_A.to_qutip().inv())
+    assert check_operator_equality(SX_A.inv(), SX_A.to_qutip().inv())
     opglobal_offset = opglobal + 1.3821
     assert check_operator_equality(
         opglobal_offset.inv(), opglobal_offset.to_qutip().inv()
@@ -209,16 +209,16 @@ def test_type_operator():
 
 def test_inv_operator():
     """test the exponentiation of different kind of operators"""
-    sx_a_inv = sx_A.inv()
+    sx_a_inv = SX_A.inv()
     assert isinstance(sx_a_inv, LocalOperator)
-    assert check_operator_equality(sx_a_inv.to_qutip(), sx_A.to_qutip().inv())
+    assert check_operator_equality(sx_a_inv.to_qutip(), SX_A.to_qutip().inv())
 
-    sx_obl = sx_A + sy_B + sz_C
+    sx_obl = SX_A + SY_B + SZ_C
     sx_obl_inv = sx_obl.inv()
     assert isinstance(sx_obl_inv, QutipOperator)
     assert check_operator_equality(sx_obl_inv.to_qutip(), sx_obl.to_qutip().inv())
 
-    s_prod = sx_A * sy_B * sz_C
+    s_prod = SX_A * SY_B * SZ_C
     s_prod_inv = s_prod.inv()
     assert isinstance(s_prod, ProductOperator)
     assert check_operator_equality(s_prod_inv.to_qutip(), s_prod.to_qutip().inv())
@@ -233,11 +233,11 @@ def test_inv_operator():
 
 def test_exp_operator():
     """test the exponentiation of different kind of operators"""
-    sx_A_exp = sx_A.expm()
-    assert isinstance(sx_A_exp, LocalOperator)
-    assert check_operator_equality(sx_A_exp.to_qutip(), sx_A.to_qutip().expm())
+    SX_A_exp = SX_A.expm()
+    assert isinstance(SX_A_exp, LocalOperator)
+    assert check_operator_equality(SX_A_exp.to_qutip(), SX_A.to_qutip().expm())
 
-    sx_obl = sx_A + sy_B + sz_C
+    sx_obl = SX_A + SY_B + SZ_C
     print("type sx_obl", type(sx_obl))
     print("sx_obl:\n", sx_obl)
     print("sx_obl->qutip:", sx_obl.to_qutip())
@@ -257,66 +257,66 @@ def test_exp_operator():
 
 def test_local_operator():
     """Tests for local operators"""
-    assert (sx_A * sx_A).tr() == 0.5 * 2 ** (CHAIN_SIZE - 1)
-    assert (sz_A * sz_A).tr() == 0.5 * 2 ** (CHAIN_SIZE - 1)
+    assert (SX_A * SX_A).tr() == 0.5 * 2 ** (CHAIN_SIZE - 1)
+    assert (SZ_A * SZ_A).tr() == 0.5 * 2 ** (CHAIN_SIZE - 1)
 
-    print("product * local", type(sx_A * sy_A))
-    print("local * product", type(sy_A * sx_A))
-    print("commutator:", type(sx_A * sy_A - sy_A * sx_A))
+    print("product * local", type(SX_A * SY_A))
+    print("local * product", type(SY_A * SX_A))
+    print("commutator:", type(SX_A * SY_A - SY_A * SX_A))
     print(
-        ((sx_A * sy_A - sy_A * sx_A) * sz_A).tr(),
+        ((SX_A * SY_A - SY_A * SX_A) * SZ_A).tr(),
         -1j * 0.5 * 2 ** (CHAIN_SIZE - 1),
     )
-    assert ((sx_A * sy_A - sy_A * sx_A) * sz_A).tr() == (
+    assert ((SX_A * SY_A - SY_A * SX_A) * SZ_A).tr() == (
         -1j * 0.5 * 2 ** (CHAIN_SIZE - 1)
     )
-    assert (sz_A * (sx_A * sy_A - sy_A * sx_A)).tr() == (
+    assert (SZ_A * (SX_A * SY_A - SY_A * SX_A)).tr() == (
         -1j * 0.5 * 2 ** (CHAIN_SIZE - 1)
     )
 
-    assert (sz_A * sy_B * sz_A * sy_B).tr() == 0.25 * 2 ** (CHAIN_SIZE - 2)
+    assert (SZ_A * SY_B * SZ_A * SY_B).tr() == 0.25 * 2 ** (CHAIN_SIZE - 2)
     assert (
-        (sx_A * sy_A * sy_B - sy_A * sx_A * sy_B) * (sz_A * sy_B)
+        (SX_A * SY_A * SY_B - SY_A * SX_A * SY_B) * (SZ_A * SY_B)
     ).tr() == -1j * 0.25 * 2 ** (CHAIN_SIZE - 2)
     assert (
-        (sz_A * sy_B) * (sx_A * sy_A * sy_B - sy_A * sx_A * sy_B)
+        (SZ_A * SY_B) * (SX_A * SY_A * SY_B - SY_A * SX_A * SY_B)
     ).tr() == -1j * 0.25 * 2 ** (CHAIN_SIZE - 2)
 
-    assert sx_A.tr() == 0.0
-    assert (sx_A2).tr() == 0.5 * 2 ** (CHAIN_SIZE - 1)
-    assert (sz_C * sz_C).tr() == 0.5 * 2 ** (CHAIN_SIZE - 1)
+    assert SX_A.tr() == 0.0
+    assert (SX_A2).tr() == 0.5 * 2 ** (CHAIN_SIZE - 1)
+    assert (SZ_C * SZ_C).tr() == 0.5 * 2 ** (CHAIN_SIZE - 1)
 
-    sx_A_qt = sx_A.to_qutip()
-    sx_A2_qt = sx_A2.to_qutip()
+    SX_A_qt = SX_A.to_qutip()
+    SX_A2_qt = SX_A2.to_qutip()
 
-    assert sx_A_qt.tr() == 0
-    assert (sx_A2_qt).tr() == 0.5 * 2 ** (CHAIN_SIZE - 1)
-    assert sx_A.partial_trace(frozenset((SITES[0],))).tr() == 0.0
-    assert sx_A.partial_trace(frozenset((SITES[1],))).tr() == 0.0
-    assert sx_A.partial_trace(frozenset((SITES[0], SITES[1]))).tr() == 0.0
-    assert sx_A.partial_trace(frozenset((SITES[1], SITES[2]))).tr() == 0.0
+    assert SX_A_qt.tr() == 0
+    assert (SX_A2_qt).tr() == 0.5 * 2 ** (CHAIN_SIZE - 1)
+    assert SX_A.partial_trace(frozenset((SITES[0],))).tr() == 0.0
+    assert SX_A.partial_trace(frozenset((SITES[1],))).tr() == 0.0
+    assert SX_A.partial_trace(frozenset((SITES[0], SITES[1]))).tr() == 0.0
+    assert SX_A.partial_trace(frozenset((SITES[1], SITES[2]))).tr() == 0.0
 
 
 def test_product_operator():
     """Tests for product operators"""
 
-    assert (sx_Asy_B * sx_A * sy_B).tr() == 0.25 * 2 ** (CHAIN_SIZE - 2)
-    assert (opglobal * sx_A * sy_B).tr() == 0.5 * 2 ** (CHAIN_SIZE - 2)
-    assert (sx_AsyB_times_2 * sx_AsyB_times_2).tr() == 2 ** (CHAIN_SIZE - 2)
+    assert (SX_ASY_B * SX_A * SY_B).tr() == 0.25 * 2 ** (CHAIN_SIZE - 2)
+    assert (opglobal * SX_A * SY_B).tr() == 0.5 * 2 ** (CHAIN_SIZE - 2)
+    assert (SX_AsyB_times_2 * SX_AsyB_times_2).tr() == 2 ** (CHAIN_SIZE - 2)
     assert (opglobal * opglobal).tr() == 2 ** (CHAIN_SIZE - 2) * 2
 
-    sx_A_qt = sx_A.to_qutip()
-    syB_qt = sy_B.to_qutip()
-    szC_qt = sz_C.to_qutip()
+    SX_A_qt = SX_A.to_qutip()
+    syB_qt = SY_B.to_qutip()
+    szC_qt = SZ_C.to_qutip()
 
-    sx_AsyB_qt = sx_Asy_B.to_qutip()
-    sx_AsyB_times_2_qt = sx_AsyB_times_2.to_qutip()
+    SX_AsyB_qt = SX_ASY_B.to_qutip()
+    SX_AsyB_times_2_qt = SX_AsyB_times_2.to_qutip()
     opglobal_qt = opglobal.to_qutip()
 
-    assert (sx_AsyB_qt * sx_A_qt * syB_qt).tr() == 0.25 * 2 ** (CHAIN_SIZE - 2)
-    assert (opglobal_qt * sx_A_qt * syB_qt).tr() == 0.5 * 2 ** (CHAIN_SIZE - 2)
+    assert (SX_AsyB_qt * SX_A_qt * syB_qt).tr() == 0.25 * 2 ** (CHAIN_SIZE - 2)
+    assert (opglobal_qt * SX_A_qt * syB_qt).tr() == 0.5 * 2 ** (CHAIN_SIZE - 2)
     assert (szC_qt * szC_qt).tr() == 0.5 * 2 ** (CHAIN_SIZE - 1)
-    assert (sx_AsyB_times_2_qt * sx_AsyB_times_2_qt).tr() == 2 ** (CHAIN_SIZE - 2)
+    assert (SX_AsyB_times_2_qt * SX_AsyB_times_2_qt).tr() == 2 ** (CHAIN_SIZE - 2)
     assert (opglobal_qt * opglobal_qt).tr() == 2 ** (CHAIN_SIZE - 2) * 2
 
 

@@ -12,19 +12,21 @@ from alpsqutip.operators.functions import (
     hermitian_and_antihermitian_parts,
     log_op,
     relative_entropy,
+    spectral_norm,
 )
 from alpsqutip.utils import operator_to_wolfram
 
 from .helper import (
     CHAIN_SIZE,
+    HAMILTONIAN,
+    OPERATOR_TYPE_CASES,
     OPERATORS,
     SITES,
     SYSTEM,
+    SZ_TOTAL,
     TEST_CASES_STATES,
     check_equality,
     check_operator_equality,
-    hamiltonian,
-    sz_total,
 )
 
 # from alpsqutip.settings import VERBOSITY_LEVEL
@@ -147,7 +149,7 @@ def test_relative_entropy(key_rho, key_sigma):
 
 def test_eigenvalues():
     """Tests eigenvalues of different operator objects"""
-    spectrum = sorted(eigenvalues(sz_total))
+    spectrum = sorted(eigenvalues(SZ_TOTAL))
     for s in range(CHAIN_SIZE):
         min_err = min(abs(e_val - s + 0.5 * CHAIN_SIZE) for e_val in spectrum)
         assert min_err < 1e-6, f"closest eigenvalue at {min_err}"
@@ -159,10 +161,10 @@ def test_eigenvalues():
     # Ground state energy
     # Compute the minimum eigenenergy with qutip
     e0_qutip = min(
-        hamiltonian.to_qutip().eigenenergies(sparse=True, sort="low", eigvals=10)
+        HAMILTONIAN.to_qutip().eigenenergies(sparse=True, sort="low", eigvals=10)
     )
     # use the alpsqutip routine
-    e0 = min(eigenvalues(hamiltonian, sparse=True, sort="low", eigvals=10))
+    e0 = min(eigenvalues(HAMILTONIAN, sparse=True, sort="low", eigvals=10))
     assert abs(e0 - e0_qutip) < 1.0e-6
 
     #  e^(sz)/Tr e^(sz)
@@ -237,6 +239,23 @@ def test_log_op():
                 )
 
     assert clean
+
+
+@pytest.mark.parametrize(
+    ["name", "operator"],
+    [(name, operator) for name, operator in OPERATOR_TYPE_CASES.items()],
+)
+def test_spectral_norm(name, operator):
+    """
+    Test the spectral norm
+    """
+    print("spectral norm of", name, "of type", type(operator))
+    qutip_sn = spectral_norm(operator.to_qutip())
+    op_sn = spectral_norm(operator)
+    assert abs(op_sn - qutip_sn) < 1e-6, (
+        f"||op_{name}|-|qutip_{name}||="
+        f"|{op_sn}-{qutip_sn}|={abs(op_sn-qutip_sn)}>1e-2."
+    )
 
 
 # test_load()

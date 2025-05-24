@@ -235,6 +235,6 @@ def m_th_partial_sum(phi: np.ndarray, m: int) -> float:
         in `phi`.
 
     """
-    if m>=len(phi) or m<-len(phi):
+    if m >= len(phi) or m < -len(phi):
         return sum(abs(phi_n) ** 2 for phi_n in phi)
     return sum(abs(phi_n) ** 2 for phi_n in phi[-m:])

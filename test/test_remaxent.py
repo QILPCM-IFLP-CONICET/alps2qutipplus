@@ -7,16 +7,14 @@ from alpsqutip.restricted_maxent_toolkit import (
     build_hierarchical_basis,
     fn_hij_tensor_with_errors,
 )
-from alpsqutip.scalarprod import (
-    fetch_covar_scalar_product,
-    orthogonalize_basis,
-)
+from alpsqutip.scalarprod import fetch_covar_scalar_product, orthogonalize_basis
 
 from .helper import (
     GIBBS_GENERATOR_TESTS,
     OPERATOR_TYPE_CASES,
     TEST_CASES_STATES,
     check_operator_equality,
+    hamiltonian,
 )
 
 np.set_printoptions(
