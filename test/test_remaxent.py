@@ -1,20 +1,24 @@
 import numpy as np
 import pytest
+import qutip
+from scipy import linalg
 
-from alpsqutip.operators.functions import commutator
+from alpsqutip.operators.functions import commutator, spectral_norm
 from alpsqutip.operators.states.gibbs import GibbsProductDensityOperator
 from alpsqutip.restricted_maxent_toolkit import (
     build_hierarchical_basis,
     fn_hij_tensor_with_errors,
+    k_state_from_phi_basis,
 )
 from alpsqutip.scalarprod import fetch_covar_scalar_product, orthogonalize_basis
 
 from .helper import (
     GIBBS_GENERATOR_TESTS,
+    HAMILTONIAN,
     OPERATOR_TYPE_CASES,
+    SX_AB,
     TEST_CASES_STATES,
     check_operator_equality,
-    hamiltonian,
 )
 
 np.set_printoptions(
@@ -170,3 +174,32 @@ def test_build_hierarchical_basis(name_ham, ham, name_k0, k0, sigma_name, sigma)
     if len(hij) > 0:
         delta_phi1_hij = hij @ np.array([sp(b_op, k0) for b_op in h_basis_orth])
         assert all(abs(x - y) < 1e-9 for x, y in zip(delta_phi1_hij, delta_phi1_qutip))
+
+
+def no_test_evolution():
+    t_span = np.linspace(0, 0.1, 20)
+    k0 = SX_AB
+    sigma = GibbsProductDensityOperator(k0)
+    qutip_solution = qutip.mesolve(HAMILTONIAN.to_qutip(), k0.to_qutip(), t_span)
+
+    h_basis = build_hierarchical_basis(HAMILTONIAN, k0, 3)
+    sp = fetch_covar_scalar_product(sigma)
+    h_basis_orth = orthogonalize_basis(h_basis, sp)
+    hij, werrs = fn_hij_tensor_with_errors(h_basis_orth, sp, HAMILTONIAN)
+    me_proj_sol = []
+    errors = []
+    phi0 = np.array([sp(b_op, k0) for b_op in h_basis_orth])
+    for indx, t in enumerate(t_span):
+        phi = linalg.expm(hij * t) @ phi0
+        k_inst = k_state_from_phi_basis(phi, h_basis_orth)
+        me_proj_sol.append(k_inst)
+        errors.append(spectral_norm(k_inst.to_qutip() - qutip_solution.states[indx]))
+        if indx > 17:
+            print(len(h_basis_orth))
+            print(np.polyfit(t_span[: indx + 1], errors, 3))
+            assert errors[-1] <= 0.003 * t**3, (
+                "wrong scalling" f"{errors[-1]} larger than expected."
+            )
+
+    # alas blancas
+    # tierra de nomades
