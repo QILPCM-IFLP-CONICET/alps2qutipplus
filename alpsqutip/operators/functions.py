@@ -34,7 +34,7 @@ def anticommutator(
         The anticommutator of op1 and op2.
     """
     if isinstance(op_1, Qobj):
-        if not isinstance(op_2, QObj):
+        if not isinstance(op_2, Qobj):
             op_2 = op_2.to_qutip()
         return op_1 * op_2 + op_2 * op_1
     if isinstance(op_2, Qobj):
@@ -86,7 +86,7 @@ def commutator(
     Commutator of two operators
     """
     if isinstance(op_1, Qobj):
-        if not isinstance(op_2, QObj):
+        if not isinstance(op_2, Qobj):
             op_2 = op_2.to_qutip()
         return op_1 * op_2 - op_2 * op_1
     if isinstance(op_2, Qobj):
