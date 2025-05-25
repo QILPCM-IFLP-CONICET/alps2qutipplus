@@ -72,7 +72,8 @@ def compare_solutions(sol, sol_qutip, t_span, order, coeff_bound):
     compare two solutions
     """
     diff_sols = [
-        spectral_norm(k1.to_qutip() - k2_qutip) for k1, k2_qutip in zip(sol, sol_qutip)
+        spectral_norm(k1.to_qutip() - k2_qutip)
+        for k1, k2_qutip in zip(sol, sol_qutip)
     ]
     assert all(
         delta_norm < coeff_bound * t**order for t, delta_norm in zip(t_span, diff_sols)
