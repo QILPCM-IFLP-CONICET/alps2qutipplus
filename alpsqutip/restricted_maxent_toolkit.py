@@ -49,7 +49,7 @@ def build_hierarchical_basis(
         seed_op = seed_op.to_qutip_operator()
         generator = generator.to_qutip_operator()
 
-    generator = generator * 1j
+    generator = generator * (-1j)
     basis = []
     if deep > 0:
         basis += [seed_op]  # Include the seed operator in the basis.
