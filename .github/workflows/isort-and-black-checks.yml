@@ -20,10 +20,8 @@ jobs:
         run: isort --check .
       - name: Run check Black
         run: black --diff .
-      - name: blackversion
-        run: black --version
       - name: Run black --check
-        run: black --diff .
+        run: black --check .
       # - name: mypy
       #  run: |
       #	  pip install mypy==1.13
