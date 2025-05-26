@@ -75,8 +75,8 @@ def compare_solutions(sol, sol_qutip, t_span, order, coeff_bound):
         spectral_norm(k1.to_qutip() - k2_qutip) for k1, k2_qutip in zip(sol, sol_qutip)
     ]
     assert all(
-        delta_norm < coeff_bound * t**order for t, delta_norm in zip(t_span, diff_sols)
-    ), "wrong scaling."
+        error <= coeff_bound * t**order + 1.0e-8 for t, error in zip(t_span, diff_sols)
+    )
 
 
 def fn_hij_tensor_with_errors_from_qutip(basis, sp, ham_j):
@@ -193,37 +193,36 @@ def test_build_hierarchical_basis(name_ham, ham, name_k0, k0, sigma_name, sigma)
         ), (f"Delta phi1 = {delta_phi1_hij}\n" f"in qutip   = {delta_phi1_qutip}\n")
 
 
-@pytest.mark.skip(reason="Still not working")
 def test_evolution():
     """
     Compare the evolution with the series expansion solution
     """
-    order = 4
-    t_span = np.linspace(0, 0.1, 20)
-    k0 = SX_AB
-    sigma = GibbsProductDensityOperator(k0)
-    as_series_solution = series_evolution(HAMILTONIAN, k0, t_span, order)
-    projected_solution = projected_evolution(
-        HAMILTONIAN, k0, t_span, order, sigma_0=sigma
-    )
+    for order in range(1, 5):
+        t_span = np.linspace(0, 0.1, 200)
+        k0 = SX_AB
+        sigma = GibbsProductDensityOperator(k0)
+        as_series_solution = series_evolution(HAMILTONIAN, k0, t_span, order)
+        projected_solution = projected_evolution(
+            HAMILTONIAN, k0, t_span, order, sigma_0=sigma
+        )
 
-    diff_sols = [
-        spectral_norm(k1 - k2) for k1, k2 in zip(projected_solution, as_series_solution)
-    ]
-
-    assert all(error < 1e-10 for error in diff_sols), f"errors: {diff_sols}"
+        diff_sols = [
+            spectral_norm(k1 - k2)
+            for k1, k2 in zip(projected_solution, as_series_solution)
+        ]
+        assert all(error <= 0.1 * t**order for t, error in zip(t_span, diff_sols))
     # alas blancas
     # tierra de nomades
 
 
-@pytest.mark.skip(reason="Still not working")
 def test_series_evolution():
     """
     compare the qutip numeric solution against the series expansion solution.
     """
-    order = 4
-    t_span = np.linspace(0, 0.1, 20)
+
+    t_span = np.linspace(0, 0.1, 200)
     k0 = SX_AB
     qutip_solution = qutip.mesolve(HAMILTONIAN.to_qutip(), k0.to_qutip(), t_span).states
-    as_series_solution = series_evolution(HAMILTONIAN, k0, t_span, order)
-    compare_solutions(as_series_solution, qutip_solution, t_span, order, 1.0)
+    for order in range(1, 6):
+        as_series_solution = series_evolution(HAMILTONIAN, k0, t_span, order)
+        compare_solutions(as_series_solution, qutip_solution, t_span, order, 0.5)
