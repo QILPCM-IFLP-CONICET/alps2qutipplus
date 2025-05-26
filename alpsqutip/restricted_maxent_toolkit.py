@@ -13,6 +13,7 @@ from scipy import linalg
 
 from alpsqutip.operators import Operator, QutipOperator
 from alpsqutip.operators.functions import commutator
+from alpsqutip.operators.states.meanfield.projections import project_to_n_body_operator
 from alpsqutip.scalarprod import fetch_covar_scalar_product, orthogonalize_basis
 
 # function used to safely and robustly map K-states to states
@@ -391,9 +392,14 @@ def projected_evolution(
         A list with the solution at times t_span
 
     """
-    h_basis = build_hierarchical_basis(ham, k0, 3)
+    h_basis = build_hierarchical_basis(ham, k0, order)
     sp = fetch_covar_scalar_product(sigma_0)
-    # TODO: project to n-body
+    # Project to n_body subspace if required
+    if n_body >= 0:
+        h_basis = [
+            project_to_n_body_operator(op_b, nmax=n_body, sigma=sigma_0)
+            for op_b in h_basis
+        ]
     h_basis = orthogonalize_basis(h_basis, sp)
     hij, werrs = fn_hij_tensor_with_errors(h_basis, sp, ham)
     result = []
