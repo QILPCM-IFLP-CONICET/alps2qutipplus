@@ -19,10 +19,10 @@ from .helper import (
     CHAIN_SIZE,
     OPERATOR_TYPE_CASES,
     SITES,
+    SX_A as LOCAL_SX_A,
+    SY_B,
+    SZ_C,
     check_operator_equality,
-    sx_A as LOCAL_SX_A,
-    sy_B as SY_B,
-    sz_C as SZ_C,
 )
 
 np.set_printoptions(
@@ -204,9 +204,9 @@ def test_decompose_qutip_operators():
 @pytest.mark.parametrize(
     ("case", "op_case", "expected_value"),
     [
-        ("sx_A", SX_A_QT, 0.0),
+        ("SX_A", SX_A_QT, 0.0),
         ("sy_B", SY_B_QT, 0.0),
-        ("sx_A^2", SX_A2_QT, 0.25 * 2 ** (CHAIN_SIZE)),
+        ("SX_A^2", SX_A2_QT, 0.25 * 2 ** (CHAIN_SIZE)),
         (
             "overlap (sxsy, sx*sy)",
             SX_A_SY_B_QT * SX_A_QT * SY_B_QT,

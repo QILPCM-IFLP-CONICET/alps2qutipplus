@@ -11,17 +11,17 @@ from alpsqutip.operators.basic import empty_op, is_diagonal_op, is_scalar_op
 from .helper import (
     FULL_TEST_CASES,
     OBSERVABLE_CASES,
-    sx_A as local_sx_A,
-    sy_B,
-    sz_C,
-    sz_total,
+    SX_A as LOCAL_SX_A,
+    SY_B,
+    SZ_C,
+    SZ_TOTAL,
 )
 
-sx_A = ProductOperator({local_sx_A.site: local_sx_A.operator}, 1.0, local_sx_A.system)
-sx_A2 = sx_A * sx_A
-sx_Asy_B = sx_A * sy_B
-sx_AsyB_times_2 = 2 * sx_Asy_B
-opglobal = sz_C + sx_AsyB_times_2
+SX_A = ProductOperator({LOCAL_SX_A.site: LOCAL_SX_A.operator}, 1.0, LOCAL_SX_A.system)
+SX_A2 = SX_A * SX_A
+SX_ASY_B = SX_A * SY_B
+SX_ASYB_TIMES_2 = 2 * SX_ASY_B
+OPGLOBAL = SZ_C + SX_ASYB_TIMES_2
 
 
 def test_empty_op():
@@ -103,14 +103,14 @@ def test_isherm_operator():
         ham = OBSERVABLE_CASES["hamiltonian"]
         print("***addition***")
         assert (ham + 1.0).isherm
-        assert (ham + sz_total).isherm
+        assert (ham + SZ_TOTAL).isherm
         print("***scalar multiplication***")
         assert (2.0 * ham).isherm
         print("***scalar multiplication for a OneBody Operator")
-        assert (2.0 * sz_total).isherm
+        assert (2.0 * SZ_TOTAL).isherm
         assert (ham * 2.0).isherm
-        assert (sz_total * 2.0).isherm
-        assert (sz_total.expm()).isherm
+        assert (SZ_TOTAL * 2.0).isherm
+        assert (SZ_TOTAL.expm()).isherm
         assert (ham**3).isherm
 
     for key, observable in OBSERVABLE_CASES.items():
