@@ -391,7 +391,7 @@ def projected_evolution(
         A list with the solution at times t_span
 
     """
-    h_basis = build_hierarchical_basis(ham, k0, 3)
+    h_basis = build_hierarchical_basis(ham, k0, order)
     sp = fetch_covar_scalar_product(sigma_0)
     # TODO: project to n-body
     h_basis = orthogonalize_basis(h_basis, sp)
