@@ -5,11 +5,11 @@ Basic unit test for states.
 from test.helper import (
     OBSERVABLE_CASES,
     SUBSYSTEMS,
+    SZ_TOTAL,
     TEST_CASES_STATES,
     alert,
     check_equality,
     expect_from_qutip,
-    sz_total,
 )
 
 from alpsqutip.operators import OneBodyOperator
@@ -42,7 +42,7 @@ def test_states():
     print(80 * "=", "\n")
     print("test states")
     print(80 * "=", "\n")
-    assert isinstance(sz_total, OneBodyOperator)
+    assert isinstance(SZ_TOTAL, OneBodyOperator)
     qt_test_cases = {
         name: operator.to_qutip() for name, operator in TEST_CASES_STATES.items()
     }
