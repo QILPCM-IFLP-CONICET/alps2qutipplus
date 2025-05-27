@@ -126,7 +126,7 @@ def graph_from_alps_xml(
                         c_dim = int(bc_items.get("dimension", 1)) - 1
                         bcs[c_dim] = bc_items.get("type", bcs[c_dim])
                     else:
-                        bcs = dimensions * bc_items.get("type", bcs[0])
+                        bcs = dimensions * [bc_items.get("type", bcs[0])]
 
                 extents = dimensions * [0]
                 for ext in fl_desc.findall("./EXTENT"):
@@ -194,8 +194,12 @@ def graph_from_alps_xml(
                         if bcs[d_int] == "periodic":
                             if src[d_int] >= extents[d_int] or src[d_int] < 0:
                                 src[d_int] = src[d_int] % extents[d_int]
+                                if src[d_int] == tgt[d_int]:
+                                    skip = True
                             if tgt[d_int] >= extents[d_int] or tgt[d_int] < 0:
                                 tgt[d_int] = tgt[d_int] % extents[d_int]
+                                if src[d_int] == tgt[d_int]:
+                                    skip = True
                         else:
                             if (
                                 src[d_int] >= extents[d_int]
