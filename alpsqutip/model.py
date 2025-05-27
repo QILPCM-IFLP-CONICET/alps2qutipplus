@@ -148,6 +148,9 @@ class SystemDescriptor:
     def __len__(self):
         return len(self.sites)
 
+    def _repr_latex_(self):
+        return "System \textbf{" + self.name + "}"
+
     def union(self, system):
         """Return a SystemDescritor containing system and self"""
         if system is None or system is self:
