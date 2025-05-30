@@ -411,7 +411,10 @@ class GraphDescriptor:
 
         elif self.lattice and self.lattice["dimension"] == 1:
             for name in self.nodes:
-                coords[name] = np.array([nodes[name]["coords"][0], 0.0])
+                if len(nodes[name]["coords"])==1:
+                    coords[name] = np.array([nodes[name]["coords"][0], 0.0])
+                else:
+                    coords[name] = np.array(nodes[name]["coords"][:2])
         else:
             for name in self.nodes:
                 coords[name] = nodes[name]["coords"][:2]
