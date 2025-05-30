@@ -47,7 +47,12 @@ def graph_from_alps_xml(
 
     def process_coordinates(text: Optional[str] = None) -> Optional[list]:
         if text:
-            return [eval_expr(c.strip(), parms) for c in text.split(" ")]
+            coords_expr = [for c in text.split(" ") if c!=""]
+            try:
+                return [eval_expr(c.strip(), parms) for c in coords_expr]
+            except SyntaxError:
+                print(coords_expr, "are not valid coordinates.")
+                raise
         return None
 
     def process_graph(node, parms):
