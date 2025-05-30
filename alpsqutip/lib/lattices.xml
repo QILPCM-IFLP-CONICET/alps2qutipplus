@@ -259,6 +259,42 @@
   <EDGE type="2"><SOURCE vertex="1" offset="0 0 0"/><TARGET vertex="1" offset="0 0 1"/></EDGE>
 </UNITCELL>
 
+<UNITCELL name="cincos" dimension="1" vertices="5">
+  <VERTEX/>
+  <VERTEX/>
+  <VERTEX/>
+  <VERTEX/>
+  <VERTEX/>
+<!-- separo interacciones por sitio: todas las que "salen del 1", todas las que salen del 2, etc -->
+  <EDGE type="1"><SOURCE vertex="1" offset="0"/><TARGET vertex="3" offset="0"/></EDGE>
+  <EDGE type="2"><SOURCE vertex="1" offset="0"/><TARGET vertex="2" offset="0"/></EDGE> 
+  <EDGE type="4"><SOURCE vertex="2" offset="0"/><TARGET vertex="1" offset="1"/></EDGE>
+  <EDGE type="3"><SOURCE vertex="2" offset="0"/><TARGET vertex="3" offset="0"/></EDGE>
+  <EDGE type="3"><SOURCE vertex="3" offset="0"/><TARGET vertex="4" offset="0"/></EDGE>
+  <EDGE type="1"><SOURCE vertex="3" offset="0"/><TARGET vertex="5" offset="0"/></EDGE>
+  <EDGE type="2"><SOURCE vertex="4" offset="0"/><TARGET vertex="5" offset="0"/></EDGE>
+  <EDGE type="4"><SOURCE vertex="5" offset="0"/><TARGET vertex="4" offset="1"/></EDGE> 
+</UNITCELL>
+
+   
+<LATTICEGRAPH name = "five-periodic">
+  <FINITELATTICE>
+    <LATTICE ref="chain lattice"/>
+    <EXTENT dimension="1" size ="L"/>
+    <BOUNDARY type="periodic"/>
+  </FINITELATTICE>
+  <UNITCELL ref="cincos"/>
+</LATTICEGRAPH>
+
+<LATTICEGRAPH name = "five-open">
+  <FINITELATTICE>
+    <LATTICE ref="chain lattice"/>
+    <EXTENT dimension="1" size ="L"/>
+    <BOUNDARY type="open"/>
+  </FINITELATTICE>
+  <UNITCELL ref="cincos"/>
+</LATTICEGRAPH>
+   
 <LATTICEGRAPH name = "square lattice 3x3" vt_skip="true">
   <FINITELATTICE>
     <LATTICE ref="square lattice"/>
