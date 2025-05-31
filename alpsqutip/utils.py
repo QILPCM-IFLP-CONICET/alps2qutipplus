@@ -223,8 +223,7 @@ def operator_to_wolfram(operator) -> str:
             array = data.to_array()
         else:
             raise TypeError(
-                f"Do not know how to convert {
-                            type(data)} into a ndarray"
+                (f"Do not know how to convert {type(data)} into a ndarray")
             )
 
         assert (
