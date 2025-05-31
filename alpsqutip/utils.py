@@ -85,12 +85,11 @@ def draw_operator(op, axis: "plt.Axis") -> "plt.Axis":
     acts_over = op.acts_over()
     if acts_over is not None:
         coords = [g.nodes[site]["coords"] for site in acts_over]
-        coords = [(x[0],0) if len(x)==1 else x for x in coords]
-        print("coords:", coords)
+        coords = [(x[0], 0) if len(x) == 1 else x for x in coords]
         if len(coords) == 1:
             axis.add_artist(Circle(coords[0], 0.1))
         if len(coords) == 2:
-            draw_ellipse_around_points(coords[0],coords[1], axis)
+            draw_ellipse_around_points(coords[0], coords[1], axis)
         else:
             axis.plot([x[0] for x in coords], [x[1] for x in coords], lw="5", c="red")
     return axis
@@ -222,7 +221,7 @@ def operator_to_wolfram(operator) -> str:
         elif hasattr(data, "to_array"):
             array = data.to_array()
         else:
-            raise TypeError(f"Do not know how to convert {type(data)} into a ndarray")
+            raise TypeError((f"Do not know how to convert {type(data)} into a ndarray"))
 
         assert len(array.shape) == 2, f"the shape  {array.shape} is not a matrix"
         return matrix_to_wolfram(array)
