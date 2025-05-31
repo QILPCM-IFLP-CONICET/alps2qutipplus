@@ -260,11 +260,11 @@
 </UNITCELL>
 
 <UNITCELL name="cincos" dimension="1" vertices="5">
-  <VERTEX><COORDINATE>-.25   0.25</COORDINATE></VERTEX>
-  <VERTEX><COORDINATE>0.25 0.25</COORDINATE></VERTEX>
+  <VERTEX><COORDINATE>-.25   0</COORDINATE></VERTEX>
+  <VERTEX><COORDINATE>0 0.25</COORDINATE></VERTEX>
   <VERTEX><COORDINATE>0.0 0.0</COORDINATE></VERTEX>
-  <VERTEX><COORDINATE>-0.25 -0.25</COORDINATE></VERTEX>
-  <VERTEX><COORDINATE>0.25 -0.25</COORDINATE></VERTEX>
+  <VERTEX><COORDINATE>0. -0.25</COORDINATE></VERTEX>
+  <VERTEX><COORDINATE>0.25 0.</COORDINATE></VERTEX>
 <!-- separo interacciones por sitio: todas las que "salen del 1", todas las que salen del 2, etc -->
   <EDGE type="1"><SOURCE vertex="1" offset="0"/><TARGET vertex="3" offset="0"/></EDGE>
   <EDGE type="2"><SOURCE vertex="1" offset="0"/><TARGET vertex="2" offset="0"/></EDGE> 
