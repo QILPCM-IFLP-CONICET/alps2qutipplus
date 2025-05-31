@@ -7,6 +7,7 @@ import logging
 
 import numpy as np
 import qutip  # type: ignore[import-untyped]
+from matplotlib import pyplot as plt
 from numpy.random import rand
 
 default_parms = {
@@ -20,6 +21,41 @@ default_parms = {
     "log": np.log,
     "rand": rand,
 }
+
+
+def draw_operator(op, axis: "plt.Axis") -> "plt.Axis":
+    """
+    Draw the operator op over the axis.
+    op: Operator
+      If the operator acts on a single site, draws a disk on its coordinates.
+      If is a SumOperator, flatten it and draw each term.
+      For many-body operators, a line is drawn.
+    ax: mpl.Axis
+      the axis over which the operator is going to be drawn.
+    Return
+    ------
+    mpl.Axis
+      the axis over which the operator was drawn.
+
+    """
+    from alpsqutip.operators import SumOperator
+
+    system = op.system
+    g = system.spec["graph"]
+    g.complete_coordiantes()
+    op = op.flat()
+    if isinstance(op, SumOperator):
+        for term in op.terms:
+            draw_operator(term, axis)
+        return axis
+    acts_over = op.acts_over()
+    if acts_over is not None:
+        coords = [g.nodes[site]["coords"] for site in acts_over]
+        if len(coords) == 1:
+            axis.add_artist(plt.Circle(coords[0], 0.1))
+        else:
+            axis.plot([x[0] for x in coords], [x[1] for x in coords], lw="5", c="red")
+    return axis
 
 
 def eval_expr(expr: str, parms: dict):
