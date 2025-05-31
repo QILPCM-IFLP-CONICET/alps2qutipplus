@@ -2,6 +2,7 @@
 Graphs and conversions from ALPS
 """
 
+import logging
 import xml.etree.ElementTree as ET
 from typing import Optional, Tuple
 
@@ -51,7 +52,7 @@ def graph_from_alps_xml(
             try:
                 return [eval_expr(c.strip(), parms) for c in coords_expr]
             except SyntaxError:
-                print(coords_expr, "are not valid coordinates.")
+                logging.error(coords_expr, "are not valid coordinates.")
                 raise
         return None
 
