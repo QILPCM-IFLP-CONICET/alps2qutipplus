@@ -140,6 +140,7 @@ def model_from_alps_xml(filename=MODEL_LIB_FILE, name="spin", parms=None):
                 )
                 expr = "".join(line.strip() for line in node.itertext())
                 expr = expr.replace(f"({site})", "_qutip")
+                expr = expr.replace("'", "_prima")
                 new_op = eval_expr(expr, parms_and_ops)
                 if isinstance(new_op, qutip.Qobj):
                     operators[name] = new_op
@@ -159,6 +160,7 @@ def model_from_alps_xml(filename=MODEL_LIB_FILE, name="spin", parms=None):
             expr = expr.replace(f"({dst})", "@dst")
             expr = expr.replace(f"({src},{dst})", "@src_dst")
             expr = expr.replace(f"({dst},{src})", "@dst_src")
+            expr = expr.replace("'", "_prima")
             operators[name] = expr
         return operators
 
@@ -193,6 +195,7 @@ def model_from_alps_xml(filename=MODEL_LIB_FILE, name="spin", parms=None):
         node_type = descriptor.get("type", "0")
         expr = "".join(line.strip() for line in node.itertext())
         expr = expr.replace(f"({site})", "_local")
+        expr = expr.replace("'", "_prima")
 
         return {"expr": expr, "type": node_type, "parms": parms}
 
@@ -207,8 +210,9 @@ def model_from_alps_xml(filename=MODEL_LIB_FILE, name="spin", parms=None):
         descriptor = node.attrib
         src = descriptor["source"]
         dst = descriptor["target"]
-        bond_type = descriptor.get("type", "0")
+        bond_type = descriptor.get("type", None)
         expr = "".join(line.strip() for line in node.itertext())
+        expr = expr.replace("'", "_prima")
         expr = expr.replace(f"({src})", "@src")
         expr = expr.replace(f"({dst})", "@dst")
         expr = expr.replace(f"({src},{dst})", "@src_dst")
@@ -335,7 +339,10 @@ def model_from_alps_xml(filename=MODEL_LIB_FILE, name="spin", parms=None):
         default_parms = {}
         for parameter in node.findall("./PARAMETER"):
             key_vals = parameter.attrib
-            default_parms[key_vals["name"]] = key_vals["default"]
+            name = key_vals["name"]
+            name = name.replace("'", "_prima")
+            default_value = key_vals["default"].replace("'", "_prima")
+            default_parms[name] = default_value
         default_parms.update(parms)
         return default_parms
 
