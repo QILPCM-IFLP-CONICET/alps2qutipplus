@@ -82,6 +82,14 @@ def eval_expr(expr: str, parms: dict):
     except TypeError as exc:
         logging.warning(f"Type Error. Undefined variables in [{exc}] in {expr}.")
         return None
+    except SyntaxError:
+        logging.error(
+            (
+                "expression " f"<<{expr}>>",
+                f"\n   with parameters\n{parms}\n" "raised a SyntaxError",
+            )
+        )
+        raise
     return expr
 
 

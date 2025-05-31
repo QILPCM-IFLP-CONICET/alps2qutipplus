@@ -148,6 +148,9 @@ class SystemDescriptor:
     def __len__(self):
         return len(self.sites)
 
+    def _repr_latex_(self):
+        return "System \textbf{" + self.name + "}"
+
     def union(self, system):
         """Return a SystemDescritor containing system and self"""
         if system is None or system is self:
@@ -400,6 +403,7 @@ class SystemDescriptor:
             # Try now adding the bond operators
             for name_bop in model.bond_ops:
                 self.bond_operator(name_bop, src, dst)
+                # TODO: for fermions, take into account the sign.
                 self.bond_operator(name_bop, dst, src)
 
             for src_idx, dst_idx in ((1, 2), (2, 1)):
