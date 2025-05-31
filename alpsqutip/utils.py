@@ -222,14 +222,9 @@ def operator_to_wolfram(operator) -> str:
         elif hasattr(data, "to_array"):
             array = data.to_array()
         else:
-            raise TypeError(
-                (f"Do not know how to convert {type(data)} into a ndarray")
-            )
+            raise TypeError((f"Do not know how to convert {type(data)} into a ndarray"))
 
-        assert (
-            len(array.shape) == 2
-        ), f"the shape  {
-            array.shape} is not a matrix"
+        assert len(array.shape) == 2, f"the shape  {array.shape} is not a matrix"
         return matrix_to_wolfram(array)
 
     if isinstance(operator, SumOperator):
