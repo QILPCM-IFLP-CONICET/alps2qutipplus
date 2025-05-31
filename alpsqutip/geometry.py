@@ -2,6 +2,7 @@
 Graphs and conversions from ALPS
 """
 
+import logging
 import xml.etree.ElementTree as ET
 from typing import Optional, Tuple
 
@@ -47,7 +48,12 @@ def graph_from_alps_xml(
 
     def process_coordinates(text: Optional[str] = None) -> Optional[list]:
         if text:
-            return [eval_expr(c.strip(), parms) for c in text.split(" ")]
+            coords_expr = [c for c in text.split(" ") if c != ""]
+            try:
+                return [eval_expr(c.strip(), parms) for c in coords_expr]
+            except SyntaxError:
+                logging.error(coords_expr, "are not valid coordinates.")
+                raise
         return None
 
     def process_graph(node, parms):
@@ -406,7 +412,10 @@ class GraphDescriptor:
 
         elif self.lattice and self.lattice["dimension"] == 1:
             for name in self.nodes:
-                coords[name] = np.array([nodes[name]["coords"][0], 0.0])
+                if len(nodes[name]["coords"]) == 1:
+                    coords[name] = np.array([nodes[name]["coords"][0], 0.0])
+                else:
+                    coords[name] = np.array(nodes[name]["coords"][:2])
         else:
             for name in self.nodes:
                 coords[name] = nodes[name]["coords"][:2]
