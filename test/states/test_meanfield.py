@@ -4,8 +4,14 @@ Test functions that implement the mean field approximation.
 
 from test.helper import CHAIN_SIZE, SX_A, SX_B, SX_TOTAL, SYSTEM, TEST_CASES_STATES
 
+import numpy as np
 import pytest
 
+from alpsqutip import (
+    graph_from_alps_xml,
+    model_from_alps_xml,
+)
+from alpsqutip.model import SystemDescriptor
 from alpsqutip.operators import ScalarOperator
 from alpsqutip.operators.states import (
     GibbsProductDensityOperator,
@@ -92,3 +98,32 @@ def test_variational_meanfield(state_name, state, generator_name, generator):
     assert (
         abs(rel_entropy_var - rel_entropy_sc) < ALPSQUTIP_TOLERANCE**0.5
     ), f"{rel_entropy_var}!={rel_entropy_sc}"
+
+
+def test_mf_for_hamiltonians_with_loop_terms():
+    latt_descr = graph_from_alps_xml(
+        name="square lattice with loop", parms={"L": 3, "a": 1}
+    )
+    model_descr = model_from_alps_xml(name="spin loop")
+    system = SystemDescriptor(
+        latt_descr,
+        model_descr,
+        {
+            "Jz": -1,
+            "Jxy": -1,
+            "Jz2": -1,
+            "Jxy2": -1,
+            "Jz3": -1,
+            "Jxy3": -1,
+            "Jz4": -1,
+            "Jxy4": -1,
+            "Wilson": 10,
+        },
+    )
+    hamiltonian = system.global_operator("Hamiltonian") + system.global_operator("Sz")
+    sigma = variational_quadratic_mfa(
+        hamiltonian, numfields=3, max_self_consistent_steps=30
+    )
+    rel_entropy = np.real(sigma.expect(hamiltonian - sigma.logm()))
+    print(rel_entropy)
+    assert rel_entropy < -1.9
