@@ -531,10 +531,11 @@ class GraphDescriptor:
             ]
             for t, e in self.edges.items()
         }
+
         loops = {
             l_t: loop
             for l_t, loop in self.loops.items()
-            if all(n in nodes for n in loop)
+            if all(all(v in nodes for v in v_lst) for v_lst in loop)
         }
 
         subgraph = GraphDescriptor(name, nodes, edges, loops)
