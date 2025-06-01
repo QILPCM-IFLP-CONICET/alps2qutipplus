@@ -688,10 +688,10 @@
 
 <LATTICEGRAPH name = "square lattice with loop">
   <FINITELATTICE>
-    <LATTICE ref="chain lattice"/>
+    <LATTICE ref="square lattice"/>
     <EXTENT dimension="1" size ="L"/>
     <EXTENT dimension="2" size ="L"/>
-    <BOUNDARY type="periodic"/>
+    <BOUNDARY type="open"/>
   </FINITELATTICE>
   <UNITCELL ref="simple with loop"/>
 </LATTICEGRAPH>
