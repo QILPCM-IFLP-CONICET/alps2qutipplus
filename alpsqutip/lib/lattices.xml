@@ -164,6 +164,9 @@
   <EDGE><SOURCE vertex="1" offset="0"/><TARGET vertex="1" offset="1"/></EDGE>
 </UNITCELL>
 
+
+
+
 <UNITCELL name="complex1d" dimension="1">
   <VERTEX/>
   <EDGE type="0"><SOURCE vertex="1" offset="0"/><TARGET vertex="1" offset="1"/></EDGE>
@@ -325,6 +328,11 @@
   <UNITCELL ref="simple1d"/>
 </LATTICEGRAPH>
 
+
+
+
+
+
 <LATTICEGRAPH name = "site" vt_skip="true">
   <FINITELATTICE>
     <LATTICE ref="chain lattice"/>
@@ -445,6 +453,7 @@
   </FINITELATTICE>
   <UNITCELL ref="simple1d"/>
 </LATTICEGRAPH>
+
 
 <LATTICEGRAPH name = "open chain lattice">
   <FINITELATTICE>
@@ -663,5 +672,28 @@
   <EDGE type="0" source="2" target="3"/>
   <EDGE type="0" source="3" target="1"/>
 </GRAPH>
+
+
+
+<UNITCELL name="simple with loop" dimension="2">
+  <VERTEX/>
+  <EDGE><SOURCE vertex="1" offset="0 0"/><TARGET vertex="1" offset="0 1"/></EDGE>
+  <EDGE><SOURCE vertex="1" offset="0 0"/><TARGET vertex="1" offset="1 0"/></EDGE>
+  <LOOP>
+    <NODE vertex="1" offset="0 0"/>
+    <NODE vertex="1" offset="1 0"/>
+    <NODE vertex="1" offset="1 1"/>
+  </LOOP>
+</UNITCELL>
+
+<LATTICEGRAPH name = "square lattice with loop">
+  <FINITELATTICE>
+    <LATTICE ref="chain lattice"/>
+    <EXTENT dimension="1" size ="L"/>
+    <EXTENT dimension="2" size ="L"/>
+    <BOUNDARY type="periodic"/>
+  </FINITELATTICE>
+  <UNITCELL ref="simple with loop"/>
+</LATTICEGRAPH>
 
 </LATTICES>
