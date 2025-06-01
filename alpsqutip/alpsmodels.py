@@ -239,9 +239,10 @@ def model_from_alps_xml(filename=MODEL_LIB_FILE, name="spin", parms=None):
         expr = "".join(line.strip() for line in node.itertext())
         expr = expr.replace("'", "_prima")
         for vertex_name in indices:
-            expr = expr.replace(f"({vertex_name})", "@[vertex_name]")
+            expr = expr.replace(f"({vertex_name})", f"@[{vertex_name}]")
 
-        return {"expr": expr, "type": loop_type, "parms": parms}
+        result = {"expr": expr, "type": loop_type, "indices": indices, "parms": parms}
+        return result
 
     def process_sitebasis(node, parms) -> dict:
         basis_name = node.attrib.get("name", "")
@@ -336,6 +337,7 @@ def model_from_alps_xml(filename=MODEL_LIB_FILE, name="spin", parms=None):
         parms = process_parms(ham, parms)
         site_terms = []
         bond_terms = []
+        loop_terms = []
 
         basis = None
         for basis_entry in ham.findall("./BASIS"):
@@ -350,9 +352,13 @@ def model_from_alps_xml(filename=MODEL_LIB_FILE, name="spin", parms=None):
         for op_bond in ham.findall("./BONDTERM"):
             bond_terms.append(process_bondterm(find_ref(op_bond, models), parms))
 
+        for op_bond in ham.findall("./LOOPTERM"):
+            loop_terms.append(process_loopterm(find_ref(op_bond, models), parms))
+
         basis.global_ops["Hamiltonian"] = {
             "site terms": site_terms,
             "bond terms": bond_terms,
+            "loop terms": loop_terms,
         }
         basis.parms.update(parms)
         return basis

@@ -70,7 +70,6 @@ class SystemDescriptor:
         self._subsystems_cache = {}
         self._load_site_operators()
         self._load_global_ops()
-        self._load_loop_ops()
 
     def __repr__(self):
         result = (
@@ -115,11 +114,6 @@ class SystemDescriptor:
             for op_name in site["operators"]:
                 op_site = f"{op_name}@{site_name}"
                 self.site_operator(op_site)
-
-    def _load_loop_ops(self):
-        # Import here to avoid circular dependency
-        # pylint: disable=import-outside-toplevel
-        pass
 
     def _load_global_ops(self):
         # Import here to avoid circular dependency
@@ -479,6 +473,66 @@ class SystemDescriptor:
             return result_terms[0]
         return SumOperator(tuple(result_terms), self, True)
 
+    def loop_term_from_descriptor(self, term_spec, graph, model, parms):
+        """Build loop term from aloop term specification"""
+        # Import here to avoid circular dependency
+        # pylint: disable=import-outside-toplevel
+        from alpsqutip.operators import ScalarOperator, SumOperator
+
+        def process_loop(loop_expr, loop_type, vertices_map, model, t_parm):
+            loop_parms = {
+                key.replace("#", f"{loop_type}"): val for key, val in t_parm.items()
+            }
+
+            for key, site in vertices_map.items():
+                loop_expr = loop_expr.replace(f"@[{key}]", f"__{key}_")
+                loop_parms.update(
+                    {
+                        f"{op_key}__{key}_": val
+                        for op_key, val in self.operators["site_operators"][
+                            site
+                        ].items()
+                    }
+                )
+
+            term_op = eval_expr(loop_expr, loop_parms)
+            assert not isinstance(term_op, str), f"got {term_op}"
+            return term_op
+
+        expr = term_spec["expr"]
+        term_type = term_spec.get("type", None)
+        index_names = term_spec.get("indices", None)
+        t_parm = {}
+        t_parm.update(term_spec.get("parms", {}))
+        if parms:
+            t_parm.update(parms)
+        result_terms = []
+        for loop_type, loops in graph.loops.items():
+            if term_type is not None and term_type != loop_type:
+                continue
+            loop_expr = expr.replace("#", loop_type)
+            operator_names = set(re.findall(r"\b([a-zA-Z_]+)\b@", loop_expr))
+            for vertices in loops:
+                vertices_site_map = {
+                    indx: site for indx, site in zip(index_names, vertices)
+                }
+                term_op = process_loop(
+                    loop_expr, loop_type, vertices_site_map, model, t_parm
+                )
+                if isinstance(term_op, str):
+                    raise ValueError(
+                        f"   Loop term <<{term_op}>> could not be evaluated.",
+                        operator_names,
+                    )
+
+                result_terms.append(term_op)
+
+        if len(result_terms) == 0:
+            return ScalarOperator(0.0, self)
+        if len(result_terms) == 1:
+            return result_terms[0]
+        return SumOperator(tuple(result_terms), self, True)
+
     def global_operator(self, name):
         """Return a global operator by its name"""
         # pylint: disable=import-outside-toplevel
@@ -522,8 +576,22 @@ class SystemDescriptor:
             model.global_ops.pop(name)
             return None
 
-        if bond_terms:
-            result = SumOperator(site_terms + bond_terms, self, True)
+        # Process loop terms
+        try:
+            loop_terms = tuple(
+                self.loop_term_from_descriptor(term_spec, graph, model, parms)
+                for term_spec in op_descr["loop terms"]
+            )
+            loop_terms = tuple(term for term in loop_terms if term)
+
+        except ValueError as exc:
+            logging.debug(f"{exc.args} Aborting evaluation of {name}.")
+            model.global_ops.pop(name)
+            return None
+
+        interaction_terms = bond_terms + loop_terms
+        if interaction_terms:
+            result = SumOperator(site_terms + interaction_terms, self, True)
         else:
             result = OneBodyOperator(site_terms, self, True)
         result = result.simplify()

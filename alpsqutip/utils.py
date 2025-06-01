@@ -86,13 +86,12 @@ def draw_operator(op, axis: "plt.Axis") -> "plt.Axis":
     if acts_over is not None:
         coords = [g.nodes[site]["coords"] for site in acts_over]
         coords = [(x[0], 0) if len(x) == 1 else x for x in coords]
-        print("coords:", coords)
         if len(coords) == 1:
             axis.add_artist(Circle(coords[0], 0.1))
         if len(coords) == 2:
             draw_ellipse_around_points(coords[0], coords[1], axis)
         else:
-            axis.plot([x[0] for x in coords], [x[1] for x in coords], lw="5", c="red")
+            axis.plot([x[0] for x in coords]+[coords[0][0]], [x[1] for x in coords]+[coords[0][1]], lw="5", c="red")
     return axis
 
 
