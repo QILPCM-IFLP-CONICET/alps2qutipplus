@@ -301,6 +301,9 @@ class LocalOperator(Operator):
         assert isinstance(site, str)
         assert system is not None
         self.site = site
+        if isinstance(local_operator, (int, float, complex)):
+            local_operator = system.site_identity(site) * local_operator
+        assert isinstance(local_operator, Qobj)
         self.operator = local_operator
         self.system = system
 
