@@ -4,7 +4,7 @@ Define SystemDescriptors and different kind of operators
 
 import logging
 import re
-from typing import Optional
+from typing import Optional, Tuple
 
 from alpsqutip.alpsmodels import ModelDescriptor
 from alpsqutip.geometry import GraphDescriptor
@@ -64,11 +64,13 @@ class SystemDescriptor:
         self.operators = {
             "site_operators": {},
             "bond_operators": {},
+            "loop_operators": {},
             "global_operators": {},
         }
         self._subsystems_cache = {}
         self._load_site_operators()
         self._load_global_ops()
+        self._load_loop_ops()
 
     def __repr__(self):
         result = (
@@ -113,6 +115,11 @@ class SystemDescriptor:
             for op_name in site["operators"]:
                 op_site = f"{op_name}@{site_name}"
                 self.site_operator(op_site)
+
+    def _load_loop_ops(self):
+        # Import here to avoid circular dependency
+        # pylint: disable=import-outside-toplevel
+        pass
 
     def _load_global_ops(self):
         # Import here to avoid circular dependency
@@ -329,6 +336,31 @@ class SystemDescriptor:
         # if skip[-1]==name:
         #    self.bond_operators[(name, src, dst,)] = None
         return None
+
+    def loop_operator(self, name: str, loop: Tuple[str], skip=None):  # -> "Operator":
+        """Loop operator by name and sites"""
+        result_op = self.operators["global_operators"].get(
+            (
+                name,
+                loop,
+            ),
+            None,
+        )
+        if result_op is not None:
+            return result_op
+        loop_op_descriptors = self.spec["model"].loop_ops
+        loop_op_descriptor = loop_op_descriptors.get(name, None)
+        if loop_op_descriptor is None:
+            return None
+
+        # loop_dependencies = [
+        #    bop
+        #    for bop in loop_op_descriptors
+        #    if loop_op_descriptor.find(bop + "@") >= 0
+        # ]
+        loop_op_descriptor = loop_op_descriptor.replace("@", "__")
+        # vertex_operators  = tuple((self.sites[src]["operators"] for src in loop))
+        raise ValueError(f"{loop_op_descriptor} not implemented for  {loop}.")
 
     def site_term_from_descriptor(self, term_spec, graph, parms):
         """Build a site term from a site term specification"""

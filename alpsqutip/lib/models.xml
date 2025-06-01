@@ -303,6 +303,15 @@
   bdag(x)*b(y)+bdag(y)*b(x)
 </BONDOPERATOR>
 
+
+<GLOBALOPERATOR name="loop_term">
+  <LOOPTERM indices="i j k">
+    (Sx(i)*Sy(j)*Sz(k) - Sx(i)*Sz(j)*Sy(k) +Sz(i)*Sx(j)*Sy(k) - Sz(i)*Sx(j)*Sy(k) +Sy(i)*Sz(j)*Sx(k) - Sy(i)*Sx(j)*Sz(k) )
+  </LOOPTERM>
+</GLOBALOPERATOR>
+
+
+
 <GLOBALOPERATOR name="spin_exchange_energy">
   <BONDTERM type="0" source="i" target="j">
     Jz*Sz(i)*Sz(j)+Jxy/2*exchange_xy(i,j)
@@ -587,6 +596,48 @@
     <PARAMETER name="J#" default="0"/>
     -t#*fermion_hop(i,j) + J#*exchange(i,j)+(V#-J#/4)*n(i)*n(j)
   </BONDTERM>
+</HAMILTONIAN>
+
+
+
+
+
+<HAMILTONIAN name="spin loop">
+  <PARAMETER name="J0" default="0"/>
+  <PARAMETER name="J" default="J0"/>
+  <PARAMETER name="Jz" default="J"/>
+  <PARAMETER name="Jxy" default="J"/>
+  <PARAMETER name="Jz0" default="Jz"/>
+  <PARAMETER name="Jxy0" default="Jxy"/>
+  <PARAMETER name="J1" default="0"/>
+  <PARAMETER name="J'" default="J1"/>
+  <PARAMETER name="Jz'" default="J'"/>
+  <PARAMETER name="Jxy'" default="J'"/>
+  <PARAMETER name="Jz1" default="Jz'"/>
+  <PARAMETER name="Jxy1" default="Jxy'"/>
+  <PARAMETER name="h" default="0"/>
+  <PARAMETER name="Gamma" default="0"/>
+  <PARAMETER name="D" default="0"/>
+  <PARAMETER name="K" default="0"/>
+  <PARAMETER name="Wilson" default="0"/>
+  <BASIS ref="spin"/>
+  <SITETERM site="i">
+  <PARAMETER name="h#" default="h"/>
+  <PARAMETER name="Gamma#" default="Gamma"/>
+  <PARAMETER name="D#" default="D"/>
+    -h#*Sz(i)-Gamma#*Sx(i)+D#*Sz(i)*Sz(i)
+  </SITETERM> 
+  <BONDTERM source="i" target="j">
+    <PARAMETER name="J#" default="0"/>
+    <PARAMETER name="Jz#" default="J#"/>
+    <PARAMETER name="Jxy#" default="J#"/>
+    <PARAMETER name="K#" default="0"/>
+    Jz#*Sz(i)*Sz(j)+Jxy#*exchange_xy(i,j)+K#*biquadratic(i,j)
+  </BONDTERM>
+  <LOOPTERM indices="i j k">
+    <PARAMETER name="Wilson#" default="Wilson"/>
+    Wilson# *  (Sx(i)*Sy(j)*Sz(k) - Sx(i)*Sz(j)*Sy(k) +Sz(i)*Sx(j)*Sy(k) - Sz(i)*Sx(j)*Sy(k) +Sy(i)*Sz(j)*Sx(k) - Sy(i)*Sx(j)*Sz(k) )
+  </LOOPTERM>
 </HAMILTONIAN>
 
 </MODELS>

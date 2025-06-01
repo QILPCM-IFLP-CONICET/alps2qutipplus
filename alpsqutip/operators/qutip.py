@@ -62,6 +62,7 @@ class QutipOperator(Operator):
                 "disconnected graph",
                 {s: {"type": f"qutip_{i}"} for i, s in enumerate(sites)},
                 {},
+                {},
             )
             system = SystemDescriptor(graph, model, sites=sites)
         if names is None:
