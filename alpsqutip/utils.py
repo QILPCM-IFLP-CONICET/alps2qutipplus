@@ -91,7 +91,12 @@ def draw_operator(op, axis: "plt.Axis") -> "plt.Axis":
         if len(coords) == 2:
             draw_ellipse_around_points(coords[0], coords[1], axis)
         else:
-            axis.plot([x[0] for x in coords]+[coords[0][0]], [x[1] for x in coords]+[coords[0][1]], lw="5", c="red")
+            axis.plot(
+                [x[0] for x in coords] + [coords[0][0]],
+                [x[1] for x in coords] + [coords[0][1]],
+                lw="5",
+                c="red",
+            )
     return axis
 
 
