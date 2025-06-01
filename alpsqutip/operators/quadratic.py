@@ -22,6 +22,7 @@ from typing import Callable, Optional, Tuple, Union
 import numpy as np
 from numpy.linalg import eigh
 from numpy.random import random
+from qutip import Qobj
 
 from alpsqutip.model import SystemDescriptor
 from alpsqutip.operators.arithmetic import OneBodyOperator, SumOperator
@@ -417,13 +418,27 @@ def classify_terms(operator, sigma_ref):
     """
     from alpsqutip.operators.qutip import QutipOperator
 
+    local_sigmas = (
+        sigma_ref.sites_op
+        if sigma_ref is not None
+        else {
+            site: 1 / dimension
+            for site, dimension in operator.system.dimensions.items()
+        }
+    )
+
     def decompose_two_body_product_operator(prod_op):
         prefactor = prod_op.prefactor
         system = prod_op.system
         sites_op = operator.sites_op
         assert len(sites_op) == 2
         averages = {
-            site: loc_op.tr() / loc_op.dims[0][0] for site, loc_op in sites_op.items()
+            site: (
+                (loc_op * local_sigmas[site]).tr()
+                if isinstance(loc_op, Qobj)
+                else loc_op
+            )
+            for site, loc_op in sites_op.items()
         }
         sites_op = {
             site: (loc_op - averages[site]) for site, loc_op in sites_op.items()
@@ -546,6 +561,13 @@ def build_quadratic_form_from_operator(
 
     if simplify:
         operator = operator.simplify()
+
+    if sigma_ref is not None:
+        if isinstance(sigma_ref, GibbsProductDensityOperator):
+            sigma_ref = sigma_ref.to_product_state()
+        assert isinstance(
+            sigma_ref, ProductDensityOperator
+        ), f"sigma_ref must be a ProductDensityOperator. Got {type(sigma_ref)}"
 
     system = operator.system
     # Trivial cases

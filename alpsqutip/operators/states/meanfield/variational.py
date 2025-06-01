@@ -309,7 +309,9 @@ def variational_quadratic_mfa(
             # ham_proj = k_0 + sum_a w_a Q_a^2
             # with |Q_a|_{infty}=1 and
             # w_1 <= w_2 <=... <=w_l < 0 <= w_{k+1} <= ... w_n
-            qf_op = build_quadratic_form_from_operator(ham_proj)
+            qf_op = build_quadratic_form_from_operator(
+                ham_proj, isherm=True, sigma_ref=sigma_ref
+            )
             sigma_ref = mf_quadratic_form_exponential(
                 qf_op, numfields, method, callback_optimizer, ham
             )
