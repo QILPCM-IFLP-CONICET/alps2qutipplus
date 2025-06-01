@@ -408,7 +408,7 @@ def orthonormal_hs_local_basis(local_generators_dict: dict):
     return basis_dict
 
 
-def classify_terms(operator):
+def classify_terms(operator, sigma_ref):
     """
     Decompose `operator` as list of terms
     associated to each pairs of sites,
@@ -422,8 +422,12 @@ def classify_terms(operator):
         system = prod_op.system
         sites_op = operator.sites_op
         assert len(sites_op) == 2
-        averages = {site: loc_op.tr() for site, loc_op in sites_op.items()}
-        sites_op = {site: (loc_op - loc_op.tr()) for site, loc_op in sites_op.items()}
+        averages = {
+            site: loc_op.tr() / loc_op.dims[0][0] for site, loc_op in sites_op.items()
+        }
+        sites_op = {
+            site: (loc_op - averages[site]) for site, loc_op in sites_op.items()
+        }
         site1, site2 = sites_op
         one_body_term = (
             OneBodyOperator(
@@ -467,7 +471,9 @@ def classify_terms(operator):
 
     assert isinstance(operator, SumOperator)
     for term in operator.terms:
-        sub_terms_by_block, sub_linear_terms, sub_offset_terms = classify_terms(term)
+        sub_terms_by_block, sub_linear_terms, sub_offset_terms = classify_terms(
+            term, sigma_ref
+        )
         linear_terms.extend(sub_linear_terms)
         offset_terms.extend(sub_offset_terms)
         for key, val in sub_terms_by_block.items():
@@ -512,7 +518,10 @@ def build_quadratic_form_matrix(terms_by_block, local_basis):
 
 
 def build_quadratic_form_from_operator(
-    operator: Operator, simplify=True, isherm=None
+    operator: Operator,
+    simplify=True,
+    isherm=None,
+    sigma_ref=None,
 ) -> Operator:
     """
     Build a QuadraticFormOperator from `operator`
@@ -576,13 +585,19 @@ def build_quadratic_form_from_operator(
     if not isherm:
         real_part = (
             build_quadratic_form_from_operator(
-                operator + operator.dag(), simplify=True, isherm=True
+                operator + operator.dag(),
+                simplify=True,
+                isherm=True,
+                sigma_ref=sigma_ref,
             )
             * 0.5
         )
         imag_part = (
             build_quadratic_form_from_operator(
-                operator.dag() * 1j - operator * 1j, simplify=True, isherm=True
+                operator.dag() * 1j - operator * 1j,
+                simplify=True,
+                isherm=True,
+                sigma_ref=sigma_ref,
             )
             * 0.5j
         )
@@ -591,7 +606,9 @@ def build_quadratic_form_from_operator(
     # Process hermitician operators
     # Classify terms
     system = operator.system
-    terms_by_2body_block, linear_terms, offset_terms = classify_terms(operator)
+    terms_by_2body_block, linear_terms, offset_terms = classify_terms(
+        operator, sigma_ref
+    )
     linear_term = sum(linear_terms).simplify() if linear_terms else None
     offset = sum(offset_terms).simplify() if offset_terms else None
 
