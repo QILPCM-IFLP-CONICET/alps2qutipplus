@@ -3,7 +3,7 @@ Functions used to run MaxEnt simulations.
 """
 
 from math import factorial
-from typing import Any, Callable, List, Tuple
+from typing import Any, Callable, List, Optional, Tuple
 
 import numpy as np
 import qutip
@@ -20,7 +20,11 @@ from alpsqutip.scalarprod import fetch_covar_scalar_product, orthogonalize_basis
 
 
 def build_hierarchical_basis(
-    generator: Operator, seed_op: Operator, deep: int, to_qutip_operator: bool = False
+    generator: Operator,
+    seed_op: Operator,
+    deep: int,
+    to_qutip_operator: bool = False,
+    project_function: Optional[Callable] = None,
 ) -> List[Operator]:
     """
     Constructs a hierarchical basis of operators, formed from iterated
@@ -42,6 +46,8 @@ def build_hierarchical_basis(
     to_qutip_operator : bool, optional
         If `True`, convert the operators to its qutip form.
         The default is False.
+    projection_function: Optional[Callable]
+        If given, apply this function over each new element.
 
     Returns
     -------
@@ -63,7 +69,10 @@ def build_hierarchical_basis(
         for _ in range(deep):
             # Generate new operators by computing the commutator
             # of the generator with the last operator.
-            basis.append(commutator(generator, basis[-1]))
+            new_element = commutator(generator, basis[-1])
+            if project_function is not None:
+                new_element = project_function(new_element)
+            basis.append(new_element)
 
     return basis
 
@@ -392,14 +401,19 @@ def projected_evolution(
         A list with the solution at times t_span
 
     """
-    h_basis = build_hierarchical_basis(ham, k0, order)
     sp = fetch_covar_scalar_product(sigma_0)
     # Project to n_body subspace if required
     if n_body >= 0:
-        h_basis = [
-            project_to_n_body_operator(op_b, nmax=n_body, sigma=sigma_0)
-            for op_b in h_basis
-        ]
+        h_basis = build_hierarchical_basis(
+            ham,
+            k0,
+            order,
+            projection_function=lambda x: (
+                project_to_n_body_operator(x, nmax=n_body, sigma=sigma_0)
+            ),
+        )
+    else:
+        h_basis = build_hierarchical_basis(ham, k0, order)
     h_basis = orthogonalize_basis(h_basis, sp)
     hij, werrs = fn_hij_tensor_with_errors(h_basis, sp, ham)
     result = []
