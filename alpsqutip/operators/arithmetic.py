@@ -100,7 +100,7 @@ class SumOperator(Operator):
         terms = self.terms
         if len(terms) > 6:
             result = " + ".join(term._repr_latex_()[1:-1] for term in terms[:3])
-            result += " + ... + "
+            result += f" + \\ldots ({len(terms)-6} terms) \\ldots + "
             result += " + ".join(term._repr_latex_()[1:-1] for term in terms[-3:])
         else:
             result = " + ".join(term._repr_latex_()[1:-1] for term in terms)

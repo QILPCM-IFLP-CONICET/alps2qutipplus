@@ -4,7 +4,7 @@ Define SystemDescriptors and different kind of operators
 
 import logging
 import re
-from typing import Optional
+from typing import Optional, Tuple
 
 from alpsqutip.alpsmodels import ModelDescriptor
 from alpsqutip.geometry import GraphDescriptor
@@ -64,6 +64,7 @@ class SystemDescriptor:
         self.operators = {
             "site_operators": {},
             "bond_operators": {},
+            "loop_operators": {},
             "global_operators": {},
         }
         self._subsystems_cache = {}
@@ -147,6 +148,9 @@ class SystemDescriptor:
 
     def __len__(self):
         return len(self.sites)
+
+    def _repr_latex_(self):
+        return "System \textbf{" + self.name + "}"
 
     def union(self, system):
         """Return a SystemDescritor containing system and self"""
@@ -327,6 +331,31 @@ class SystemDescriptor:
         #    self.bond_operators[(name, src, dst,)] = None
         return None
 
+    def loop_operator(self, name: str, loop: Tuple[str], skip=None):  # -> "Operator":
+        """Loop operator by name and sites"""
+        result_op = self.operators["global_operators"].get(
+            (
+                name,
+                loop,
+            ),
+            None,
+        )
+        if result_op is not None:
+            return result_op
+        loop_op_descriptors = self.spec["model"].loop_ops
+        loop_op_descriptor = loop_op_descriptors.get(name, None)
+        if loop_op_descriptor is None:
+            return None
+
+        # loop_dependencies = [
+        #    bop
+        #    for bop in loop_op_descriptors
+        #    if loop_op_descriptor.find(bop + "@") >= 0
+        # ]
+        loop_op_descriptor = loop_op_descriptor.replace("@", "__")
+        # vertex_operators  = tuple((self.sites[src]["operators"] for src in loop))
+        raise ValueError(f"{loop_op_descriptor} not implemented for  {loop}.")
+
     def site_term_from_descriptor(self, term_spec, graph, parms):
         """Build a site term from a site term specification"""
         # Import here to avoid circular dependency
@@ -400,6 +429,7 @@ class SystemDescriptor:
             # Try now adding the bond operators
             for name_bop in model.bond_ops:
                 self.bond_operator(name_bop, src, dst)
+                # TODO: for fermions, take into account the sign.
                 self.bond_operator(name_bop, dst, src)
 
             for src_idx, dst_idx in ((1, 2), (2, 1)):
@@ -432,6 +462,66 @@ class SystemDescriptor:
                 if isinstance(term_op, str):
                     raise ValueError(
                         f"   Bond term <<{term_op}>> could not be evaluated.",
+                        operator_names,
+                    )
+
+                result_terms.append(term_op)
+
+        if len(result_terms) == 0:
+            return ScalarOperator(0.0, self)
+        if len(result_terms) == 1:
+            return result_terms[0]
+        return SumOperator(tuple(result_terms), self, True)
+
+    def loop_term_from_descriptor(self, term_spec, graph, model, parms):
+        """Build loop term from aloop term specification"""
+        # Import here to avoid circular dependency
+        # pylint: disable=import-outside-toplevel
+        from alpsqutip.operators import ScalarOperator, SumOperator
+
+        def process_loop(loop_expr, loop_type, vertices_map, model, t_parm):
+            loop_parms = {
+                key.replace("#", f"{loop_type}"): val for key, val in t_parm.items()
+            }
+
+            for key, site in vertices_map.items():
+                loop_expr = loop_expr.replace(f"@[{key}]", f"__{key}_")
+                loop_parms.update(
+                    {
+                        f"{op_key}__{key}_": val
+                        for op_key, val in self.operators["site_operators"][
+                            site
+                        ].items()
+                    }
+                )
+
+            term_op = eval_expr(loop_expr, loop_parms)
+            assert not isinstance(term_op, str), f"got {term_op}"
+            return term_op
+
+        expr = term_spec["expr"]
+        term_type = term_spec.get("type", None)
+        index_names = term_spec.get("indices", None)
+        t_parm = {}
+        t_parm.update(term_spec.get("parms", {}))
+        if parms:
+            t_parm.update(parms)
+        result_terms = []
+        for loop_type, loops in graph.loops.items():
+            if term_type is not None and term_type != loop_type:
+                continue
+            loop_expr = expr.replace("#", loop_type)
+            operator_names = set(re.findall(r"\b([a-zA-Z_]+)\b@", loop_expr))
+            for vertices in loops:
+                vertices_site_map = {
+                    indx: site for indx, site in zip(index_names, vertices)
+                }
+                term_op = process_loop(
+                    loop_expr, loop_type, vertices_site_map, model, t_parm
+                )
+                if isinstance(term_op, str):
+                    raise ValueError(
+                        f"   Loop term <<{term_op}>> could not be evaluated.",
                         operator_names,
                     )
 
@@ -486,8 +576,22 @@ class SystemDescriptor:
             model.global_ops.pop(name)
             return None
 
-        if bond_terms:
-            result = SumOperator(site_terms + bond_terms, self, True)
+        # Process loop terms
+        try:
+            loop_terms = tuple(
+                self.loop_term_from_descriptor(term_spec, graph, model, parms)
+                for term_spec in op_descr["loop terms"]
+            )
+            loop_terms = tuple(term for term in loop_terms if term)
+
+        except ValueError as exc:
+            logging.debug(f"{exc.args} Aborting evaluation of {name}.")
+            model.global_ops.pop(name)
+            return None
+
+        interaction_terms = bond_terms + loop_terms
+        if interaction_terms:
+            result = SumOperator(site_terms + interaction_terms, self, True)
         else:
             result = OneBodyOperator(site_terms, self, True)
         result = result.simplify()
