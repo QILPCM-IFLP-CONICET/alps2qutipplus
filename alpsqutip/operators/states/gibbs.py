@@ -25,7 +25,7 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
 
     """
 
-    free_energy: float
+    _free_energy: float
     normalized: bool
     k: Operator
 
@@ -39,7 +39,7 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
         assert prefactor > 0
         self.k = k
         self.f_global = 0.0
-        self.free_energy = 0.0
+        self._free_energy = 0.0
         self.prefactor = prefactor
         self.normalized = normalized
         self.system = k.system.union(system)
@@ -91,6 +91,19 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
     ) -> Union[np.ndarray, dict, Number]:
         return self.to_qutip_operator().expect(obs_objs)
 
+    @property
+    def free_energy(self):
+        """compute the free energy"""
+        if not self.normalized:
+            self.normalize()
+        return self._free_energy
+
+    @free_energy.setter
+    def free_energy(self, value):
+        """set the free energy"""
+        self._free_energy = value
+        return self._free_energy
+
     def logm(self):
         self.normalize()
         k = self.k
@@ -119,13 +132,14 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
         if not self.normalized:
             rho_qutip, log_prefactor = safe_exp_and_normalize(-self.k.to_qutip())
             self.k = self.k + log_prefactor
-            self.free_energy = -log_prefactor
+            self._free_energy = -log_prefactor
             self.normalized = True
-            if block == all_sites:
-                return rho_qutip
             if len(block) == 0:
                 return rho_qutip
-            return rho_qutip.permute((all_sites.index(site) for site in block))
+            if block == all_sites:
+                return rho_qutip
+
+            return rho_qutip.permute(tuple((all_sites.index(site) for site in block)))
 
         result = (-self.k).to_qutip(block).expm()
         return result
