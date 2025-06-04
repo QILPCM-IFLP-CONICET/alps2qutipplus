@@ -126,7 +126,7 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
             if block == all_sites:
                 return rho_qutip
             
-            return rho_qutip.permute((all_sites.index(site) for site in block))
+            return rho_qutip.permute(tuple((all_sites.index(site) for site in block)))
 
         result = (-self.k).to_qutip(block).expm()
         return result
