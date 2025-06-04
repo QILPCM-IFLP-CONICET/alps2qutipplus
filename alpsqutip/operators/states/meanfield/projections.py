@@ -370,6 +370,9 @@ def project_qutip_operator_as_n_body_operator(
     Project a qutip operator to the manifold of n-body operators
     """
     acts_over = operator.acts_over()
+    assert isinstance(
+        acts_over, frozenset
+    ), f"{type(operator)}.acts_over() should return a frozenset. Got({type(acts_over)})"
     if len(acts_over) <= nmax:
         return operator
 
@@ -384,6 +387,9 @@ def project_qutip_operator_as_n_body_operator(
     scalar = 0
     for term in terms:
         acts_over = term.acts_over()
+        assert isinstance(
+            acts_over, frozenset
+        ), f"{type(term)}.acts_over() should return a frozenset. Got({type(acts_over)})"
         block_size = len(acts_over)
         if block_size == 0:
             scalar += term.prefactor
@@ -465,6 +471,9 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
             one_body_terms.append(t)
             return True
         acts_over_t = t.acts_over()
+        assert isinstance(
+            acts_over_t, frozenset
+        ), f"{type(t)}.acts_over() should return a frozenset. Got({type(acts_over_t)})"
         n_body_sector = len(acts_over_t)
         if n_body_sector <= 1:
             one_body_terms.append(t)

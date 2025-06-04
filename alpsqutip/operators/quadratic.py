@@ -722,7 +722,7 @@ def selfconsistent_meanfield_from_quadratic_form(
     operators = [2 * w * b for w, b in zip(weights, terms)]
     basis = [b for w, b in zip(weights, terms)]
 
-    phi = [(2.0 * random() - 1.0)]
+    phi = [2.0 * random() - 1.0]
 
     evolution: list = []
     timestamps: list = []

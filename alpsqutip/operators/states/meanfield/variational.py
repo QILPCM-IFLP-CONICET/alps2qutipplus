@@ -215,18 +215,25 @@ def self_consistent_mf(
         sigma_ref = GibbsProductDensityOperator({}, system=ham.system)
 
     rel_entropy = compute_rel_entropy(sigma_ref, ham)
-
+    converged = False
     for curr_step in range(max_steps):
         gen_sc = project_to_n_body_operator(ham, nmax=1, sigma=sigma_ref)
         sigma_sc = GibbsProductDensityOperator(gen_sc)
         new_rel_entropy = compute_rel_entropy(sigma_sc, ham)
         if callback is not None:
             callback(sigma_ref, rel_entropy, curr_step)
-        if new_rel_entropy >= rel_entropy:
+
+        if abs(new_rel_entropy - rel_entropy) < ALPSQUTIP_TOLERANCE:
+            converged = True
+            break
+        if np.real(new_rel_entropy - rel_entropy) > 10 * ALPSQUTIP_TOLERANCE:
             break
         rel_entropy = new_rel_entropy
         sigma_ref = sigma_sc
 
+    if converged is False:
+        msg = f"self consistent mean field failed to converge after {curr_step} iterations. Last Delta S_rel= {np.real(new_rel_entropy - rel_entropy)}."
+        logging.warning(msg)
     return sigma_ref, rel_entropy
 
 

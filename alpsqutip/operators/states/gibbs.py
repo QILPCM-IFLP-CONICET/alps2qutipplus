@@ -100,6 +100,7 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
         """Normalize the operator in a way that exp(-K).tr()==1"""
         if not self.normalized:
             self.to_qutip(tuple())
+
         return self
 
     def partial_trace(self, sites: Union[frozenset, SystemDescriptor]):
@@ -121,6 +122,8 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
             self.free_energy = -log_prefactor
             self.normalized = True
             if block == all_sites:
+                return rho_qutip
+            if len(block) == 0:
                 return rho_qutip
             return rho_qutip.permute((all_sites.index(site) for site in block))
 
