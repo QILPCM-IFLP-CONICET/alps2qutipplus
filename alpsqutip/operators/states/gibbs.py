@@ -121,10 +121,11 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
             self.k = self.k + log_prefactor
             self.free_energy = -log_prefactor
             self.normalized = True
-            if block == all_sites:
-                return rho_qutip
             if len(block) == 0:
                 return rho_qutip
+            if block == all_sites:
+                return rho_qutip
+            
             return rho_qutip.permute((all_sites.index(site) for site in block))
 
         result = (-self.k).to_qutip(block).expm()
