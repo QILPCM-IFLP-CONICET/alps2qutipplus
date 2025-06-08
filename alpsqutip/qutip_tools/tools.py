@@ -80,9 +80,19 @@ else:
         """
         walk over data elements.
         """
-        # Diagonal format
-        if hasattr(data, "num_diag"):
-            data = data.as_scipy()
+
+        def do_dense():
+            arr = data.as_ndarray() if hasattr(data, "as_ndarray") else data.to_array()
+            dim_i, dim_j = arr.shape
+            for i in range(dim_i):
+                for j in range(dim_j):
+                    v = arr[i, j]
+                    if v != 0:
+                        yield (i, j, v)
+
+        # Backward compatibility v5.0 and v5.1
+        def do_dia_5_0(data_dia):
+            data = data_dia.as_scipy()
             dim_i, dim_j = data.shape
             for offset, diag_data in zip(data.offsets, data.data):
                 if offset < 0:
@@ -105,6 +115,43 @@ else:
                             j_pos,
                             value,
                         )
+
+        def do_dia_5_2(data_dia):
+            data = data_dia.as_scipy()
+            dim_i, dim_j = data.shape
+            for offset, diag_data in zip(data.offsets, data.data):
+                if offset < 0:
+                    for j_pos, value in enumerate(diag_data):
+                        i_pos = j_pos - offset
+                        if i_pos >= dim_i:
+                            break
+                        yield (
+                            i_pos,
+                            j_pos,
+                            value,
+                        )
+                else:
+                    print([(i, val) for i, val in enumerate(diag_data)])
+                    for indx, value in enumerate(diag_data[offset:]):
+                        i_pos = indx
+                        j_pos = i_pos + offset
+                        yield (
+                            i_pos,
+                            j_pos,
+                            value,
+                        )
+
+        # Diagonal format
+        if hasattr(data, "num_diag"):
+            # For 5.0 and 5.1
+            if int(qutip_version[2]) < 2:
+                for item in do_dia_5_0(data):
+                    yield item
+            # For 5.2
+            else:
+                for item in do_dia_5_2(data):
+                    yield item
+            return
         elif hasattr(data, "as_scipy"):
             data = data.as_scipy()
             if hasattr(data, "tocoo"):
@@ -119,23 +166,12 @@ else:
                         yield (i_ind[idx], j_ind[idx], data.data[idx])
                 except Exception:
                     # Last resort: try dense
-                    arr = data.toarray() if hasattr(data, "toarray") else data.A
-                    dim_i, dim_j = arr.shape
-                    for i in range(dim_i):
-                        for j in range(dim_j):
-                            v = arr[i, j]
-                            if v != 0:
-                                yield (i, j, v)
+                    for item in do_dense():
+                        yield item
+                    return
         else:
-            data = data.as_ndarray()
-            dim_i, dim_j = data.shape
-            for i_idx in range(dim_i):
-                for j_idx in range(dim_j):
-                    yield (
-                        i_idx,
-                        j_idx,
-                        data[i_idx, j_idx],
-                    )
+            for item in do_dense():
+                yield item
 
     def data_get_coeff(data, i_idx, j_idx):
         """

@@ -16,7 +16,10 @@ from alpsqutip.operators import (
     ScalarOperator,
     SumOperator,
 )
-from alpsqutip.operators.quadratic import build_quadratic_form_from_operator
+from alpsqutip.operators.quadratic import (
+    QuadraticFormOperator,
+    build_quadratic_form_from_operator,
+)
 from alpsqutip.operators.states import (
     GibbsDensityOperator,
     GibbsProductDensityOperator,
@@ -296,6 +299,13 @@ def is_one_body_operator(operator) -> bool:
     """Check if the operator is a one-body operator"""
     if isinstance(operator, SumOperator):
         return all(is_one_body_operator(term) for term in operator.terms)
+    if isinstance(operator, QuadraticFormOperator):
+        return False
+        # print("quadratic form!", operator.weights, operator.offset,operator.linear_term, operator.acts_over())
+        # if len(operator.weights)>0:
+        #    return False
+        # if operator.offset:
+        #    return False
     return len(operator.acts_over()) < 2
 
 
@@ -314,6 +324,7 @@ for key, val in GIBBS_GENERATOR_TESTS.items():
 
 for key, val in PRODUCT_GIBBS_GENERATOR_TESTS.items():
     name = "ProductGibbs from " + key
+    print("building", name)
     TEST_CASES_STATES[name] = GibbsProductDensityOperator(val, SYSTEM)
 
 print("loaded")

@@ -73,6 +73,14 @@ SUBSYSTEMS = [
 
 
 QUTIP_TEST_CASES = {
+    "hermitician quadratic operator": {
+        "operator": OPERATOR_TYPE_CASES["hermitician quadratic operator"].to_qutip()
+        * 2,
+        "diagonal": False,
+        "scalar": False,
+        "zero": False,
+        "type": np.dtype("complex128"),
+    },
     "product_scalar": {
         "operator": 3 * tensor(ID_2_QUTIP, ID_3_QUTIP),
         "diagonal": True,
@@ -191,8 +199,9 @@ def test_data_element_iterator(case, operator_spec):
 
     reconstructed = build_array(data, data.shape, dtype)
     print(case, type(operator.data))
-    print("array:", type(array), "\n", array)
-    print("reconstructed:", type(reconstructed), "\n", reconstructed)
+    print("array:", type(array), "\n", array.real)
+    print("reconstructed:", type(reconstructed), "\n", reconstructed.real)
+    print("diferencia:\n", array.real - reconstructed.real)
 
     assert (reconstructed == array).all()
 
@@ -217,6 +226,7 @@ def test_decompose_qutip_operators(name, operator_case):
     acts_over = tuple(sorted(operator_case.acts_over()))
     if acts_over:
         qutip_operator = operator_case.to_qutip(acts_over)
+        print("qutip operator:\n", qutip_operator.tidyup())
         terms = decompose_qutip_operator(qutip_operator)
         reconstructed = sum(tensor(*t) for t in terms)
         assert check_operator_equality(
@@ -291,6 +301,7 @@ def test_as_sum_of_products(name, operator_case):
     print("testing QutipOperator.as_sum_of_products")
     print("   operator", name, "of type", type(operator_case))
     qutip_op = 3 * (operator_case.to_qutip_operator())
+
     # TODO: support handling hermitician operators
     if not qutip_op.isherm:
         return
@@ -298,8 +309,8 @@ def test_as_sum_of_products(name, operator_case):
     qutip_op2 = reconstructed.to_qutip_operator()
     assert qutip_op.system == qutip_op2.system
     print(operator_case)
-    print(qutip_op.to_qutip().tidyup())
-    print(qutip_op2.to_qutip().tidyup())
+    print(qutip_op)
+    print(qutip_op2)
     assert qutip_op.to_qutip() == qutip_op2.to_qutip()
 
 
