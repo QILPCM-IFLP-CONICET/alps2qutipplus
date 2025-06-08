@@ -258,11 +258,36 @@ def reshape_qutip_data(data, dims, bs=1) -> ndarray:
     )
     # reshape the operator
     # TODO: see to exploit the sparse structure of data to build the matrix
+    print(f"({dim_1},{dim_2})^2 {data}->\n    {new_data}")
     for alpha, beta, value in data_element_iterator(data):
         i_idx, k_idx = divmod(alpha, dim_2)
         j_idx, l_idx = divmod(beta, dim_2)
         gamma = dim_1 * i_idx + j_idx
         delta = dim_2 * k_idx + l_idx
+
+        print(
+            "[",
+            alpha,
+            ":",
+            (i_idx, k_idx),
+            "],",
+            "[",
+            beta,
+            ":",
+            (j_idx, l_idx),
+            "],",
+            "->",
+            "[",
+            gamma,
+            ":",
+            (i_idx, j_idx),
+            "],",
+            "[",
+            delta,
+            ":",
+            (k_idx, l_idx),
+            "],",
+        )
         new_data[gamma, delta] = value
 
     return new_data
