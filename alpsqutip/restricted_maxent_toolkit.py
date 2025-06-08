@@ -1,6 +1,7 @@
 """
 Functions used to run MaxEnt simulations.
 """
+
 from __future__ import annotations
 
 from math import factorial

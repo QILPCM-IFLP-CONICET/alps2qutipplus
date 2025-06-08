@@ -1,4 +1,4 @@
-name: Alps2Qutip (ubuntu)
+name: Alps2Qutip (ubuntu) Qutip 5
 
 on:
   push:
