@@ -107,15 +107,25 @@ else:
                         )
         elif hasattr(data, "as_scipy"):
             data = data.as_scipy()
-            if int(qutip_version[2]) < 2:
-                i_ind, j_ind = data.nonzero()
-                yield from zip(i_ind, j_ind, data.data)
+            if hasattr(data, "tocoo"):
+                coo = data.tocoo()
+                for i, j, v in zip(coo.row, coo.col, coo.data):
+                    yield (i, j, v)
             else:
-                i_ind, j_ind = data.nonzero()
-                # TODO: find the right implementation
-                # to avoid conversions.
-                for i, j in zip(i_ind, j_ind):
-                    yield (i, j, data[i, j])
+                # Fallback: try nonzero and data.data
+                try:
+                    i_ind, j_ind = data.nonzero()
+                    for idx in range(len(i_ind)):
+                        yield (i_ind[idx], j_ind[idx], data.data[idx])
+                except Exception:
+                    # Last resort: try dense
+                    arr = data.toarray() if hasattr(data, "toarray") else data.A
+                    dim_i, dim_j = arr.shape
+                    for i in range(dim_i):
+                        for j in range(dim_j):
+                            v = arr[i, j]
+                            if v != 0:
+                                yield (i, j, v)
         else:
             data = data.as_ndarray()
             dim_i, dim_j = data.shape
