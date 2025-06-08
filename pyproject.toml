@@ -14,7 +14,7 @@ requires-python = ">=3.7"
 license = { file = "LICENSE.txt" }
 dependencies = [
     "matplotlib",
-    "qutip<=5.2.2",
+    "qutip",
 ]
 
 [project.urls]
