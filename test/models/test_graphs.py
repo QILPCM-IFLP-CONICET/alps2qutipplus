@@ -35,6 +35,7 @@ def test_load_and_plot_graph():
         ax.set_title(name)
         g.draw(ax)
         plt.savefig(FIGURES_DIR + f"/{name}.png")
+        plt.close()
     alert(1, "models:")
 
     for modelname in list_models_in_alps_xml():
