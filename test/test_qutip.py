@@ -173,32 +173,31 @@ QUTIP_TEST_CASES = {
 }
 
 
-def test_qutip_properties():
+@pytest.mark.parametrize(["case", "data"], list(QUTIP_TEST_CASES.items()))
+def test_qutip_properties(case, data):
+    print("testing ", case)
+    operator_data = data["operator"].data
+    assert data["diagonal"] == data_is_diagonal(operator_data)
+    assert data["scalar"] == data_is_scalar(operator_data)
+    assert data["zero"] == data_is_zero(operator_data)
+    assert data["type"] is data_get_type(operator_data)
 
-    for case, data in QUTIP_TEST_CASES.items():
-        print("testing ", case)
-        operator_data = data["operator"].data
-        assert data["diagonal"] == data_is_diagonal(operator_data)
-        assert data["scalar"] == data_is_scalar(operator_data)
-        assert data["zero"] == data_is_zero(operator_data)
-        assert data["type"] is data_get_type(operator_data)
 
-
-def test_decompose_qutip_operators():
+@pytest.mark.parametrize(["name", "operator_case"], list(OPERATOR_TYPE_CASES.items()))
+def test_decompose_qutip_operators(name, operator_case):
     """
     test decomposition of qutip operators
     as sums of product operators
     """
-    for name, operator_case in OPERATOR_TYPE_CASES.items():
-        print("decomposing ", name)
-        acts_over = tuple(sorted(operator_case.acts_over()))
-        if acts_over:
-            qutip_operator = operator_case.to_qutip(acts_over)
-            terms = decompose_qutip_operator(qutip_operator)
-            reconstructed = sum(tensor(*t) for t in terms)
-            assert check_operator_equality(
-                qutip_operator, reconstructed
-            ), "reconstruction does not match with the original."
+    print("decomposing ", name)
+    acts_over = tuple(sorted(operator_case.acts_over()))
+    if acts_over:
+        qutip_operator = operator_case.to_qutip(acts_over)
+        terms = decompose_qutip_operator(qutip_operator)
+        reconstructed = sum(tensor(*t) for t in terms)
+        assert check_operator_equality(
+            qutip_operator, reconstructed
+        ), "reconstruction does not match with the original."
 
 
 @pytest.mark.parametrize(
@@ -259,25 +258,25 @@ def test_qutip_operators(case: str, op_case: Operator, expected_value: complex):
         assert ptoperator.tr() == expected_value
 
 
-def test_as_sum_of_products():
+@pytest.mark.parametrize(["name", "operator_case"], list(OPERATOR_TYPE_CASES.items()))
+def test_as_sum_of_products(name, operator_case):
     """
     Convert qutip operators into product
     operators back and forward
     """
     print("testing QutipOperator.as_sum_of_products")
-    for name, operator_case in OPERATOR_TYPE_CASES.items():
-        print("   operator", name, "of type", type(operator_case))
-        qutip_op = 3 * (operator_case.to_qutip_operator())
-        # TODO: support handling hermitician operators
-        if not qutip_op.isherm:
-            continue
-        reconstructed = qutip_op.as_sum_of_products()
-        qutip_op2 = reconstructed.to_qutip_operator()
-        assert qutip_op.system == qutip_op2.system
-        print(operator_case)
-        print(qutip_op.to_qutip())
-        print(qutip_op2.to_qutip())
-        assert qutip_op.to_qutip() == qutip_op2.to_qutip()
+    print("   operator", name, "of type", type(operator_case))
+    qutip_op = 3 * (operator_case.to_qutip_operator())
+    # TODO: support handling hermitician operators
+    if not qutip_op.isherm:
+        return
+    reconstructed = qutip_op.as_sum_of_products()
+    qutip_op2 = reconstructed.to_qutip_operator()
+    assert qutip_op.system == qutip_op2.system
+    print(operator_case)
+    print(qutip_op.to_qutip())
+    print(qutip_op2.to_qutip())
+    assert qutip_op.to_qutip() == qutip_op2.to_qutip()
 
 
 def test_detached_operators():
