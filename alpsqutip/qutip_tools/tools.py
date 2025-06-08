@@ -80,27 +80,42 @@ else:
         """
         walk over data elements.
         """
+        # Diagonal format
         if hasattr(data, "num_diag"):
             data = data.as_scipy()
+            dim_i, dim_j = data.shape
             for offset, diag_data in zip(data.offsets, data.data):
                 if offset < 0:
-                    for idx, value in enumerate(diag_data):
+                    for j_pos, value in enumerate(diag_data):
+                        i_pos = j_pos - offset
+                        if i_pos >= dim_i:
+                            break
                         yield (
-                            idx - offset,
-                            idx,
+                            i_pos,
+                            j_pos,
                             value,
                         )
                 else:
-                    for idx, value in enumerate(diag_data):
+                    for i_pos, value in enumerate(diag_data):
+                        j_pos = i_pos + offset
+                        if j_pos >= dim_j:
+                            break
                         yield (
-                            idx,
-                            idx + offset,
+                            i_pos,
+                            j_pos,
                             value,
                         )
         elif hasattr(data, "as_scipy"):
             data = data.as_scipy()
-            i_ind, j_ind = data.nonzero()
-            yield from zip(i_ind, j_ind, data.data)
+            if int(qutip_version[2]) < 2:
+                i_ind, j_ind = data.nonzero()
+                yield from zip(i_ind, j_ind, data.data)
+            else:
+                i_ind, j_ind = data.nonzero()
+                # TODO: find the right implementation
+                # to avoid conversions.
+                for i, j in zip(i_ind, j_ind):
+                    yield (i, j, data[i, j])
         else:
             data = data.as_ndarray()
             dim_i, dim_j = data.shape
@@ -258,36 +273,11 @@ def reshape_qutip_data(data, dims, bs=1) -> ndarray:
     )
     # reshape the operator
     # TODO: see to exploit the sparse structure of data to build the matrix
-    print(f"({dim_1},{dim_2})^2 {data}->\n    {new_data}")
     for alpha, beta, value in data_element_iterator(data):
         i_idx, k_idx = divmod(alpha, dim_2)
         j_idx, l_idx = divmod(beta, dim_2)
         gamma = dim_1 * i_idx + j_idx
         delta = dim_2 * k_idx + l_idx
-
-        print(
-            "[",
-            alpha,
-            ":",
-            (i_idx, k_idx),
-            "],",
-            "[",
-            beta,
-            ":",
-            (j_idx, l_idx),
-            "],",
-            "->",
-            "[",
-            gamma,
-            ":",
-            (i_idx, j_idx),
-            "],",
-            "[",
-            delta,
-            ":",
-            (k_idx, l_idx),
-            "],",
-        )
         new_data[gamma, delta] = value
 
     return new_data

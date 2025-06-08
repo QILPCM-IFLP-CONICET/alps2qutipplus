@@ -8,6 +8,7 @@ from qutip import jmat, qeye, tensor
 
 from alpsqutip.operators import Operator, ProductOperator, QutipOperator, ScalarOperator
 from alpsqutip.qutip_tools.tools import (
+    data_element_iterator,
     data_get_type,
     data_is_diagonal,
     data_is_scalar,
@@ -171,6 +172,29 @@ QUTIP_TEST_CASES = {
         "type": np.dtype("complex128"),
     },
 }
+
+
+@pytest.mark.parametrize(("case", "operator_spec"), list(QUTIP_TEST_CASES.items()))
+def test_data_element_iterator(case, operator_spec):
+
+    operator = operator_spec["operator"]
+    dtype = operator_spec["type"]
+    data = operator.data
+    array = data.to_array()
+
+    def build_array(op, dims, dtype):
+        result = np.zeros(dims, dtype=dtype)
+        for i, j, val in data_element_iterator(op):
+            result[i, j] = val
+
+        return result
+
+    reconstructed = build_array(data, data.shape, dtype)
+    print(case, type(operator.data))
+    print("array:", type(array), "\n", array)
+    print("reconstructed:", type(reconstructed), "\n", reconstructed)
+
+    assert (reconstructed == array).all()
 
 
 @pytest.mark.parametrize(["case", "data"], list(QUTIP_TEST_CASES.items()))
