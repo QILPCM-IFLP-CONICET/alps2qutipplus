@@ -25,6 +25,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         python -m pip install setuptools
+        python -m pip install Cython  # Add this line to install Cython	
         pip install qutip==4.1
         pip install pytest
         pip install -e .
