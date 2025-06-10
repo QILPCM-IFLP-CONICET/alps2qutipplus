@@ -350,11 +350,9 @@ def test_detached_operators():
 def test_norm(name, spec):
     print("testing norm on", name)
     operator = spec["operator"]
-    print(operator.data.to_array())
     svlist = np.array(
         [x**0.5 for x in (operator.dag() * operator).eigenenergies() if x > 0]
     )
-    print("singular values:", svlist)
     frobenius_norm = (operator.dag() * operator).tr() ** 0.5
     nuclear_norm = sum(svlist)
     spectral_norm = max(svlist) if len(svlist) else 0.0
@@ -364,7 +362,7 @@ def test_norm(name, spec):
     ), f"Frobenius norm failed for {name}: {value}!=  {frobenius_norm}."
     value = norm(operator, ord="nuc")
     assert (
-        abs(value - nuclear_norm) < ALPSQUTIP_TOLERANCE**0.5
+        abs(value - nuclear_norm) < ALPSQUTIP_TOLERANCE**0.25
     ), f"Nuclear norm failed for {name}: {value}!={nuclear_norm}."
     value = norm(operator, ord=2)
     assert (

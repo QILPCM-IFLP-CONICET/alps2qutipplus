@@ -145,14 +145,11 @@ def test_norm(key, operator):
     """test the isdiag property"""
 
     print("checking norms for", key, type(operator))
-    print("operator:", operator)
     q_op = operator.to_qutip_operator()
     for ord in ["fro", "nuc", 2]:
         print("   checking for ord:", ord)
         qutip_value = q_op.norm(ord)
         value = operator.norm(ord)
-        print(q_op.to_qutip().data.to_array())
-
         assert (
             abs(value - qutip_value) < 1e-9
         ), f"     {value}!={qutip_value} factor ({value / qutip_value})."
