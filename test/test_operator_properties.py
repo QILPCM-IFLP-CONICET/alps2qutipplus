@@ -3,6 +3,7 @@ Basic unit test.
 """
 
 import numpy as np
+import pytest
 import qutip
 
 from alpsqutip.operators import ProductOperator
@@ -24,17 +25,17 @@ SX_ASYB_TIMES_2 = 2 * SX_ASY_B
 OPGLOBAL = SZ_C + SX_ASYB_TIMES_2
 
 
-def test_empty_op():
+@pytest.mark.parametrize(["name", "value"], list(FULL_TEST_CASES.items()))
+def test_empty_op(name, value):
     """
     test for the function that checks if the operator
     is equivalent to 0.
     """
-    for name, value in FULL_TEST_CASES.items():
-        if value is None:
-            continue
-        value_qutip = value.to_qutip()
-        print(name, "of type ", type(value), type(value_qutip))
-        assert empty_op(value_qutip) == empty_op(value)
+    if value is None:
+        return
+    value_qutip = value.to_qutip()
+    print(name, "of type ", type(value), type(value_qutip))
+    assert empty_op(value_qutip) == empty_op(value)
 
 
 def test_is_scalar_or_diagonal_operator():
@@ -66,28 +67,30 @@ def test_is_scalar_or_diagonal_operator():
         assert is_scalar_op(test[0]) == test[2]
 
 
-def test_trace():
+@pytest.mark.parametrize(["name", "value"], list(FULL_TEST_CASES.items()))
+def test_trace(name, value):
     """
     test for the function that checks if the operator
     is equivalent to 0.
     """
-    for name, value in FULL_TEST_CASES.items():
-        if value is None:
-            continue
-        # TODO: check the trace of quadratic operators.
-        if name in (
-            "hermitician quadratic operator",
-            "non hermitician quadratic operator",
-        ):
-            continue
-        value_tr = value.tr()
-        value_qtip_tr = value.to_qutip().tr()
-        print(name, "of type ", type(value), "->", value.tr(), value_qtip_tr)
-        print(" trace match?", value_tr == value_qtip_tr)
-        assert abs(value_tr - value_qtip_tr) < 1.0e-9
+
+    if value is None:
+        return
+    # TODO: check the trace of quadratic operators.
+    if name in (
+        "hermitician quadratic operator",
+        "non hermitician quadratic operator",
+    ):
+        return
+    value_tr = value.tr()
+    value_qtip_tr = value.to_qutip().tr()
+    print(name, "of type ", type(value), "->", value.tr(), value_qtip_tr)
+    print(" trace match?", value_tr == value_qtip_tr)
+    assert abs(value_tr - value_qtip_tr) < 1.0e-9
 
 
-def test_isherm_operator():
+@pytest.mark.parametrize(["key", "observable"], list(OBSERVABLE_CASES.items()))
+def test_isherm_operator(key, observable):
     """
     Check if hermiticity is correctly determined
     """
@@ -113,25 +116,43 @@ def test_isherm_operator():
         assert (SZ_TOTAL.expm()).isherm
         assert (ham**3).isherm
 
-    for key, observable in OBSERVABLE_CASES.items():
-        do_test_case(key, observable)
+    do_test_case(key, observable)
 
 
-def test_isdiagonal():
+@pytest.mark.parametrize(["name", "operator"], list(FULL_TEST_CASES.items()))
+def test_isdiagonal(name, operator):
     """test the isdiag property"""
-    for key, operator in FULL_TEST_CASES.items():
-        print("checking diagonality in ", key, type(operator))
-        qobj = operator.to_qutip()
-        data_qt = qobj.data
-        print("data_qt type:", type(data_qt))
 
-        if hasattr(data_qt, "to_ndarray"):
-            full_array = data_qt.to_ndarray()
-        if hasattr(data_qt, "toarray"):
-            full_array = data_qt.toarray()
-        if hasattr(data_qt, "to_array"):
-            full_array = data_qt.to_array()
+    print("checking diagonality in ", name, type(operator))
+    qobj = operator.to_qutip()
+    data_qt = qobj.data
+    print("data_qt type:", type(data_qt))
 
-        print(full_array)
-        qt_is_diagonal = not (full_array - np.diag(full_array.diagonal())).any()
-        assert qt_is_diagonal == operator.isdiagonal
+    if hasattr(data_qt, "to_ndarray"):
+        full_array = data_qt.to_ndarray()
+    if hasattr(data_qt, "toarray"):
+        full_array = data_qt.toarray()
+    if hasattr(data_qt, "to_array"):
+        full_array = data_qt.to_array()
+
+    print(full_array)
+    qt_is_diagonal = not (full_array - np.diag(full_array.diagonal())).any()
+    assert qt_is_diagonal == operator.isdiagonal
+
+
+@pytest.mark.parametrize(["key", "operator"], list(FULL_TEST_CASES.items()))
+def test_norm(key, operator):
+    """test the isdiag property"""
+
+    print("checking norms for", key, type(operator))
+    print("operator:", operator)
+    q_op = operator.to_qutip_operator()
+    for ord in ["fro", "nuc", 2]:
+        print("   checking for ord:", ord)
+        qutip_value = q_op.norm(ord)
+        value = operator.norm(ord)
+        print(q_op.to_qutip().data.to_array())
+
+        assert (
+            abs(value - qutip_value) < 1e-9
+        ), f"     {value}!={qutip_value} factor ({value / qutip_value})."

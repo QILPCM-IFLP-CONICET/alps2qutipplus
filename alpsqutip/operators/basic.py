@@ -12,7 +12,12 @@ import qutip  # type: ignore[import-untyped]
 from qutip import Qobj
 
 from alpsqutip.model import SystemDescriptor
-from alpsqutip.qutip_tools.tools import data_is_diagonal, data_is_scalar, data_is_zero
+from alpsqutip.qutip_tools.tools import (
+    data_is_diagonal,
+    data_is_scalar,
+    data_is_zero,
+    norm,
+)
 from alpsqutip.settings import ALPSQUTIP_TOLERANCE
 
 
@@ -251,6 +256,11 @@ class Operator:
         """Logarithm of the operator"""
         return self.to_qutip_operator().logm()
 
+    def norm(self, ord: Optional[int | str | float] = None):
+        """The norm of the operator"""
+
+        return norm(self.to_qutip(), ord)
+
     def partial_trace(self, sites: Union[tuple, SystemDescriptor]):
         """Partial trace over sites not listed in `sites`"""
         raise NotImplementedError
@@ -375,6 +385,23 @@ class LocalOperator(Operator):
             )
 
         return LocalOperator(self.site, log_qutip(self.operator), self.system)
+
+    def norm(self, ord=None):
+        """The norm of the operator"""
+
+        result = norm(self.operator, ord)
+        if ord in ("fro", "nuc"):
+            dim_factor = 1.0
+            for dim in (
+                dim for site, dim in self.system.dimensions.items() if site != self.site
+            ):
+                dim_factor *= dim
+            if ord == "fro":
+                result *= dim_factor**0.5
+            else:
+                result *= dim_factor
+
+        return result
 
     def partial_trace(self, sites: Union[frozenset, SystemDescriptor]):
         system = self.system
@@ -601,6 +628,28 @@ class ProductOperator(Operator):
         result = result + ScalarOperator(np.log(self.prefactor), system)
         return result
 
+    def norm(self, ord=None):
+        """The norm of the operator"""
+
+        result = self.prefactor
+        for op_loc in self.sites_op.values():
+            result *= norm(op_loc, ord)
+
+        if ord in ("fro", "nuc"):
+            dim_factor = 1.0
+            for dim in (
+                dim
+                for site, dim in self.system.dimensions.items()
+                if site not in self.sites_op
+            ):
+                dim_factor *= dim
+            if ord == "fro":
+                result *= dim_factor**0.5
+            else:
+                result *= dim_factor
+
+        return result
+
     def partial_trace(self, sites: Union[frozenset, SystemDescriptor]):
         full_system_sites = self.system.sites
         dimensions = self.dimensions
@@ -760,6 +809,21 @@ class ScalarOperator(ProductOperator):
 
     def logm(self):
         return ScalarOperator(np.log(self.prefactor), self.system)
+
+    def norm(self, ord=None):
+        """The norm of the operator"""
+
+        result = self.prefactor
+        if ord in ("fro", "nuc"):
+            dim_factor = 1.0
+            for dim in (dim for site, dim in self.system.dimensions.items()):
+                dim_factor *= dim
+            if ord == "fro":
+                result *= dim_factor**0.5
+            else:
+                result *= dim_factor
+
+        return result
 
     def simplify(self):
         """simplify a scalar operator"""
