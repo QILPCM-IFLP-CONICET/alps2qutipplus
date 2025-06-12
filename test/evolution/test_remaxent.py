@@ -1,18 +1,4 @@
-import numpy as np
-import pytest
-import qutip
-
-from alpsqutip.operators.functions import commutator, spectral_norm
-from alpsqutip.operators.states.gibbs import GibbsProductDensityOperator
-from alpsqutip.restricted_maxent_toolkit import (
-    build_hierarchical_basis,
-    fn_hij_tensor_with_errors,
-    projected_evolution,
-    series_evolution,
-)
-from alpsqutip.scalarprod import fetch_covar_scalar_product, orthogonalize_basis
-
-from .helper import (
+from test.helper import (
     GIBBS_GENERATOR_TESTS,
     HAMILTONIAN,
     OPERATOR_TYPE_CASES,
@@ -20,6 +6,20 @@ from .helper import (
     TEST_CASES_STATES,
     check_operator_equality,
 )
+
+import numpy as np
+import pytest
+import qutip
+
+from alpsqutip.evolution import (
+    build_hierarchical_basis,
+    fn_hij_tensor_with_errors,
+    projected_evolution,
+    series_evolution,
+)
+from alpsqutip.operators.functions import commutator, spectral_norm
+from alpsqutip.operators.states.gibbs import GibbsProductDensityOperator
+from alpsqutip.scalarprod import fetch_covar_scalar_product, orthogonalize_basis
 
 np.set_printoptions(
     edgeitems=30, linewidth=100000, formatter=dict(float=lambda x: "%.3g" % x)
