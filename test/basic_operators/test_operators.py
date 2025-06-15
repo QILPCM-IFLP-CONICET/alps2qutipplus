@@ -2,6 +2,20 @@
 Basic unit test.
 """
 
+from test.helper import (
+    CHAIN_SIZE,
+    FULL_TEST_CASES,
+    HAMILTONIAN,
+    SITES,
+    SX_A as local_SX_A,
+    SY_A,
+    SY_B,
+    SZ_A,
+    SZ_C,
+    SZ_TOTAL,
+    check_operator_equality,
+)
+
 import numpy as np
 import pytest
 
@@ -13,21 +27,6 @@ from alpsqutip.operators import (
     SumOperator,
 )
 from alpsqutip.operators.states import DensityOperatorMixin
-
-from .helper import (
-    CHAIN_SIZE,
-    FULL_TEST_CASES,
-    HAMILTONIAN,
-    OPERATOR_TYPE_CASES,
-    SITES,
-    SX_A as local_SX_A,
-    SY_A,
-    SY_B,
-    SZ_A,
-    SZ_C,
-    SZ_TOTAL,
-    check_operator_equality,
-)
 
 np.set_printoptions(
     edgeitems=30, linewidth=100000, formatter=dict(float=lambda x: "%.3g" % x)
@@ -318,33 +317,3 @@ def test_product_operator():
     assert (szC_qt * szC_qt).tr() == 0.5 * 2 ** (CHAIN_SIZE - 1)
     assert (SX_AsyB_times_2_qt * SX_AsyB_times_2_qt).tr() == 2 ** (CHAIN_SIZE - 2)
     assert (opglobal_qt * opglobal_qt).tr() == 2 ** (CHAIN_SIZE - 2) * 2
-
-
-def test_arithmetic_operators():
-    """
-    Test consistency of arithmetic expressions
-    """
-    OPERATOR_TYPE_CASES_qutip = {
-        key: operator.to_qutip() for key, operator in OPERATOR_TYPE_CASES.items()
-    }
-
-    for key1, test_operator1 in OPERATOR_TYPE_CASES.items():
-        op1_qutip = OPERATOR_TYPE_CASES_qutip[key1]
-        result = -test_operator1
-        check_operator_equality(result.to_qutip(), -op1_qutip)
-
-        result = test_operator1.dag()
-        check_operator_equality(result.to_qutip(), op1_qutip.dag())
-
-        for key2, test_operator2 in OPERATOR_TYPE_CASES.items():
-            print("add ", key1, " and ", key2)
-            op2_qutip = OPERATOR_TYPE_CASES_qutip[key2]
-            print(type(test_operator1), "+", type(test_operator2))
-            result = test_operator1 + test_operator2
-
-            check_operator_equality(result.to_qutip(), (op1_qutip + op2_qutip))
-
-            print("product of ", key1, " and ", key2)
-            result = test_operator1 * test_operator2
-
-            check_operator_equality(result.to_qutip(), (op1_qutip * op2_qutip))

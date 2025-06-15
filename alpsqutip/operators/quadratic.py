@@ -32,11 +32,7 @@ from alpsqutip.operators.basic import (
     ProductOperator,
     ScalarOperator,
 )
-from alpsqutip.operators.states import (
-    GibbsProductDensityOperator,
-    MixtureDensityOperator,
-    ProductDensityOperator,
-)
+from alpsqutip.operators.qutip import QutipOperator
 from alpsqutip.settings import ALPSQUTIP_TOLERANCE
 
 # from typing import Union
@@ -416,7 +412,6 @@ def classify_terms(operator, sigma_ref):
     and offset terms
     operator = sum_{ij} sum_a q_ija +  sum_{b} offset_{b}.
     """
-    from alpsqutip.operators.qutip import QutipOperator
 
     local_sigmas = (
         sigma_ref.sites_op
@@ -541,6 +536,10 @@ def build_quadratic_form_from_operator(
     """
     Build a QuadraticFormOperator from `operator`
     """
+    from alpsqutip.operators.states.basic import (
+        ProductDensityOperator,
+    )
+    from alpsqutip.operators.states.gibbs import GibbsProductDensityOperator
 
     def force_hermitic_t(t):
         if t is None:
@@ -714,6 +713,8 @@ def selfconsistent_meanfield_from_quadratic_form(
     Build a self-consistent mean field approximation
     to the gibbs state associated to the quadratic form.
     """
+    from alpsqutip.operators.states.gibbs import GibbsProductDensityOperator
+
     #    quadratic_form = simplify_quadratic_form(quadratic_form)
     system = quadratic_form.system
     terms = quadratic_form.terms
@@ -898,109 +899,3 @@ def simplify_quadratic_form(
     return QuadraticFormOperator(
         qf_op.basis, qf_op.weights, system, linear_term, offset
     )
-
-
-# #####################
-#
-#  Arithmetic
-#
-# #######################
-
-
-@Operator.register_add_handler(
-    (
-        ScalarOperator,
-        QuadraticFormOperator,
-    )
-)
-@Operator.register_add_handler(
-    (
-        LocalOperator,
-        QuadraticFormOperator,
-    )
-)
-@Operator.register_add_handler(
-    (
-        ProductOperator,
-        QuadraticFormOperator,
-    )
-)
-@Operator.register_add_handler(
-    (
-        SumOperator,
-        QuadraticFormOperator,
-    )
-)
-@Operator.register_add_handler(
-    (
-        OneBodyOperator,
-        QuadraticFormOperator,
-    )
-)
-def _(op1: Operator, op2: QuadraticFormOperator):
-    return op2 + op1
-
-
-# Products right products
-
-
-@Operator.register_mul_handler(
-    (
-        ScalarOperator,
-        QuadraticFormOperator,
-    )
-)
-@Operator.register_mul_handler(
-    (
-        float,
-        QuadraticFormOperator,
-    )
-)
-def _(op1: ScalarOperator, op2: QuadraticFormOperator):
-    return op2 * op1
-
-
-@Operator.register_mul_handler(
-    (
-        LocalOperator,
-        QuadraticFormOperator,
-    )
-)
-@Operator.register_mul_handler(
-    (
-        ProductOperator,
-        QuadraticFormOperator,
-    )
-)
-@Operator.register_mul_handler(
-    (
-        SumOperator,
-        QuadraticFormOperator,
-    )
-)
-@Operator.register_mul_handler(
-    (
-        OneBodyOperator,
-        QuadraticFormOperator,
-    )
-)
-@Operator.register_mul_handler(
-    (
-        ProductDensityOperator,
-        QuadraticFormOperator,
-    )
-)
-@Operator.register_mul_handler(
-    (
-        GibbsProductDensityOperator,
-        QuadraticFormOperator,
-    )
-)
-@Operator.register_mul_handler(
-    (
-        MixtureDensityOperator,
-        QuadraticFormOperator,
-    )
-)
-def _(op1: Operator, op2: QuadraticFormOperator):
-    return op1 * op2.to_sum_operator()

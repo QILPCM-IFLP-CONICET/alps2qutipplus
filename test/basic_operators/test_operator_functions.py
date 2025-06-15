@@ -2,6 +2,19 @@
 Basic unit test for operator functions.
 """
 
+from test.helper import (
+    CHAIN_SIZE,
+    HAMILTONIAN,
+    OPERATOR_TYPE_CASES,
+    OPERATORS,
+    SITES,
+    SYSTEM,
+    SZ_TOTAL,
+    TEST_CASES_STATES,
+    check_equality,
+    check_operator_equality,
+)
+
 import numpy as np
 import pytest
 import qutip
@@ -15,19 +28,6 @@ from alpsqutip.operators.functions import (
     spectral_norm,
 )
 from alpsqutip.utils import operator_to_wolfram
-
-from .helper import (
-    CHAIN_SIZE,
-    HAMILTONIAN,
-    OPERATOR_TYPE_CASES,
-    OPERATORS,
-    SITES,
-    SYSTEM,
-    SZ_TOTAL,
-    TEST_CASES_STATES,
-    check_equality,
-    check_operator_equality,
-)
 
 # from alpsqutip.settings import VERBOSITY_LEVEL
 
@@ -43,6 +43,10 @@ spsp_hc = SumOperator(
     SYSTEM,
     True,
 )
+
+QUTIP_TEST_CASES_STATES = {
+    key: operator.to_qutip() for key, operator in TEST_CASES_STATES.items()
+}
 
 
 def compare_spectrum(spectrum1, spectrum2):
@@ -86,24 +90,19 @@ def qutip_relative_entropy(qutip_1, qutip_2):
     return qutip.entropy_relative(qutip_1, qutip_2)
 
 
-def test_decompose_hermitician():
+@pytest.mark.parametrize(("name", "operator"), list(OPERATORS.items()))
+def test_decompose_hermitician(name, operator):
     """Test the decomposition as Q=A+iB with
     A=A.dag() and B=B.dag()
     """
-    for name, operator in OPERATORS.items():
-        print("name", name, type(operator))
-        op_re, op_im = hermitian_and_antihermitian_parts(operator)
-        op_qutip = operator.to_qutip()
-        op_re_qutip = 0.5 * (op_qutip + op_qutip.dag())
-        op_im_qutip = 0.5 * 1j * (op_qutip.dag() - op_qutip)
-        assert op_re.isherm and op_im.isherm
-        assert check_operator_equality(op_re.to_qutip(), op_re_qutip)
-        assert check_operator_equality(op_im.to_qutip(), op_im_qutip)
-
-
-QUTIP_TEST_CASES_STATES = {
-    key: operator.to_qutip() for key, operator in TEST_CASES_STATES.items()
-}
+    print("name", name, type(operator))
+    op_re, op_im = hermitian_and_antihermitian_parts(operator)
+    op_qutip = operator.to_qutip()
+    op_re_qutip = 0.5 * (op_qutip + op_qutip.dag())
+    op_im_qutip = 0.5 * 1j * (op_qutip.dag() - op_qutip)
+    assert op_re.isherm and op_im.isherm
+    assert check_operator_equality(op_re.to_qutip(), op_re_qutip)
+    assert check_operator_equality(op_im.to_qutip(), op_im_qutip)
 
 
 @pytest.mark.parametrize(

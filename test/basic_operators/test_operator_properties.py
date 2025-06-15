@@ -2,14 +2,7 @@
 Basic unit test.
 """
 
-import numpy as np
-import pytest
-import qutip
-
-from alpsqutip.operators import ProductOperator
-from alpsqutip.operators.basic import empty_op, is_diagonal_op, is_scalar_op
-
-from .helper import (
+from test.helper import (
     FULL_TEST_CASES,
     OBSERVABLE_CASES,
     SX_A as LOCAL_SX_A,
@@ -17,6 +10,13 @@ from .helper import (
     SZ_C,
     SZ_TOTAL,
 )
+
+import numpy as np
+import pytest
+import qutip
+
+from alpsqutip.operators import ProductOperator
+from alpsqutip.operators.basic import empty_op, is_diagonal_op, is_scalar_op
 
 SX_A = ProductOperator({LOCAL_SX_A.site: LOCAL_SX_A.operator}, 1.0, LOCAL_SX_A.system)
 SX_A2 = SX_A * SX_A
