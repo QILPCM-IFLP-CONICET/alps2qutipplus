@@ -50,7 +50,9 @@ class MixtureDensityOperator(DensityOperatorMixin, SumOperator):
 
     def __mul__(self, a):
         if isinstance(a, float) and a >= 0:
-            return MixtureDensityOperator(tuple(term * a for term in self.terms))
+            return MixtureDensityOperator(
+                tuple(term * a for term in self.terms), self.system
+            )
         if isinstance(a, MixtureDensityOperator):
             return SumOperator(
                 tuple(

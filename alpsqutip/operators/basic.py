@@ -18,7 +18,11 @@ from alpsqutip.qutip_tools.tools import (
     data_is_zero,
     norm,
 )
-from alpsqutip.settings import ALPSQUTIP_INFER_ARITHMETICS, ALPSQUTIP_TOLERANCE
+from alpsqutip.settings import (
+    ALPSQUTIP_ALLOW_OVERWRITE_BINDINGS,
+    ALPSQUTIP_INFER_ARITHMETICS,
+    ALPSQUTIP_TOLERANCE,
+)
 
 
 def check_multiplication(a, b, result, func=None) -> bool:
@@ -73,10 +77,10 @@ class Operator:
 
             for curr_key in keys:
                 if curr_key in Operator.__add__dispatch__:
-                    assert Operator.__add__dispatch__[curr_key] is func, (
-                        f"{curr_key} already registered "
-                        f"in {Operator.__add__dispatch__[curr_key].__code__}"
-                    )
+                    if not ALPSQUTIP_ALLOW_OVERWRITE_BINDINGS:
+                        assert (
+                            curr_key not in Operator.__add__dispatch__
+                        ), f"{curr_key} already registered in in {Operator.__add__dispatch__[curr_key].__code__}."
                 # print(f"registering add operation for {curr_key} with {func} {func.__code__}")
                 Operator.__add__dispatch__[curr_key] = func
             return func
@@ -95,13 +99,10 @@ class Operator:
 
             for curr_key in keys:
                 if curr_key in Operator.__mul__dispatch__:
-                    assert Operator.__mul__dispatch__[curr_key] is func, (
-                        f"{curr_key} already registered "
-                        f"in {Operator.__mul__dispatch__[curr_key].__code__}"
-                    )
-                assert (
-                    curr_key not in Operator.__mul__dispatch__
-                ), f"{curr_key} already registered in in {Operator.__mul__dispatch__[curr_key].__code__}."
+                    if not ALPSQUTIP_ALLOW_OVERWRITE_BINDINGS:
+                        assert (
+                            curr_key not in Operator.__mul__dispatch__
+                        ), f"{curr_key} already registered in in {Operator.__mul__dispatch__[curr_key].__code__}."
                 # print(f"registering add operation for {curr_key} with {func} {func.__code__}")
                 Operator.__mul__dispatch__[curr_key] = func
             return func

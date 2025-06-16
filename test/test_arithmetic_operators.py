@@ -58,19 +58,23 @@ def test_arithmetic_operators(key1, test_operator1, key2, test_operator2):
     check_operator_equality(result.to_qutip(), (op1_qutip * op2_qutip))
 
 
-
-
 @pytest.mark.parametrize(
     ["key1", "test_operator1", "key2", "value"],
     [
         (key1, test_operator1, key2, value)
         for key1, test_operator1 in OPERATORS_AND_STATE_CASES.items()
-        for key2, value in [("int positive", 2),("int negative", -1),
-                             ("float positive", 2.),("float negative", -2.),
-                             ("imaginary", 2.j),("complex negative", 2.+2.j),
-                             ("float64 positive", np.float64(2.)),("float64 negative", np.float64(-2.)),
-                             ("imaginary", np.complex128(2.j)),("complex128", np.complex128(2.+2.j)),
-                             ]
+        for key2, value in [
+            ("int positive", 2),
+            ("int negative", -1),
+            ("float positive", 2.0),
+            ("float negative", -2.0),
+            ("imaginary", 2.0j),
+            ("complex negative", 2.0 + 2.0j),
+            ("float64 positive", np.float64(2.0)),
+            ("float64 negative", np.float64(-2.0)),
+            ("imaginary", np.complex128(2.0j)),
+            ("complex128", np.complex128(2.0 + 2.0j)),
+        ]
     ],
 )
 def test_arithmetic_operators_with_numbers(key1, test_operator1, key2, value):

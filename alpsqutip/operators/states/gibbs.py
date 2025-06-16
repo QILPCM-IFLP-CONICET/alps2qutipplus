@@ -44,33 +44,21 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
         self.normalized = normalized
         self.system = k.system.union(system)
 
-                
-        
     def __mul__(self, operand):
-        if isinstance(operand, (int, float, np.float64)) and  operand>=0:    
-                return GibbsDensityOperator(
-                    self.k,
-                    self.system,
-                    self.prefactor * operand,
-                    normalized=self.normalized,
-                )
+        if isinstance(operand, (int, float, np.float64)) and operand >= 0:
+            return GibbsDensityOperator(
+                self.k,
+                self.system,
+                self.prefactor * operand,
+                normalized=self.normalized,
+            )
         return self.to_qutip_operator() * operand
 
     def __neg__(self):
         return -self.to_qutip_operator()
 
-
-
-    def __radd__(self, operand):
-        if isinstance(operand, (float, np.float64)):
-            if operand ==0.:
-                return self
-            if 0<operand<1:
-                return self + ProductDensityOperator({},operand,self.system)
-        return self.to_qutip_operator() + operand
-    
     def __rmul__(self, operand):
-        if isinstance(operand, (int, float, np.float64)) and operand>=0.:
+        if isinstance(operand, (int, float, np.float64)) and operand >= 0.0:
             return GibbsDensityOperator(
                 self.k,
                 self.system,
@@ -224,16 +212,6 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
         self.free_energies = f_locals
         self.k_by_site = k_by_site
 
-
-    def __add__(self, operand):
-        if isinstance(operand, (float, np.float64)):
-            if operand ==0.:
-                return self
-            if 0<operand<1:
-                return self + ProductDensityOperator({},operand,self.system)
-        return self.to_qutip_operator() + operand
-                
-
     def __mul__(self, operand):
         if isinstance(operand, (int, float)):
             if operand > 0:
@@ -244,16 +222,6 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
 
     def __neg__(self):
         return -self.to_product_state()
-
-
-    def __radd__(self, operand):
-        if isinstance(operand, (float, np.float64)):
-            if operand ==0.:
-                return self
-            if 0<operand<1:
-                return self + ProductDensityOperator({},operand,self.system)
-        return self.to_qutip_operator() + operand
-                
 
     def __rmul__(self, operand):
         if isinstance(operand, (int, float)):
