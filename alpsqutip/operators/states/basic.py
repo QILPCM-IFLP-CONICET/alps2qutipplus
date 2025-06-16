@@ -205,7 +205,8 @@ class ProductDensityOperator(DensityOperatorMixin, ProductOperator):
                 return ProductDensityOperator(
                     self.sites_op, self.prefactor * a, self.system, False
                 )
-        return super().__mul__(a)
+            return ProductOperator(self.sites_op, 1, self.system) * a
+        return ProductOperator(self.sites_op, 1, self.system) * a
 
     def __rmul__(self, a):
         if isinstance(a, float):
@@ -213,7 +214,8 @@ class ProductDensityOperator(DensityOperatorMixin, ProductOperator):
                 return ProductDensityOperator(
                     self.sites_op, self.prefactor * a, self.system, False
                 )
-        return super().__rmul__(a)
+            return ProductOperator(self.sites_op, 1, self.system) * a
+        return a * ProductOperator(self.sites_op, 1, self.system)
 
     def expect(self, obs: Union[Operator, Iterable]) -> Union[np.ndarray, dict, Number]:
         if isinstance(obs, LocalOperator):

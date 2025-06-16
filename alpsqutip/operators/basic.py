@@ -18,7 +18,7 @@ from alpsqutip.qutip_tools.tools import (
     data_is_zero,
     norm,
 )
-from alpsqutip.settings import ALPSQUTIP_TOLERANCE
+from alpsqutip.settings import ALPSQUTIP_INFER_ARITHMETICS, ALPSQUTIP_TOLERANCE
 
 
 def check_multiplication(a, b, result, func=None) -> bool:
@@ -66,7 +66,19 @@ class Operator:
         """Register a function to implement add"""
 
         def register_func(func):
-            Operator.__add__dispatch__[key] = func
+            if isinstance(key[0], (list, tuple)):
+                keys = key
+            else:
+                keys = (key,)
+
+            for curr_key in keys:
+                if curr_key in Operator.__add__dispatch__:
+                    assert Operator.__add__dispatch__[curr_key] is func, (
+                        f"{curr_key} already registered "
+                        f"in {Operator.__add__dispatch__[curr_key].__code__}"
+                    )
+                # print(f"registering add operation for {curr_key} with {func} {func.__code__}")
+                Operator.__add__dispatch__[curr_key] = func
             return func
 
         return register_func
@@ -76,7 +88,22 @@ class Operator:
         """Register a function to implement mul"""
 
         def register_func(func):
-            Operator.__mul__dispatch__[key] = func
+            if isinstance(key[0], (list, tuple)):
+                keys = key
+            else:
+                keys = (key,)
+
+            for curr_key in keys:
+                if curr_key in Operator.__mul__dispatch__:
+                    assert Operator.__mul__dispatch__[curr_key] is func, (
+                        f"{curr_key} already registered "
+                        f"in {Operator.__mul__dispatch__[curr_key].__code__}"
+                    )
+                assert (
+                    curr_key not in Operator.__mul__dispatch__
+                ), f"{curr_key} already registered in in {Operator.__mul__dispatch__[curr_key].__code__}."
+                # print(f"registering add operation for {curr_key} with {func} {func.__code__}")
+                Operator.__mul__dispatch__[curr_key] = func
             return func
 
         return register_func
@@ -101,13 +128,15 @@ class Operator:
         func = find_arithmetic_implementation(term, self, dispatch_table)
         if func:
             return func(term, self)
-
-        raise TypeError(f"{type(self)} cannot be added with  {type(term)}")
+        try:
+            print("trying with radd", type(term))
+            return term.__radd__(self)
+        except TypeError:
+            raise TypeError(f"{type(self)} cannot be added with  {type(term)}")
 
     def __mul__(self, factor):
         # Use multiple dispatch to determine how to multiply
         dispatch_table = Operator.__mul__dispatch__
-
         # First try with the cases stored in the dispatch table:
         func = dispatch_table.get((type(self), type(factor)), None)
         if func is not None:
@@ -116,7 +145,11 @@ class Operator:
         func = find_arithmetic_implementation(self, factor, dispatch_table)
         if func:
             return func(self, factor)
-        raise TypeError(f"{type(self)} cannot be multiplied with  {type(factor)}")
+
+        try:
+            return factor.__rmul__(self)
+        except TypeError:
+            raise TypeError(f"{type(self)} cannot be multiplied with  {type(factor)}")
 
     def __neg__(self):
         return -(self.to_qutip_operator())
@@ -129,7 +162,37 @@ class Operator:
 
     def __radd__(self, term):
         # Use multiple dispatch to determine how to add
-        return self + term
+        dispatch_table = Operator.__add__dispatch__
+        # First try with the cases stored in the dispatch table:
+        func = dispatch_table.get(
+            (
+                type(term),
+                type(self),
+            ),
+            None,
+        )
+        if func is not None:
+            return func(term, self)
+        # Now, look for cases associated to the class hierarchy
+        func = find_arithmetic_implementation(term, self, dispatch_table)
+        if func:
+            return func(term, self)
+
+        # Last chance: try in the opposite direction
+        func = dispatch_table.get(
+            (
+                type(self),
+                type(term),
+            ),
+            None,
+        )
+        if func is not None:
+            return func(self, term)
+        func = find_arithmetic_implementation(self, term, dispatch_table)
+        if func:
+            return func(self, term)
+
+        raise TypeError(f"{type(self)} cannot be added with  {type(term)}")
 
     def __rmul__(self, factor):
         # Use __mul__dispatch__ to determine how to evaluate the product
@@ -785,8 +848,21 @@ class ScalarOperator(ProductOperator):
         return ScalarOperator(-self.prefactor, self.system)
 
     def __repr__(self):
-        result = str(self.prefactor) + " * Identity "
+        result = (
+            str(self.prefactor) + " * Identity_{" + ",".join(self.system.sites) + "} "
+        )
+
         return result
+
+    def _repr_latex_(self):
+
+        return (
+            "$\\left("
+            + str(self.prefactor)
+            + " \\times \\mathbb{I}\\right)_{"
+            + ",".join(self.system.sites)
+            + "}$"
+        )
 
     def acts_over(self):
         return frozenset()
@@ -852,284 +928,6 @@ class ScalarOperator(ProductOperator):
         For ScalarOperators, just return self.
         """
         return self
-
-
-# ##########################################
-#
-#        Arithmetic for ScalarOperators
-#
-# #########################################
-
-
-@Operator.register_add_handler(
-    (
-        ScalarOperator,
-        ScalarOperator,
-    )
-)
-def _(x_op: ScalarOperator, y_op: ScalarOperator):
-    return ScalarOperator(x_op.prefactor + y_op.prefactor, x_op.system or y_op.system)
-
-
-@Operator.register_mul_handler(
-    (
-        ScalarOperator,
-        ScalarOperator,
-    )
-)
-def _(x_op: ScalarOperator, y_op: ScalarOperator):
-    return ScalarOperator(x_op.prefactor * y_op.prefactor, x_op.system or y_op.system)
-
-
-@Operator.register_add_handler(
-    (
-        ScalarOperator,
-        Number,
-    )
-)
-def _(x_op: ScalarOperator, y_value: Number):
-    return ScalarOperator(x_op.prefactor + y_value, x_op.system)
-
-
-@Operator.register_mul_handler(
-    (
-        ScalarOperator,
-        Number,
-    )
-)
-def _(x_op: ScalarOperator, y_value: Number):
-    return ScalarOperator(x_op.prefactor * y_value, x_op.system)
-
-
-@Operator.register_mul_handler(
-    (
-        Number,
-        ScalarOperator,
-    )
-)
-def _(y_value: Number, x_op: ScalarOperator):
-    return ScalarOperator(x_op.prefactor * y_value, x_op.system)
-
-
-# #########################################
-#
-#        Arithmetic for LocalOperator
-#
-# #########################################
-
-
-@Operator.register_add_handler(
-    (
-        LocalOperator,
-        Number,
-    )
-)
-def _(x_op: LocalOperator, y_val: Number):
-    return LocalOperator(x_op.site, x_op.operator + y_val, x_op.system)
-
-
-@Operator.register_add_handler(
-    (
-        LocalOperator,
-        ScalarOperator,
-    )
-)
-def _(x_op: LocalOperator, y_op: ScalarOperator):
-    return LocalOperator(
-        x_op.site, x_op.operator + y_op.prefactor, x_op.system or y_op.system
-    )
-
-
-@Operator.register_mul_handler(
-    (
-        LocalOperator,
-        LocalOperator,
-    )
-)
-def _(x_op: LocalOperator, y_op: LocalOperator):
-    site_x = x_op.site
-    site_y = y_op.site
-    system = x_op.system or y_op.system
-    if site_x == site_y:
-        return LocalOperator(site_x, x_op.operator * y_op.operator, system)
-    return ProductOperator(
-        sites_operators={
-            site_x: x_op.operator,
-            site_y: y_op.operator,
-        },
-        prefactor=1,
-        system=system,
-    )
-
-
-@Operator.register_mul_handler(
-    (
-        LocalOperator,
-        Number,
-    )
-)
-def _(x_op: LocalOperator, y_value: Number):
-    return LocalOperator(x_op.site, x_op.operator * y_value, x_op.system)
-
-
-@Operator.register_mul_handler(
-    (
-        Number,
-        LocalOperator,
-    )
-)
-def _(y_value: Number, x_op: LocalOperator):
-    return LocalOperator(x_op.site, x_op.operator * y_value, x_op.system)
-
-
-@Operator.register_mul_handler(
-    (
-        LocalOperator,
-        ScalarOperator,
-    )
-)
-def _(x_op: LocalOperator, y_op: ScalarOperator):
-    return LocalOperator(
-        x_op.site, x_op.operator * y_op.prefactor, x_op.system or y_op.system
-    )
-
-
-@Operator.register_mul_handler(
-    (
-        ScalarOperator,
-        LocalOperator,
-    )
-)
-def _(y_op: ScalarOperator, x_op: LocalOperator):
-    return LocalOperator(
-        x_op.site, x_op.operator * y_op.prefactor, x_op.system or y_op.system
-    )
-
-
-# #########################################
-#
-#        Arithmetic for ProductOperator
-#
-# #########################################
-
-
-@Operator.register_mul_handler(
-    (
-        ProductOperator,
-        ProductOperator,
-    )
-)
-def _(x_op: ProductOperator, y_op: ProductOperator):
-    system = x_op.system * y_op.system if x_op.system else y_op.system
-    site_op = x_op.sites_op.copy()
-    site_op_y = y_op.sites_op
-    for site, op_local in site_op_y.items():
-        site_op[site] = site_op[site] * op_local if site in site_op else op_local
-    prefactor = x_op.prefactor * y_op.prefactor
-    if len(site_op) == 0 or prefactor == 0:
-        return ScalarOperator(prefactor, system)
-    if len(site_op) == 1:
-        site, op_local = next(iter(site_op.items()))
-        return LocalOperator(site, op_local * prefactor, system)
-    return ProductOperator(site_op, prefactor, system)
-
-
-@Operator.register_mul_handler(
-    (
-        ProductOperator,
-        Number,
-    )
-)
-def _(x_op: ProductOperator, y_value: Number):
-    if y_value:
-        prefactor = x_op.prefactor * y_value
-        return ProductOperator(x_op.sites_op, prefactor, x_op.system)
-    return ScalarOperator(0, x_op.system)
-
-
-@Operator.register_mul_handler(
-    (
-        Number,
-        ProductOperator,
-    )
-)
-def _(y_value: Number, x_op: ProductOperator):
-    if y_value:
-        prefactor = x_op.prefactor * y_value
-        return ProductOperator(x_op.sites_op, prefactor, x_op.system)
-    return ScalarOperator(0, x_op.system)
-
-
-@Operator.register_mul_handler(
-    (
-        ProductOperator,
-        ScalarOperator,
-    )
-)
-def _(x_op: ProductOperator, y_op: ScalarOperator):
-    prefactor = y_op.prefactor
-    if prefactor:
-        prefactor = x_op.prefactor * prefactor
-        return ProductOperator(x_op.sites_op, prefactor, x_op.system)
-    return ScalarOperator(0, x_op.system)
-
-
-@Operator.register_mul_handler(
-    (
-        ScalarOperator,
-        ProductOperator,
-    )
-)
-def _(y_op: ScalarOperator, x_op: ProductOperator):
-    prefactor = y_op.prefactor
-    if prefactor:
-        prefactor = x_op.prefactor * prefactor
-        return ProductOperator(x_op.sites_op, prefactor, x_op.system)
-    return ScalarOperator(0, x_op.system)
-
-
-@Operator.register_mul_handler(
-    (
-        ProductOperator,
-        LocalOperator,
-    )
-)
-def _(x_op: ProductOperator, y_op: LocalOperator):
-    site = y_op.site
-    op_local = y_op.operator
-    system = x_op.system * y_op.system if x_op.system else y_op.system
-    site_op = x_op.sites_op.copy()
-    if site in site_op:
-        op_local = site_op[site] * op_local
-
-    site_op[site] = op_local
-
-    if len(site_op) == 1:
-        site, op_local = next(iter(site_op.items()))
-        return LocalOperator(site, op_local * x_op.prefactor, system)
-    return ProductOperator(site_op, x_op.prefactor, system)
-
-
-@Operator.register_mul_handler(
-    (
-        LocalOperator,
-        ProductOperator,
-    )
-)
-def _(y_op: LocalOperator, x_op: ProductOperator):
-    site = y_op.site
-    op_local = y_op.operator
-    system = x_op.system * y_op.system if x_op.system else y_op.system
-    site_op = x_op.sites_op.copy()
-    if site in site_op:
-        op_local = op_local * site_op[site]
-
-    site_op[site] = op_local
-
-    if len(site_op) == 1:
-        site, op_local = next(iter(site_op.items()))
-        return LocalOperator(site, op_local * x_op.prefactor, system)
-    return ProductOperator(site_op, x_op.prefactor, system)
 
 
 def empty_op(op: Union[Number, Qobj, Operator]) -> bool:
@@ -1204,8 +1002,11 @@ def find_arithmetic_implementation(
             key = (lhf, rhf)
             if key in dispatch_table:
                 func = dispatch_table[key]
-                dispatch_table[(type_op1, type_op2)] = func
-                return func
+                if ALPSQUTIP_INFER_ARITHMETICS:
+                    dispatch_table[(type_op1, type_op2)] = func
+                    return func
+                logging.warning("try with %s", func.__code__)
+                return None
 
     # Last resource: try if the operands are instances of one of the keys in the dispatch table.
     # Required for example for keys of the form (Operator, Number).
@@ -1213,6 +1014,9 @@ def find_arithmetic_implementation(
     for key, func in dispatch_table.items():
         if isinstance(op1, key[0]) and isinstance(op2, key[1]):
             func = dispatch_table[key]
-            dispatch_table[(type_op1, type_op2)] = func
-            return func
+            if ALPSQUTIP_INFER_ARITHMETICS:
+                dispatch_table[(type_op1, type_op2)] = func
+                return func
+            logging.warning("try with %s", func.__code__)
+            return None
     return None
