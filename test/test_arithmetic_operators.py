@@ -56,3 +56,41 @@ def test_arithmetic_operators(key1, test_operator1, key2, test_operator2):
     result = test_operator1 * test_operator2
 
     check_operator_equality(result.to_qutip(), (op1_qutip * op2_qutip))
+
+
+
+
+@pytest.mark.parametrize(
+    ["key1", "test_operator1", "key2", "value"],
+    [
+        (key1, test_operator1, key2, value)
+        for key1, test_operator1 in OPERATORS_AND_STATE_CASES.items()
+        for key2, value in [("int positive", 2),("int negative", -1),
+                             ("float positive", 2.),("float negative", -2.),
+                             ("imaginary", 2.j),("complex negative", 2.+2.j),
+                             ("float64 positive", np.float64(2.)),("float64 negative", np.float64(-2.)),
+                             ("imaginary", np.complex128(2.j)),("complex128", np.complex128(2.+2.j)),
+                             ]
+    ],
+)
+def test_arithmetic_operators_with_numbers(key1, test_operator1, key2, value):
+    """
+    Test consistency of arithmetic expressions
+    """
+    op1_qutip = OPERATOR_TYPE_CASES_QUTIP[key1]
+
+    print("add ", key1, " and ", key2)
+    print(type(test_operator1), "+", type(value))
+    result = test_operator1 + value
+    result_bw = value + test_operator1
+    sum_qutip = op1_qutip + value
+    check_operator_equality(result.to_qutip(), sum_qutip)
+    check_operator_equality(result_bw.to_qutip(), sum_qutip)
+
+    print("product of ", key1, " and ", key2)
+    result = test_operator1 * value
+    result_bw = value * test_operator1
+    qutip_prod = op1_qutip * value
+
+    check_operator_equality(result.to_qutip(), qutip_prod)
+    check_operator_equality(result_bw.to_qutip(), qutip_prod)

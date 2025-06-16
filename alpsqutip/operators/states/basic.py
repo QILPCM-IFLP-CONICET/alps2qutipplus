@@ -73,6 +73,22 @@ class DensityOperatorMixin:
 
     system: SystemDescriptor
 
+    def __add__(self, operand):
+        if isinstance(operand, (float, np.float64)):
+            if operand ==0.:
+                return self
+            if 0<operand<1:
+                return self + ProductDensityOperator({},operand,self.system)
+        return self.to_qutip_operator() + operand
+
+    def __radd__(self, operand):
+        if isinstance(operand, (float, np.float64)):
+            if operand ==0.:
+                return self
+            if 0<operand<1:
+                return self + ProductDensityOperator({},operand,self.system)
+        return self.to_qutip_operator() + operand
+
     def eigenstates(self) -> list:
         if isinstance(self, Operator):
             return super().eigenstates()  # type:ignore[misc]
