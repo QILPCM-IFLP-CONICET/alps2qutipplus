@@ -180,6 +180,11 @@ def test_build_hierarchical_basis(name_ham, ham, name_k0, k0, sigma_name, sigma)
     delta_phi1_qutip = np.array(
         [sp_qutip(b_op, comm1_qutip) for b_op in h_basis_orth_qutip]
     )
+    assert len(delta_phi1) == len(delta_phi1_qutip)
+    if len(delta_phi1) > 0:
+        assert all(abs(x - y) < 1e-10 for x, y in zip(delta_phi1, delta_phi1_qutip)), (
+            f"Delta phi1 = {delta_phi1}\n" f"in qutip   = {delta_phi1_qutip}\n"
+        )
 
 
 def test_evolution():

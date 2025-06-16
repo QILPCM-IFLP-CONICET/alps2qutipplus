@@ -207,7 +207,9 @@ def test_meanfield_projection_2(op_name, op_test):
         )
 
         if not check_operator_equality(result_m.to_qutip(), result_n.to_qutip()):
-            failed[state_name] = f"Result:\n{result_m.to_qutip()}\n\n Result n:\n{result_n.to_qutip()}\n\nDelta = \n{result_m.to_qutip()-result_n.to_qutip()}"
+            failed[state_name] = (
+                f"Result:\n{result_m.to_qutip()}\n\n Result n:\n{result_n.to_qutip()}\n\nDelta = \n{result_m.to_qutip()-result_n.to_qutip()}"
+            )
     if failed:
         for fail in failed:
             print(f" failed with <<{fail}>> as state seed. ")
