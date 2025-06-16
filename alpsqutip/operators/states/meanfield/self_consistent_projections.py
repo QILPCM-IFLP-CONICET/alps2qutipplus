@@ -47,7 +47,7 @@ def self_consistent_project_meanfield(
 
     rel_s = 10000
     opt_sigma = sigma
-
+    print("self consistent loop using", proj_func)
     for it in range(max_it):
         # k_one_body = project_operator_to_m_body(k_op, 1, sigma)
         k_one_body = project_to_n_body_operator(k_op, 1, sigma).simplify()
@@ -57,16 +57,15 @@ def self_consistent_project_meanfield(
         rel_s_new = np.real(sigma.expect(k_op + log_k_one_body))
         rel_entropy_txt = f"     S(curr||target)={rel_s_new}"
         logging.debug(rel_entropy_txt)
-        # print(rel_entropy_txt)
+        print(it, "->", rel_entropy_txt)
         if it > 20 and rel_s_new > 2 * rel_s:
+            print("  rel_s_new is worst than the optimal. Give up.")
             break
 
         if rel_s_new < rel_s:
             rel_s = rel_s_new
             opt_sigma = new_sigma
-            sigma = new_sigma
-        else:
-            sigma = new_sigma
+        sigma = new_sigma
 
     k_one_body = project_to_n_body_operator(k_op, 1, opt_sigma).simplify()
     return k_one_body, opt_sigma
