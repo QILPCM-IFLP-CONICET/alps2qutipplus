@@ -116,7 +116,11 @@ class Operator:
         func = find_arithmetic_implementation(self, factor, dispatch_table)
         if func:
             return func(self, factor)
-        raise TypeError(f"{type(self)} cannot be multiplied with  {type(factor)}")
+
+        try:
+            return factor.__rmul__(self)
+        except TypeError:
+            raise TypeError(f"{type(self)} cannot be multiplied with  {type(factor)}")
 
     def __neg__(self):
         return -(self.to_qutip_operator())
@@ -129,7 +133,37 @@ class Operator:
 
     def __radd__(self, term):
         # Use multiple dispatch to determine how to add
-        return self + term
+        dispatch_table = Operator.__add__dispatch__
+        # First try with the cases stored in the dispatch table:
+        func = dispatch_table.get(
+            (
+                type(term),
+                type(self),
+            ),
+            None,
+        )
+        if func is not None:
+            return func(term, self)
+        # Now, look for cases associated to the class hierarchy
+        func = find_arithmetic_implementation(term, self, dispatch_table)
+        if func:
+            return func(term, self)
+
+        # Last chance: try in the opposite direction
+        func = dispatch_table.get(
+            (
+                type(self),
+                type(term),
+            ),
+            None,
+        )
+        if func is not None:
+            return func(self, term)
+        func = find_arithmetic_implementation(self, term, dispatch_table)
+        if func:
+            return func(self, term)
+
+        raise TypeError(f"{type(self)} cannot be added with  {type(term)}")
 
     def __rmul__(self, factor):
         # Use __mul__dispatch__ to determine how to evaluate the product
@@ -705,7 +739,7 @@ class ProductOperator(Operator):
             return ScalarOperator(prefactor, self.system)
         if nops == 1:
             site, op_local = next(iter(nontrivial_factors.items()))
-            return LocalOperator(site, self.prefactor * op_local, self.system)
+            return LocalOperator(site, prefactor * op_local, self.system)
         if nops != len(self.sites_op):
             return ProductOperator(nontrivial_factors, prefactor, self.system)
         return self
@@ -785,8 +819,20 @@ class ScalarOperator(ProductOperator):
         return ScalarOperator(-self.prefactor, self.system)
 
     def __repr__(self):
-        result = str(self.prefactor) + " * Identity "
+        result = (
+            str(self.prefactor) + " * Identity_{" + ",".join(self.system.sites) + "} "
+        )
         return result
+
+    def _repr_latex_(self):
+
+        return (
+            "$\\left("
+            + str(self.prefactor)
+            + " \\times \\mathbb{I}\\right)_{"
+            + ",".join(self.system.sites)
+            + "}$"
+        )
 
     def acts_over(self):
         return frozenset()

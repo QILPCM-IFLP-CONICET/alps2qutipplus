@@ -142,7 +142,8 @@ OPERATOR_TYPE_CASES = {
     "scalar, zero": ScalarOperator(0.0, SYSTEM),
     "product, zero": ProductOperator({}, prefactor=0.0, system=SYSTEM),
     "product, 1": ProductOperator({}, prefactor=1.0, system=SYSTEM),
-    "scalar, real": ScalarOperator(1.0, SYSTEM),
+    "product, 2": ProductOperator({}, prefactor=2.0, system=SYSTEM),
+    "scalar, real": ScalarOperator(2.0, SYSTEM),
     "scalar, complex": ScalarOperator(1.0 + 3j, SYSTEM),
     "local operator, hermitician": SX_A,  # LocalOperator
     "local operator, non hermitician": SX_A + SY_A * 1j,
@@ -151,8 +152,9 @@ OPERATOR_TYPE_CASES = {
     "three body, hermitician": (SX_A * SY_B * SZ_C),
     "three body, non hermitician": ((SMINUS_A * SMINUS_B + SY_A * SY_B) * SZ_TOTAL),
     "product operator, hermitician": SH_AB,
+    "product operator, hermitician, twice": 2 * SH_AB,
     "product operator, non hermitician": SMINUS_A * SPLUS_B,
-    "sum operator, hermitician": SX_A * SX_B + SY_A * SY_B,  # Sum operator
+    "sum operator, hermitician": SX_A * SX_B + 2 * SY_A * SY_B,  # Sum operator
     "sum operator, hermitician from non hermitician": SPLUS_A * SPLUS_B
     + SMINUS_A * SMINUS_B,
     "sum operator, anti-hermitician": SPLUS_A * SPLUS_B - SMINUS_A * SMINUS_B,
@@ -169,6 +171,7 @@ OPERATOR_TYPE_CASES = {
     * (SPLUS_A.to_qutip_operator() * SPLUS_B.to_qutip_operator())
     + (SMINUS_A * SMINUS_B) * 0.25,
     "qutip operator": HAMILTONIAN.to_qutip_operator(),
+    "qutip operator twice": 2 * (HAMILTONIAN.to_qutip_operator()),
     "hermitician quadratic operator": build_quadratic_form_from_operator(HAMILTONIAN),
     "non hermitician quadratic operator": build_quadratic_form_from_operator(
         HAMILTONIAN - SZ_TOTAL * 1j
