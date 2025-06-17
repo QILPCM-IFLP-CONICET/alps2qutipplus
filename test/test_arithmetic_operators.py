@@ -98,3 +98,9 @@ def test_arithmetic_operators_with_numbers(key1, test_operator1, key2, value):
 
     check_operator_equality(result.to_qutip(), qutip_prod)
     check_operator_equality(result_bw.to_qutip(), qutip_prod)
+
+    result = result.simplify()
+    result_bw = result_bw.simplify()
+
+    check_operator_equality(result.to_qutip(), qutip_prod)
+    check_operator_equality(result_bw.to_qutip(), qutip_prod)
