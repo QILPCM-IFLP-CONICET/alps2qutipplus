@@ -34,12 +34,11 @@ from alpsqutip.operators.states.meanfield import (
     project_meanfield,
     project_operator_to_m_body,
 )
-
 from alpsqutip.operators.states.meanfield.projections import (
+    project_product_operator_as_n_body_operator,
     project_qutip_operator_as_n_body_operator,
     project_qutip_operator_to_m_body,
     project_to_n_body_operator,
-    project_product_operator_as_n_body_operator,
 )
 from alpsqutip.settings import ALPSQUTIP_TOLERANCE
 
@@ -71,7 +70,7 @@ TEST_OPERATORS = {
         -SX_TOTAL - SX_TOTAL * SX_TOTAL / (CHAIN_SIZE - 1)
     ),
     "sx_A*sx_B": SX_A * SX_B,
-    "Hamiltonian^2": HAMILTONIAN*HAMILTONIAN,
+    "Hamiltonian^2": HAMILTONIAN * HAMILTONIAN,
 }
 
 ##################
@@ -160,7 +159,7 @@ def test_compare_recursive_and_iterative_n_body_projections(op_name, op_test):
 @pytest.mark.parametrize(["op_name", "op_test"], list(TEST_OPERATORS.items()))
 def test_compare_iterative_and_recursive_n_body_qutip_projections(op_name, op_test):
     """
-    This test compares the results of using the recursive 
+    This test compares the results of using the recursive
     `project_qutip_operator_to_m_body` and the iterative
     `project_qutip_operator_as_n_body_operator` n-body projections.
     """
@@ -173,7 +172,7 @@ def test_compare_iterative_and_recursive_n_body_qutip_projections(op_name, op_te
 
     for state_name, sigma0 in TEST_STATES.items():
         print(f"  = sigma0{state_name}")
-        for n_body in range(0,4):
+        for n_body in range(0, 4):
             print("   n=", n_body)
             result_m = project_qutip_operator_to_m_body(op_test, n_body, sigma0)
             result_n = project_qutip_operator_as_n_body_operator(
@@ -199,12 +198,10 @@ def test_compare_iterative_and_recursive_n_body_qutip_projections(op_name, op_te
         # ), f"failed projection {state_name} for {op_name}"
 
 
-
-
 @pytest.mark.parametrize(["op_name", "op_test"], list(TEST_OPERATORS.items()))
 def test_compare_iterative_and_recursive_n_body_product_projections(op_name, op_test):
     """
-    This test compares the results of using the recursive 
+    This test compares the results of using the recursive
     `project_operator_to_m_body` and the iterative specific
     `project_product_operator_as_n_body_operator` product n-body projections.
     """
@@ -221,7 +218,7 @@ def test_compare_iterative_and_recursive_n_body_product_projections(op_name, op_
 
     for state_name, sigma0 in TEST_STATES.items():
         print(f"  = sigma0{state_name}")
-        for n_body in range(0,4):
+        for n_body in range(0, 4):
             print("   n=", n_body)
             result_m = project_operator_to_m_body(op_test, n_body, sigma0)
             result_n = project_product_operator_as_n_body_operator(
@@ -259,7 +256,7 @@ def test_compare_iterative_and_recursive_n_body_product_projections(op_name, op_
     ],
 )
 def test_idempotency_nbody_projection(op_name, projection_name, projection_function):
-    """Test the mean field projection over different states, 
+    """Test the mean field projection over different states,
     and using both implementations"""
     op_test = TEST_OPERATORS[op_name]
     print("testing the consistency of projection in", op_name)
@@ -271,7 +268,6 @@ def test_idempotency_nbody_projection(op_name, projection_name, projection_funct
         f"Projections on two-body manifold using {projection_name} does not match for "
         f"{op_name} and {op_name} projected on the three body manyfold"
     )
-
 
 
 @pytest.mark.parametrize(
@@ -365,7 +361,9 @@ def test_self_consistent_meanfield_projection(op_name, op_test):
 
 
 @pytest.mark.parametrize(["op_name", "op_test"], list(TEST_OPERATORS.items()))
-def test_compare_meanfield_projection_using_iterative_and_recursive_projections(op_name, op_test):
+def test_compare_meanfield_projection_using_iterative_and_recursive_projections(
+    op_name, op_test
+):
     """
     Compare the results of the self-consistent mean field projection from
     both iterative and recursive projection routines.
@@ -401,8 +399,6 @@ def test_compare_meanfield_projection_using_iterative_and_recursive_projections(
             + "."
         )
         assert False, fail_msg
-
-
 
 
 @pytest.mark.parametrize(
@@ -528,7 +524,6 @@ def test_one_body_from_qutip_operator_2():
         assert False, "discrepances"
 
 
-
 @pytest.mark.parametrize(
     ["operator_case", "operator", "name_ref", "gen"],
     (
@@ -582,4 +577,3 @@ def test_one_body_from_qutip_operator_with_reference_state(
         isinstance(result, (ScalarOperator, OneBodyOperator, LocalOperator))
         for term in terms
     ), "first two terms should be one-body operators"
-
