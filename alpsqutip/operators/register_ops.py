@@ -29,7 +29,6 @@ TYPES_WITH_PREFACTOR = (ScalarOperator, ProductOperator, QutipOperator)
 SUM_TYPES = (SumOperator, OneBodyOperator)
 
 
-
 @Operator.register_add_handler(
     [
         (Operator, Operator),

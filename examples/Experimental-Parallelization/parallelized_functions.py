@@ -1,31 +1,31 @@
-import numpy as np
-import qutip as qutip
-import scipy.linalg as linalg
-
-### Parallelization functions employed using multithreading 
-
-from itertools import product, combinations_with_replacement
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from functools import partial
+from itertools import combinations_with_replacement, product
+
+import numpy as np
+import qutip as qutip
+
+from alpsqutip.operators import (
+    LocalOperator,
+    OneBodyOperator,
+    ProductOperator,
+    QutipOperator,
+    ScalarOperator,
+    SumOperator,
+)
+from alpsqutip.operators.states.meanfield.projections import (
+    project_qutip_operator_to_m_body,
+)
+
+### Parallelization functions employed using multithreading
+
 
 ### locally defined functions and operator classes
 
-from alpsqutip.operators.states.meanfield.projections import (project_operator_to_m_body, 
-                                                               project_qutip_operator_to_m_body)
 
-from alpsqutip.operators import (
-    ScalarOperator,
-    LocalOperator,
-    OneBodyOperator,
-    Operator,
-    ProductOperator,
-    ScalarOperator,
-    SumOperator,
-    QutipOperator
-)
-
-### Workers functions at a ,,low"-level implementation, to be used in the 
+### Workers functions at a ,,low"-level implementation, to be used in the
 ### parallelization of future tasks.
+
 
 def _commutator_term_worker(hi_kj):
     """
@@ -88,14 +88,13 @@ def _hij_worker_explicit(args):
 
     # Project onto the m-body subspace
     comm_proj = parallel_project_operator_to_m_body(
-        full_operator=comm,
-        m_max=m_max,
-        sigma_0=sigma_0
+        full_operator=comm, m_max=m_max, sigma_0=sigma_0
     )
 
     # Compute scalar product with basis_i
     val = sp(basis_i, comm_proj).real
     return i, val
+
 
 def _project_single_term(term_m_sigma):
     """
@@ -115,13 +114,13 @@ def _project_single_term(term_m_sigma):
     term, m_max, sigma_0 = term_m_sigma
     return parallel_project_operator_to_m_body(term, m_max, sigma_0, parallel=True)
 
-### 
 
-from itertools import permutations
-from concurrent.futures import ProcessPoolExecutor
-import numpy as np
+###
 
-def parallel_project_operator_to_m_body(full_operator, m_max=2, sigma_0=None, parallel=True):
+
+def parallel_project_operator_to_m_body(
+    full_operator, m_max=2, sigma_0=None, parallel=True
+):
     """
     Project an operator onto the subalgebra of at most m_max-body operators,
     relative to the local reference state `sigma_0`.
@@ -137,16 +136,25 @@ def parallel_project_operator_to_m_body(full_operator, m_max=2, sigma_0=None, pa
     Returns:
         Operator: The projected operator within the m-body operator subalgebra.
     """
-    assert sigma_0 is None or hasattr(sigma_0, "expect"), f"Invalid sigma_0 of type {type(sigma_0)}"
+    assert sigma_0 is None or hasattr(
+        sigma_0, "expect"
+    ), f"Invalid sigma_0 of type {type(sigma_0)}"
 
     if m_max == 0:
         # Only scalar part survives
         if sigma_0:
-            return ScalarOperator(np.real_if_close(sigma_0.expect(full_operator)), full_operator.system)
-        return ScalarOperator(np.real_if_close(full_operator.tr()), full_operator.system)
+            return ScalarOperator(
+                np.real_if_close(sigma_0.expect(full_operator)), full_operator.system
+            )
+        return ScalarOperator(
+            np.real_if_close(full_operator.tr()), full_operator.system
+        )
 
     # Base case: already within m-body scope
-    if isinstance(full_operator, OneBodyOperator) or len(full_operator.acts_over()) <= m_max:
+    if (
+        isinstance(full_operator, OneBodyOperator)
+        or len(full_operator.acts_over()) <= m_max
+    ):
         return full_operator
 
     full_operator = full_operator.simplify()
@@ -157,10 +165,16 @@ def parallel_project_operator_to_m_body(full_operator, m_max=2, sigma_0=None, pa
         if parallel and len(full_operator.terms) > 1:
             with ProcessPoolExecutor() as executor:
                 args = [(term, m_max, sigma_0) for term in full_operator.terms]
-                terms = tuple(op for op in executor.map(_project_single_term, args) if op is not None)
+                terms = tuple(
+                    op
+                    for op in executor.map(_project_single_term, args)
+                    if op is not None
+                )
         else:
             terms = tuple(
-                parallel_project_operator_to_m_body(term, m_max, sigma_0, parallel=False)
+                parallel_project_operator_to_m_body(
+                    term, m_max, sigma_0, parallel=False
+                )
                 for term in full_operator.terms
             )
 
@@ -191,24 +205,31 @@ def parallel_project_operator_to_m_body(full_operator, m_max=2, sigma_0=None, pa
             except Exception as e:
                 raise ValueError(f"Failed to partial trace sigma_0: {e}")
         else:
-            dim = getattr(op_first, 'dims', [[2]])[0][0]  # fallback to 2 if not found
+            dim = getattr(op_first, "dims", [[2]])[0][0]  # fallback to 2 if not found
             weight_first = weight_first / dim
 
         raw_tr = weight_first.tr()
         first_av = np.real_if_close(raw_tr)
         delta_op = LocalOperator(first_site, op_first - first_av, system)
 
-        sites_op_rest = {site: op for site, op in sites_op.items() if site != first_site}
+        sites_op_rest = {
+            site: op for site, op in sites_op.items() if site != first_site
+        }
         rest_prod_operator = ProductOperator(
             sites_op_rest, prefactor=full_operator.prefactor, system=system
         )
 
         # Recursive decomposition
-        result = delta_op * parallel_project_operator_to_m_body(rest_prod_operator, m_max - 1, sigma_rest, parallel)
+        result = delta_op * parallel_project_operator_to_m_body(
+            rest_prod_operator, m_max - 1, sigma_rest, parallel
+        )
 
         if not np.isclose(raw_tr, 0, atol=1e-12):  # or your preferred tolerance
-            result += (ScalarOperator(first_av, system) 
-                       * parallel_project_operator_to_m_body(rest_prod_operator, m_max, sigma_rest, parallel))
+            result += ScalarOperator(
+                first_av, system
+            ) * parallel_project_operator_to_m_body(
+                rest_prod_operator, m_max, sigma_rest, parallel
+            )
 
         return result.simplify()
 
@@ -216,18 +237,17 @@ def parallel_project_operator_to_m_body(full_operator, m_max=2, sigma_0=None, pa
     if isinstance(full_operator, QutipOperator):
         return project_qutip_operator_to_m_body(full_operator, m_max, sigma_0)
 
-    return project_qutip_operator_to_m_body(full_operator.to_qutip_operator(), m_max, sigma_0)
+    return project_qutip_operator_to_m_body(
+        full_operator.to_qutip_operator(), m_max, sigma_0
+    )
 
 
-### Max-Ent & Heisenberg functions 
+### Max-Ent & Heisenberg functions
 
-def parallelized_real_time_projection_of_hierarchical_basis(generator, 
-                                               seed_op,
-                                               sigma_ref,
-                                               m_max, 
-                                               deep,
-                                               num_workers=None,
-                                               tidy_thresh=1e-5):
+
+def parallelized_real_time_projection_of_hierarchical_basis(
+    generator, seed_op, sigma_ref, m_max, deep, num_workers=None, tidy_thresh=1e-5
+):
     """
     Construct a hierarchical basis of projected commutators using a generator operator.
 
@@ -254,33 +274,41 @@ def parallelized_real_time_projection_of_hierarchical_basis(generator,
         return []
 
     basis = [seed_op]
-    
-    gen_terms = (-1j*generator).as_sum_of_products().terms
+
+    gen_terms = (-1j * generator).as_sum_of_products().terms
 
     for i in range(1, deep):
         # Cache last basis terms only once
         basis_last_terms = basis[-1].as_sum_of_products().terms
         term_pairs = list(product(gen_terms, basis_last_terms))
 
-        # Parallelize acá 
+        # Parallelize acá
         with ProcessPoolExecutor(max_workers=num_workers) as executor:
-            commutator_terms = list(executor.map(_commutator_term_worker, term_pairs, chunksize=128))
+            commutator_terms = list(
+                executor.map(_commutator_term_worker, term_pairs, chunksize=128)
+            )
 
         # Assemble everything in the local op
         local_op = sum(commutator_terms)
-        if True: 
-            local_op = parallel_project_operator_to_m_body(
-                            full_operator=local_op.tidyup(1e-5).as_sum_of_products(),
-                            m_max=m_max, 
-                            sigma_0=sigma_ref,
-                            parallel=True
-                        ).simplify().tidyup(tidy_thresh)
-            
+        if True:
+            local_op = (
+                parallel_project_operator_to_m_body(
+                    full_operator=local_op.tidyup(1e-5).as_sum_of_products(),
+                    m_max=m_max,
+                    sigma_0=sigma_ref,
+                    parallel=True,
+                )
+                .simplify()
+                .tidyup(tidy_thresh)
+            )
+
         basis.append(local_op)
 
     return basis
 
+
 ### Linear algebra functions involving a scalar product sp
+
 
 def parallel_gram_matrix(basis, sp, num_workers=None, use_threads=False):
     """
@@ -319,12 +347,13 @@ def parallel_gram_matrix(basis, sp, num_workers=None, use_threads=False):
 
     return result.round(14)
 
+
 def parallel_orthogonalize_basis_gs(basis, sp: callable, tol=1e-5, num_threads=4):
     """
     Orthogonalizes a list of operators using the Gram-Schmidt process with a given scalar product.
 
-    This function performs Gram-Schmidt orthogonalization on a given operator basis using a 
-    user-defined scalar product function `sp`. The process is partially parallelized 
+    This function performs Gram-Schmidt orthogonalization on a given operator basis using a
+    user-defined scalar product function `sp`. The process is partially parallelized
     using threads for computing scalar products.
 
     Parameters:
@@ -348,10 +377,7 @@ def parallel_orthogonalize_basis_gs(basis, sp: callable, tol=1e-5, num_threads=4
         coeffs[k] = 1.0  # Initially op = 1 * b_k
 
         with ThreadPoolExecutor(max_workers=num_threads) as executor:
-            projections = list(executor.map(
-                lambda prev: sp(prev, op),
-                orth_basis
-            ))
+            projections = list(executor.map(lambda prev: sp(prev, op), orth_basis))
 
         for j, (proj, prev) in enumerate(zip(projections, orth_basis)):
             op -= proj * prev
@@ -378,13 +404,25 @@ def parallel_orthogonalize_basis_gs(basis, sp: callable, tol=1e-5, num_threads=4
             assert abs(val) < tol, f"Not orthogonal: {i}, {j} = {val}"
 
     with ThreadPoolExecutor(max_workers=num_threads) as executor:
-        executor.map(check_orthonorm, [(i, j) for i in range(len(orth_basis)) for j in range(i, len(orth_basis))])
+        executor.map(
+            check_orthonorm,
+            [(i, j) for i in range(len(orth_basis)) for j in range(i, len(orth_basis))],
+        )
 
     return orth_basis, T
 
-def parallel_Hij_tensor(basis, generator, sigma_0, sp, m_max, 
-                        is_basis_orthogonal=True, QR_matrix=None,
-                        use_threads=False, max_workers=None):
+
+def parallel_Hij_tensor(
+    basis,
+    generator,
+    sigma_0,
+    sp,
+    m_max,
+    is_basis_orthogonal=True,
+    QR_matrix=None,
+    use_threads=False,
+    max_workers=None,
+):
     """
     Computes Hij = (op_i, [H, op_j]) for a given basis.
 
@@ -394,15 +432,15 @@ def parallel_Hij_tensor(basis, generator, sigma_0, sp, m_max,
         H^(c) = T**-1 @ H^(b) @ T**-1.T
 
     Otherwise, returns Hij in the original basis.
-    
+
     The parameters generator, sigma_0, sp, m_max must be given in order to treat the last cases of the Hij-tensor,
     in particular to treat the:
-    
+
         H_{i ell} = (bi, [H, b_{ell}]),
-        
-        since the b_{ell+1} = Proj_{m_max, sigma_0}[H, b_{ell}] is not included in the basis, 
+
+        since the b_{ell+1} = Proj_{m_max, sigma_0}[H, b_{ell}] is not included in the basis,
         and cannot be computed from recurrence of the (orthogonalized or not) Hierarchical Basis.
-        
+
     This procedure is similar if, instead, the basis is not orthogonal.
     """
     ell = len(basis)
@@ -416,7 +454,10 @@ def parallel_Hij_tensor(basis, generator, sigma_0, sp, m_max,
 
     # Case 2: Explicitly compute [H, b_{ell-1}]
     executor_cls = ThreadPoolExecutor if use_threads else ProcessPoolExecutor
-    tasks = [(i, basis[i], basis[-1], generator, sp_local, sigma_0, m_max) for i in range(ell)]
+    tasks = [
+        (i, basis[i], basis[-1], generator, sp_local, sigma_0, m_max)
+        for i in range(ell)
+    ]
 
     with executor_cls(max_workers=max_workers) as executor:
         for i, val in executor.map(_hij_worker_explicit, tasks):

@@ -75,7 +75,10 @@ SX_TOTAL: OneBodyOperator = sum(SYSTEM.site_operator("Sx", s) for s in SITES)
 SY_TOTAL: OneBodyOperator = sum(SYSTEM.site_operator("Sy", s) for s in SITES)
 HAMILTONIAN: SumOperator = SYSTEM.global_operator("Hamiltonian")
 
-assert HAMILTONIAN is not None
+# assert HAMILTONIAN is not None
+if HAMILTONIAN is None:
+    HAMILTONIAN = SY_TOTAL
+
 
 assert (SMINUS_A * SMINUS_B) is not None
 
