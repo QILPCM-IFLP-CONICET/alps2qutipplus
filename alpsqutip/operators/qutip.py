@@ -116,7 +116,7 @@ class QutipOperator(Operator):
         isherm = self.operator.isherm
         site_names = self.site_names
         sites = sorted(site_names, key=lambda x: site_names[x])
-        decomposition = decompose_qutip_operator(self.operator)
+        decomposition = decompose_qutip_operator(self.operator.tidyup())
         prefactor = self.prefactor
         terms = tuple(
             (
@@ -246,7 +246,11 @@ class QutipOperator(Operator):
     def simplify(self):
         """Simplify the operator"""
         names = self.site_names
+        prefactor = self.prefactor
         qt_operator = self.operator
+        system = self.system
+        if prefactor == 0:
+            return ScalarOperator(0.0, system)
         assert len(names) > 0
 
         # If is an empty op, return a ScalarOperator
@@ -259,7 +263,7 @@ class QutipOperator(Operator):
         # The operator acts on a single site. Check if is an scalar
         s_val = scalar_value(qt_operator.data)
         if s_val is not None:
-            return ScalarOperator(s_val, self.system)
+            return ScalarOperator(s_val * self.prefactor, self.system)
         # Otherwise, return a local operator:
         (site,) = names.keys()
         operator = self.operator.tidyup() * self.prefactor

@@ -475,13 +475,13 @@ def decompose_qutip_operator(operator: Qobj, tol: float = 1e-10) -> List[Tuple]:
     dims = operator.dims[0]
     ops_1, *ops_2 = schmidt_dec_first_rest_qutip_operator(operator, tol)
     if len(ops_2) == 0:
-        return [(op_l,) for op_l in ops_1]
+        return [(op_l.tidyup(),) for op_l in ops_1]
     ops_2 = ops_2[0]
     if len(dims) < 3:
-        return list(zip(ops_1, ops_2))
+        return [(op_1.tidyup(), op_2.tidyup()) for op_1, op_2 in zip(ops_1, ops_2)]
     ops_2_factors = [decompose_qutip_operator(op2, tol) for op2 in ops_2]
     return [
-        (op1,) + factors
+        (op1.tidyup(),) + tuple((op_2.tidyup() for op_2 in factors))
         for op1, op21_factors in zip(ops_1, ops_2_factors)
         for factors in op21_factors
     ]

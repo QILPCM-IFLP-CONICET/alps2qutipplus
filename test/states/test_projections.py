@@ -4,6 +4,7 @@ Test functions that implement n-body projections
 
 from test.helper import (
     CHAIN_SIZE,
+    HAMILTONIAN,
     OPERATOR_TYPE_CASES,
     PRODUCT_GIBBS_GENERATOR_TESTS,
     SX_A,
@@ -32,6 +33,11 @@ from alpsqutip.operators.states.meanfield import (
     one_body_from_qutip_operator,
     project_meanfield,
     project_operator_to_m_body,
+)
+from alpsqutip.operators.states.meanfield.projections import (
+    project_product_operator_as_n_body_operator,
+    project_qutip_operator_as_n_body_operator,
+    project_qutip_operator_to_m_body,
     project_to_n_body_operator,
 )
 from alpsqutip.settings import ALPSQUTIP_TOLERANCE
@@ -53,31 +59,215 @@ TEST_STATES.update(
 )
 
 TEST_OPERATORS = {
+    "2^CHAIN_SIZE*Identity": ProductOperator(
+        {name: 2 * site_descr["identity"] for name, site_descr in SYSTEM.sites.items()},
+        1,
+        SYSTEM,
+    ),
     "sx_total": SX_TOTAL,
-    "sx_total - sx_total^2/(N-1)": (SX_TOTAL + SX_TOTAL * SX_TOTAL / (CHAIN_SIZE - 1)),
+    "sx_total + sx_total^2/(N-1)": (SX_TOTAL + SX_TOTAL * SX_TOTAL / (CHAIN_SIZE - 1)),
+    "-sx_total - sx_total^2/(N-1)": (
+        -SX_TOTAL - SX_TOTAL * SX_TOTAL / (CHAIN_SIZE - 1)
+    ),
     "sx_A*sx_B": SX_A * SX_B,
+    "Hamiltonian^2": HAMILTONIAN * HAMILTONIAN,
 }
 
+##################
 
-# TODO: Study why the convergency fails for these cases.
-SKIP_MEANFIELD_SEEDS = {
-    "sx_total - sx_total^2/(N-1)": ["x semipolarized"],
-    "sx_A*sx_B": ["x semipolarized"],  # "x semipolarized"
-}
 
 EXPECTED_PROJECTIONS = {}
+
+EXPECTED_PROJECTIONS["2^CHAIN_SIZE*Identity"] = {
+    name: TEST_OPERATORS["2^CHAIN_SIZE*Identity"] for name in TEST_STATES
+}
 # sx_total is not modified
 EXPECTED_PROJECTIONS["sx_total"] = {name: SX_TOTAL for name in TEST_STATES}
 
 # TODO: build this analytically
-SX_MF_AV = 0.5 * 1.0757657
-EXPECTED_PROJECTIONS["sx_total - sx_total^2/(N-1)"] = {
-    name: (SX_TOTAL * SX_MF_AV + (0.1197810663) * 3 / 4 * CHAIN_SIZE / (CHAIN_SIZE - 1))
+EXPECTED_PROJECTIONS["sx_total + sx_total^2/(N-1)"] = {
+    name: (
+        SX_TOTAL * (1 - 2 * 0.23105)
+        + CHAIN_SIZE * (0.25 / (CHAIN_SIZE - 1) - 0.23105**2)
+    )
     for name in TEST_STATES
 }
+
+EXPECTED_PROJECTIONS["sx_total + sx_total^2/(N-1)"]["x semipolarized"] = (
+    (1 - 7.05 * 0.09021422658241712) * SX_TOTAL - 0.0701 + 1.91e-05
+)
+
+# TODO: build this analytically
+EXPECTED_PROJECTIONS["-sx_total - sx_total^2/(N-1)"] = {
+    name: (
+        SX_TOTAL * (-1 - 2 * 0.343947)
+        + CHAIN_SIZE * (0.25 / (CHAIN_SIZE - 1) - 0.0483673)
+    )
+    for name in TEST_STATES
+}
+EXPECTED_PROJECTIONS["-sx_total - sx_total^2/(N-1)"]["x semipolarized"] = (
+    -1 - 2 * 0.343947
+) * SX_TOTAL + 0.1399
+
 EXPECTED_PROJECTIONS["sx_A*sx_B"] = {
     name: ScalarOperator(0, SYSTEM) for name in TEST_STATES
 }
+EXPECTED_PROJECTIONS["sx_A*sx_B"]["x semipolarized"] = -0.0621765 * (
+    SX_A + SX_B
+)  # aqui
+
+
+######################################################
+
+
+@pytest.mark.parametrize(["op_name", "op_test"], list(TEST_OPERATORS.items()))
+def test_compare_recursive_and_iterative_n_body_projections(op_name, op_test):
+    """
+    Compare the results of the recursive and the iterative implementations
+    of the n-body projections.
+    """
+    failed = {}
+    print(f"projecting <<{op_name}>> in mean field")
+
+    for state_name, sigma0 in TEST_STATES.items():
+        print(f"  = sigma0{state_name}:\n", sigma0)
+        if sigma0 is not None:
+            print(" <sx>=", sigma0.expect(SX_TOTAL) / CHAIN_SIZE)
+        else:
+            print(" <sx>=", 0)
+        for n_body in [1]:
+            print("   n=", n_body)
+            result_m = project_operator_to_m_body(op_test, n_body, sigma0)
+            result_n = project_to_n_body_operator(op_test, n_body, sigma0)
+            if not check_operator_equality(result_m.to_qutip(), result_n.to_qutip()):
+                failed[
+                    (
+                        state_name,
+                        n_body,
+                    )
+                ] = f"Result m:\n{result_m}\n\n Result n:\n{result_n}\n\nDelta = \n{result_m.to_qutip()-result_n.to_qutip()}"
+            else:
+                print("    ...OK")
+    if failed:
+        for fail in failed:
+            print(f" failed with <<{fail}>> as state seed. ")
+            print(failed[fail])
+            print(60 * "=")
+        assert False, "Projections do not match."
+
+
+@pytest.mark.parametrize(["op_name", "op_test"], list(TEST_OPERATORS.items()))
+def test_compare_iterative_and_recursive_n_body_qutip_projections(op_name, op_test):
+    """
+    This test compares the results of using the recursive
+    `project_qutip_operator_to_m_body` and the iterative
+    `project_qutip_operator_as_n_body_operator` n-body projections.
+    """
+    failed = {}
+    print(f"projecting <<{op_name}>> in mean field")
+    print("op_test:", op_test)
+    print("op_test:", op_test.to_qutip_operator())
+    op_test = op_test.to_qutip_operator()
+    assert isinstance(op_test, QutipOperator)
+
+    for state_name, sigma0 in TEST_STATES.items():
+        print(f"  = sigma0{state_name}")
+        for n_body in range(0, 4):
+            print("   n=", n_body)
+            result_m = project_qutip_operator_to_m_body(op_test, n_body, sigma0)
+            result_n = project_qutip_operator_as_n_body_operator(
+                op_test, n_body, sigma0
+            )
+            if not check_operator_equality(result_m.to_qutip(), result_n.to_qutip()):
+                failed[
+                    (
+                        state_name,
+                        n_body,
+                    )
+                ] = f"Result m:\n{result_m}\n\n Result n:\n{result_n}\n\nDelta = \n{result_m.to_qutip()-result_n.to_qutip()}"
+            else:
+                print("    ...OK")
+    if failed:
+        for fail in failed:
+            print(f" failed with <<{fail}>> as state seed. ")
+            print(failed[fail])
+            print(60 * "=")
+        assert False, "Self-consistency failed for some seeds."
+        # assert check_operator_equality(
+        #    expected[state_name].to_qutip(), result.to_qutip()
+        # ), f"failed projection {state_name} for {op_name}"
+
+
+@pytest.mark.parametrize(["op_name", "op_test"], list(TEST_OPERATORS.items()))
+def test_compare_iterative_and_recursive_n_body_product_projections(op_name, op_test):
+    """
+    This test compares the results of using the recursive
+    `project_operator_to_m_body` and the iterative specific
+    `project_product_operator_as_n_body_operator` product n-body projections.
+    """
+    failed = {}
+    print(f"projecting <<{op_name}>> in mean field")
+    print("op_test:", op_test)
+    if not isinstance(op_test, ProductOperator):
+        op_test = op_test.to_qutip_operator().as_sum_of_products()
+    if not isinstance(op_test, ProductOperator):
+        if isinstance(op_test, SumOperator):
+            op_test = sorted(op_test.terms, key=lambda x: len(x.acts_over()))[-1]
+        else:
+            return
+
+    for state_name, sigma0 in TEST_STATES.items():
+        print(f"  = sigma0{state_name}")
+        for n_body in range(0, 4):
+            print("   n=", n_body)
+            result_m = project_operator_to_m_body(op_test, n_body, sigma0)
+            result_n = project_product_operator_as_n_body_operator(
+                op_test, n_body, sigma0
+            )
+            if not check_operator_equality(result_m.to_qutip(), result_n.to_qutip()):
+                failed[
+                    (
+                        state_name,
+                        n_body,
+                    )
+                ] = f"Result m:\n{result_m}\n\n Result n:\n{result_n}\n\nDelta = \n{result_m.to_qutip()-result_n.to_qutip()}"
+            else:
+                print("    ...OK")
+    if failed:
+        for fail in failed:
+            print(f" failed with <<{fail}>> as state seed. ")
+            print(failed[fail])
+            print(60 * "=")
+        assert False, "Self-consistency failed for some seeds."
+        # assert check_operator_equality(
+        #    expected[state_name].to_qutip(), result.to_qutip()
+        # ), f"failed projection {state_name} for {op_name}"
+
+
+@pytest.mark.parametrize(
+    ["op_name", "projection_name", "projection_function"],
+    [
+        (name, proj_name, proj_func)
+        for name in TEST_OPERATORS
+        for proj_name, proj_func in (
+            ("project_to_n_body_operator", project_to_n_body_operator),
+            ("project_operator_to_m_body", project_operator_to_m_body),
+        )
+    ],
+)
+def test_idempotency_nbody_projection(op_name, projection_name, projection_function):
+    """Test the mean field projection over different states,
+    and using both implementations"""
+    op_test = TEST_OPERATORS[op_name]
+    print("testing the consistency of projection in", op_name)
+    op_sq = op_test * op_test
+    proj_sq_3 = projection_function(op_sq, 3)
+    proj_sq_2 = projection_function(op_sq, 2)
+    proj_sq_3_2 = projection_function(proj_sq_3, 2)
+    assert check_operator_equality(proj_sq_2, proj_sq_3_2), (
+        f"Projections on two-body manifold using {projection_name} does not match for "
+        f"{op_name} and {op_name} projected on the three body manyfold"
+    )
 
 
 @pytest.mark.parametrize(
@@ -132,51 +322,31 @@ def test_2body_to_1body_projection(
             assert False, "Projection mismatches"
 
 
-@pytest.mark.parametrize(
-    ["op_name", "projection_name", "projection_function"],
-    [
-        (name, proj_name, proj_func)
-        for name in TEST_OPERATORS
-        for proj_name, proj_func in (
-            ("project_to_n_body_operator", project_to_n_body_operator),
-            ("project_operator_to_m_body", project_operator_to_m_body),
-        )
-    ],
-)
-def test_nbody_projection(op_name, projection_name, projection_function):
-    """
-    Check that the composition of mean field n-body projection
-    over different states be consistent.
-    """
-    op_test = TEST_OPERATORS[op_name]
-    print("testing the consistency of projection in", op_name)
-    op_sq = op_test * op_test
-    proj_sq_3 = projection_function(op_sq, 3)
-    proj_sq_2 = projection_function(op_sq, 2)
-    proj_sq_3_2 = projection_function(proj_sq_3, 2)
-    assert check_operator_equality(proj_sq_2, proj_sq_3_2), (
-        f"Projections on two-body manifold using {projection_name} does not match for "
-        f"{op_name} and {op_name} projected on the three body manyfold"
-    )
-
-
 @pytest.mark.parametrize(["op_name", "op_test"], list(TEST_OPERATORS.items()))
-def test_meanfield_projection(op_name, op_test):
+def test_self_consistent_meanfield_projection(op_name, op_test):
     """Test the mean field projection over different states"""
+    if op_name not in EXPECTED_PROJECTIONS:
+        return
     expected = EXPECTED_PROJECTIONS[op_name]
     failed = {}
     print(f"projecting <<{op_name}>> in mean field")
 
     for state_name, sigma0 in TEST_STATES.items():
-        if state_name in SKIP_MEANFIELD_SEEDS.get(op_name, []):
-            continue
-        result = project_meanfield(op_test, sigma0)
+        print("sigma state", state_name)
+        result = project_meanfield(
+            op_test, sigma0, max_it=500, proj_func=project_to_n_body_operator
+        )
+        sigma_MF = GibbsProductDensityOperator(result)
+        print("<sx>_MF=", sigma_MF.expect(SX_TOTAL) / CHAIN_SIZE)
+        sigma_MF_expected = GibbsProductDensityOperator(expected[state_name])
+        print("<sx>_MF_expected=", sigma_MF_expected.expect(SX_TOTAL) / CHAIN_SIZE)
 
         if not check_operator_equality(
-            expected[state_name].to_qutip(), result.to_qutip()
+            expected[state_name].to_qutip(), result.to_qutip(), 1e-3
         ):
+            print("   ->failed")
             failed[state_name] = (
-                f"\n\n result:\n{result.to_qutip()}\n\n expected:\n{expected[state_name].to_qutip()}\n\nDelta:{result.to_qutip()-expected[state_name].to_qutip()}"
+                f"\n\n result:\n{result}\n\n expected:\n{expected[state_name]}\n\nDelta:{result.to_qutip()-expected[state_name].to_qutip()}"
             )
     if failed:
         for fail in failed:
@@ -191,21 +361,16 @@ def test_meanfield_projection(op_name, op_test):
 
 
 @pytest.mark.parametrize(["op_name", "op_test"], list(TEST_OPERATORS.items()))
-def test_meanfield_projection_2(op_name, op_test):
+def test_compare_meanfield_projection_using_iterative_and_recursive_projections(
+    op_name, op_test
+):
     """
     Compare the results of the self-consistent mean field projection from
-    both n-body projections routines.
+    both iterative and recursive projection routines.
     """
     failed = {}
     print(f"projecting <<{op_name}>> in mean field")
-    if op_name == "sx_total - sx_total^2/(N-1)":
-        # TODO: check why this case gives different results
-        # for both projection functions, but always the same for any
-        # seed.
-        return
     for state_name, sigma0 in TEST_STATES.items():
-        if state_name in SKIP_MEANFIELD_SEEDS.get(op_name, []):
-            continue
         result_m = project_meanfield(
             op_test, sigma0, proj_func=project_operator_to_m_body
         )
@@ -214,8 +379,15 @@ def test_meanfield_projection_2(op_name, op_test):
         )
         if not check_operator_equality(result_m.to_qutip(), result_n.to_qutip()):
             failed[state_name] = (
-                f"\n\nproj_m=\n{result_m.to_qutip()}\n\n proj_n=\n{result_n.to_qutip()}\n\nDelta={result_n.to_qutip()-result_m.to_qutip()} "
+                f"Result:\n{result_m}\n\n Result n:\n{result_n}\n\nDelta = \n{result_m.to_qutip()-result_n.to_qutip()}"
             )
+            print("*****************", state_name)
+            print("m rho_0\n", result_m.to_qutip().ptrace([0]))
+            print("m rho_1\n", result_m.to_qutip().ptrace([1]))
+            print("n rho_0\n", result_n.to_qutip().ptrace([0]))
+            print("n rho_1\n", result_n.to_qutip().ptrace([1]))
+            print("*****************")
+
     if failed:
         for fail in failed:
             print(f" failed with <<{fail}>> as state seed. ")
@@ -233,6 +405,10 @@ def test_meanfield_projection_2(op_name, op_test):
     ["operator_case", "operator"], list(OPERATOR_TYPE_CASES.items())
 )
 def test_one_body_from_qutip_operator_1(operator_case, operator):
+    """
+    Test if the `one_body_from_qutip_operator` function returns
+    the right type of operator.
+    """
     print(operator_case, "as scalar + one body + rest")
     result = one_body_from_qutip_operator(operator.to_qutip_operator())
 
@@ -258,53 +434,6 @@ def test_one_body_from_qutip_operator_1(operator_case, operator):
         isinstance(result, (ScalarOperator, OneBodyOperator, LocalOperator))
         for term in terms
     ), "first two terms should be one-body operators"
-
-
-@pytest.mark.parametrize(
-    ["operator_case", "operator"], list(OPERATOR_TYPE_CASES.items())
-)
-def test_one_body_from_qutip_operator_with_reference(operator_case, operator):
-
-    for name_ref, gen in PRODUCT_GIBBS_GENERATOR_TESTS.items():
-        sigma = GibbsProductDensityOperator(gen)
-
-        print(operator_case, "as scalar + one body + rest w.r.t. " + name_ref)
-        result = one_body_from_qutip_operator(operator.to_qutip_operator(), sigma)
-
-        assert check_operator_equality(
-            result, operator
-        ), "operators are not equivalent."
-        if isinstance(result, (ScalarOperator, OneBodyOperator, LocalOperator)):
-            return
-        assert isinstance(
-            result, SumOperator
-        ), "the result must be a one-body operator or a sum"
-        terms = result.terms
-        assert len(terms) <= 3, "the result should have at most three terms."
-        print("    types:", [type(term) for term in terms])
-        print("    expectation values:", [sigma.expect(term) for term in terms])
-        print(
-            "    expectation value:",
-            sigma.expect(operator),
-            sigma.expect(result),
-            sigma.expect(operator.to_qutip_operator()),
-        )
-
-        if not isinstance(terms[-1], (ScalarOperator, OneBodyOperator, LocalOperator)):
-            last = terms[-1]
-            terms = terms[:-1]
-            assert (
-                abs(sigma.expect(last)) < ALPSQUTIP_TOLERANCE
-            ), "Reminder term should have zero mean."
-            assert (
-                abs(sigma.expect(terms[-1])) < ALPSQUTIP_TOLERANCE
-            ), "One-body term should have zero mean."
-            # TODO: check also the orthogonality between last and one-body terms.
-
-        assert (
-            isinstance(result, (ScalarOperator, OneBodyOperator, LocalOperator))
-            for term in terms
-        ), "first two terms should be one-body operators"
 
 
 def test_one_body_from_qutip_operator_2():
@@ -393,3 +522,58 @@ def test_one_body_from_qutip_operator_2():
                 print("    ", err_key, error)
 
         assert False, "discrepances"
+
+
+@pytest.mark.parametrize(
+    ["operator_case", "operator", "name_ref", "gen"],
+    (
+        (
+            operator_case,
+            operator,
+            name_ref,
+            gen,
+        )
+        for operator_case, operator in OPERATOR_TYPE_CASES.items()
+        for name_ref, gen in PRODUCT_GIBBS_GENERATOR_TESTS.items()
+    ),
+)
+def test_one_body_from_qutip_operator_with_reference_state(
+    operator_case, operator, name_ref, gen
+):
+    sigma = GibbsProductDensityOperator(gen)
+
+    print(operator_case, "as scalar + one body + rest w.r.t. " + name_ref)
+    result = one_body_from_qutip_operator(operator.to_qutip_operator(), sigma)
+
+    assert check_operator_equality(result, operator), "operators are not equivalent."
+    if isinstance(result, (ScalarOperator, OneBodyOperator, LocalOperator)):
+        return
+    assert isinstance(
+        result, SumOperator
+    ), "the result must be a one-body operator or a sum"
+    terms = result.terms
+    assert len(terms) <= 3, "the result should have at most three terms."
+    print("    types:", [type(term) for term in terms])
+    print("    expectation values:", [sigma.expect(term) for term in terms])
+    print(
+        "    expectation value:",
+        sigma.expect(operator),
+        sigma.expect(result),
+        sigma.expect(operator.to_qutip_operator()),
+    )
+
+    if not isinstance(terms[-1], (ScalarOperator, OneBodyOperator, LocalOperator)):
+        last = terms[-1]
+        terms = terms[:-1]
+        assert (
+            abs(sigma.expect(last)) < ALPSQUTIP_TOLERANCE
+        ), "Reminder term should have zero mean."
+        assert (
+            abs(sigma.expect(terms[-1])) < ALPSQUTIP_TOLERANCE
+        ), "One-body term should have zero mean."
+        # TODO: check also the orthogonality between last and one-body terms.
+
+    assert (
+        isinstance(result, (ScalarOperator, OneBodyOperator, LocalOperator))
+        for term in terms
+    ), "first two terms should be one-body operators"

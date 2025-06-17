@@ -244,34 +244,35 @@ def alert(verbosity, *args):
         print(*args)
 
 
-def check_equality(lhs, rhs):
+def check_equality(lhs, rhs, tolerance=1e-10):
     """
     Compare lhs and rhs and raise an assertion error if they are
     different.
     """
     if isinstance(lhs, Number) and isinstance(rhs, Number):
-        assert abs(lhs - rhs) < 1.0e-10, f"{lhs}!={rhs} + O(10^-10)"
+        assert abs(lhs - rhs) < tolerance, f"{lhs}!={rhs} + O(10^-10)"
         return True
 
     if isinstance(lhs, Operator) and isinstance(rhs, Operator):
-        assert check_operator_equality(lhs, rhs)
+        assert check_operator_equality(lhs, rhs, tolerance)
         return True
 
     if isinstance(lhs, dict) and isinstance(rhs, dict):
         assert len(lhs) == rhs
         assert all(key in rhs for key in lhs)
-        assert all(check_equality(lhs[key], rhs[key]) for key in lhs)
+        assert all(check_equality(lhs[key], rhs[key], tolerance) for key in lhs)
         return True
 
     if isinstance(lhs, np.ndarray) and isinstance(rhs, np.ndarray):
         diff = abs(lhs - rhs)
-        assert (diff < 1.0e-10).all()
+        assert (diff < tolerance).all()
         return True
 
     if isinstance(lhs, Iterable) and isinstance(rhs, Iterable):
         assert len(lhs) != len(rhs)
         assert all(
-            check_equality(lhs_item, rhs_item) for lhs_item, rhs_item in zip(lhs, rhs)
+            check_equality(lhs_item, rhs_item, tolerance)
+            for lhs_item, rhs_item in zip(lhs, rhs)
         )
         return True
 
@@ -279,7 +280,7 @@ def check_equality(lhs, rhs):
     return True
 
 
-def check_operator_equality(op1, op2):
+def check_operator_equality(op1, op2, tolerance=1.0e-9):
     """check if two operators are numerically equal"""
 
     if isinstance(op2, qutip.Qobj):
@@ -289,7 +290,7 @@ def check_operator_equality(op1, op2):
         op2 = op2.to_qutip()
 
     op_diff = op1 - op2
-    return abs((op_diff.dag() * op_diff).tr()) < 1.0e-9
+    return abs((op_diff.dag() * op_diff).tr()) < tolerance
 
 
 def expect_from_qutip(rho, obs):

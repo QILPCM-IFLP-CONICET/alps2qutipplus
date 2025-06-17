@@ -364,9 +364,10 @@ def test_as_sum_of_products(name, operator_case):
     reconstructed = qutip_op.as_sum_of_products()
     qutip_op2 = reconstructed.to_qutip_operator()
     assert qutip_op.system == qutip_op2.system
-    print(operator_case)
-    print(qutip_op)
-    print(qutip_op2)
+    print("operator case: \n", 3 * operator_case.to_qutip())
+    print("Qutip form:\n", qutip_op.to_qutip())
+    print("reconstructed:\n", reconstructed.to_qutip())
+    print("qutip form reconstructed:\n", qutip_op2.to_qutip())
     assert qutip_op.to_qutip() == qutip_op2.to_qutip()
 
 

@@ -4,6 +4,7 @@ Qutip representation for density operators.
 Be careful: just use this class for states of small systems.
 """
 
+import logging
 from typing import Optional, Tuple, Union
 
 import numpy as np
@@ -35,12 +36,28 @@ class QutipDensityOperator(DensityOperatorMixin, QutipOperator):
         super().__init__(qoperator, system, names, prefactor)
 
     def __add__(self, operand) -> Operator:
-        if isinstance(operand, (int, float)):
-            assert operand >= 0
-            return QutipDensityOperator(
+        if isinstance(operand, (int, float, np.float64)):
+            if operand >= 0:
+                return QutipDensityOperator(
+                    self.operator * self.prefactor + operand,
+                    self.system,
+                )
+            logging.warning(
+                f"Adding {operand} to a DensityOperator produces a generic operator."
+            )
+            return QutipOperator(
                 self.operator * self.prefactor + operand,
                 self.system,
             )
+        if isinstance(operand, (complex, np.complex128)):
+            logging.warning(
+                f"Adding {operand} to a DensityOperator produces a generic operator."
+            )
+            return QutipOperator(
+                self.operator * self.prefactor + operand,
+                self.system,
+            )
+
         # TODO: check me again
         op_qo = operand.to_qutip()
         if isinstance(operand, DensityOperatorMixin):
@@ -49,14 +66,30 @@ class QutipDensityOperator(DensityOperatorMixin, QutipOperator):
         return QutipOperator(op_qo, self.system or op_qo.system)
 
     def __mul__(self, operand) -> Operator:
-        if isinstance(operand, (int, float)):
-            assert operand >= 0
-            return QutipDensityOperator(
-                self.operator,
-                self.system,
-                self.site_names,
-                self.prefactor * operand,
+        if isinstance(operand, (int, float, np.float64)):
+            if operand >= 0:
+                return QutipDensityOperator(
+                    self.operator,
+                    self.system,
+                    self.site_names,
+                    self.prefactor * operand,
+                )
+            logging.warning(
+                f"Multiplying {operand} with a DensityOperator produces a generic operator."
             )
+            return QutipOperator(
+                self.operator * (self.prefactor * operand),
+                self.system,
+            )
+        if isinstance(operand, (complex, np.complex128)):
+            logging.warning(
+                f"Multiplying {operand} with a DensityOperator produces a generic operator."
+            )
+            return QutipOperator(
+                self.operator * (self.prefactor * operand),
+                self.system,
+            )
+
         block_self = tuple(self.site_names)
         block_other = tuple(
             (site for site in operand.acts_over() if site not in block_self)
@@ -82,13 +115,29 @@ class QutipDensityOperator(DensityOperatorMixin, QutipOperator):
         )
 
     def __radd__(self, operand) -> Operator:
-        if isinstance(operand, (int, float)):
-            assert operand >= 0
-            return QutipDensityOperator(
+        if isinstance(operand, (int, float, np.float64)):
+            if operand >= 0:
+                return QutipDensityOperator(
+                    self.operator * self.prefactor + operand,
+                    self.system,
+                )
+            logging.warning(
+                f"Adding {operand} to a DensityOperator produces a generic operator."
+            )
+            return QutipOperator(
+                self.operator * self.prefactor + operand,
+                self.system,
+            )
+        if isinstance(operand, (complex, np.complex128)):
+            logging.warning(
+                f"Adding {operand} to a DensityOperator produces a generic operator."
+            )
+            return QutipOperator(
                 self.operator * self.prefactor + operand,
                 self.system,
             )
 
+        # TODO: check me again
         op_qo = operand.to_qutip()
         if isinstance(operand, DensityOperatorMixin):
             op_qo = op_qo * self.prefactor
@@ -96,13 +145,28 @@ class QutipDensityOperator(DensityOperatorMixin, QutipOperator):
         return QutipOperator(op_qo, self.system or op_qo.system)
 
     def __rmul__(self, operand) -> Operator:
-        if isinstance(operand, (int, float)):
-            assert operand >= 0
-            return QutipDensityOperator(
-                self.operator,
+        if isinstance(operand, (int, float, np.float64)):
+            if operand >= 0:
+                return QutipDensityOperator(
+                    self.operator,
+                    self.system,
+                    self.site_names,
+                    self.prefactor * operand,
+                )
+            logging.warning(
+                f"Multiplying {operand} with a DensityOperator produces a generic operator."
+            )
+            return QutipOperator(
+                self.operator * (self.prefactor * operand),
                 self.system,
-                self.site_names,
-                self.prefactor * operand,
+            )
+        if isinstance(operand, (complex, np.complex128)):
+            logging.warning(
+                f"Multiplying {operand} with a DensityOperator produces a generic operator."
+            )
+            return QutipOperator(
+                self.operator * (self.prefactor * operand),
+                self.system,
             )
         block_self = tuple(self.site_names)
         block_other = tuple(

@@ -29,4 +29,5 @@ MODEL_LIB_FILE = f"{ROOT_DIR}/lib/models.xml"
 # set the level of verbosity in the warnings and error messages
 VERBOSITY_LEVEL = 2
 ALPSQUTIP_INFER_ARITHMETICS = False
+ALPSQUTIP_ALLOW_OVERWRITE_BINDINGS = False
 ALPSQUTIP_TOLERANCE = 1.0e-14
