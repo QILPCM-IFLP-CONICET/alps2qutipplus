@@ -390,11 +390,10 @@ def project_qutip_operator_as_n_body_operator(
         sigma = ProductDensityOperator({}, system=system)
 
     operator = operator.as_sum_of_products()
-    terms = operator.terms if isinstance(operator, SumOperator) else (operator,)
     terms_by_block = {}
     one_body_terms = []
     scalar = 0
-    for term in terms:
+    for term in operator.terms if isinstance(operator, SumOperator) else (operator,):
         acts_over = term.acts_over()
         assert isinstance(
             acts_over, frozenset
@@ -415,9 +414,15 @@ def project_qutip_operator_as_n_body_operator(
             one_body_terms.append(term)
         elif isinstance(term, SumOperator):
             for sub_term in term.terms:
-                terms_by_block.setdefault(sub_term.acts_over(), []).append(
-                    sub_term.to_qutip_operator()
-                )
+                if (
+                    isinstance(sub_term, (OneBodyOperator, LocalOperator))
+                    or len(sub_term.acts_over()) < 2
+                ):
+                    one_body_terms.append(sub_term)
+                else:
+                    terms_by_block.setdefault(sub_term.acts_over(), []).append(
+                        sub_term.to_qutip_operator()
+                    )
         else:
             term_acts_over2 = term.acts_over()
             if len(term_acts_over2) > -1:
@@ -427,23 +432,23 @@ def project_qutip_operator_as_n_body_operator(
             else:
                 terms_by_block.setdefault(term_acts_over2, []).append(term)
 
-    terms = []
+    terms_list = []
     if scalar:
-        terms.append(ScalarOperator(scalar, system))
+        terms_list.append(ScalarOperator(scalar, system))
     if one_body_terms:
-        terms.append(sum(one_body_terms).simplify())
+        terms_list.append(sum(one_body_terms).simplify())
     for block, block_terms in terms_by_block.items():
         if block_terms:
             try:
-                terms.append(SumOperator(tuple(block_terms), system))
+                terms_list.append(SumOperator(tuple(block_terms), system))
             except Exception as e:
                 print(e)
 
-    if len(terms) == 0:
+    if len(terms_list) == 0:
         return ScalarOperator(0, system)
-    if len(terms) == 1:
-        return terms[0]
-    return SumOperator(tuple(terms), system)
+    if len(terms_list) == 1:
+        return terms_list[0]
+    return SumOperator(tuple(terms_list), system)
 
 
 def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
@@ -525,7 +530,8 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
             for sub_term in term.terms:
                 dispatch_term(sub_term)
         else:
-            dispatch_term(term)
+            if not dispatch_term(term):
+                raise TypeError(f"term of type {type(term)} could not be dispatched.")
 
     if not changed:
         return untouched_operator
