@@ -549,6 +549,7 @@ def safe_exp_and_normalize(operator: Qobj) -> Tuple[Qobj, float]:
          (exp(operator)/f , f)
 
     """
+    assert isinstance(operator, Qobj)
     num_eigvals = min(3, operator.shape[0])
     k_0 = max(
         np.real(operator.eigenenergies(sparse=True, sort="high", eigvals=num_eigvals))

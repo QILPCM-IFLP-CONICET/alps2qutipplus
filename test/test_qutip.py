@@ -432,6 +432,7 @@ def test_to_qutip_operator():
         "scalar, complex": ScalarOperator,
         "product, zero": ScalarOperator,
         "product, 1": ScalarOperator,
+        "product, 2": ScalarOperator,
     }
     for name, op_case in OPERATOR_TYPE_CASES.items():
         expected_type = expected_types_to_qutip.get(name, QutipOperator)

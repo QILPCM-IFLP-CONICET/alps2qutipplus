@@ -145,7 +145,7 @@ def test_2body_to_1body_projection(
 )
 def test_nbody_projection(op_name, projection_name, projection_function):
     """
-    Check that the composition of mean field n-body projection 
+    Check that the composition of mean field n-body projection
     over different states be consistent.
     """
     op_test = TEST_OPERATORS[op_name]

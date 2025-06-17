@@ -46,6 +46,7 @@ ACTS_OVER_RESULTS = {
     "scalar, zero": set(),
     "product, zero": set(),
     "product, 1": set(),
+    "product, 2": set(),
     "scalar, real": set(),
     "scalar, complex": set(),
     "local operator, hermitician": {"1[0]"},
@@ -55,6 +56,7 @@ ACTS_OVER_RESULTS = {
     "three body, hermitician": {"1[0]", "1[1]", "1[2]"},
     "three body, non hermitician": FULL_CHAIN,
     "product operator, hermitician": {"1[0]", "1[1]"},
+    "product operator, hermitician, twice": {"1[0]", "1[1]"},
     "product operator, non hermitician": {"1[0]", "1[1]"},
     "sum operator, hermitician": {"1[0]", "1[1]"},
     "sum operator, hermitician from non hermitician": {"1[0]", "1[1]"},
@@ -67,12 +69,18 @@ ACTS_OVER_RESULTS = {
     "first full polarized": FULL_CHAIN,
     "gibbs_sz_as_product": FULL_CHAIN,
     "qutip operator": FULL_CHAIN,
+    "qutip operator twice": FULL_CHAIN,
     "gibbs_sz": FULL_CHAIN,
     "gibbs_sz_bar": FULL_CHAIN,
     "gibbs_H": FULL_CHAIN,
     "mixture": FULL_CHAIN,
-    "mixture of first and second partially polarized": FULL_CHAIN,
-    "log unitary": FULL_CHAIN,
+    "mixture of first and second partially polarized": {
+        "1[3]",
+        "1[0]",
+        "1[1]",
+        "1[2]",
+    },
+    "log unitary": {"1[0]", "1[3]", "1[2]", "1[1]"},
     "single interaction term": {"1[1]", "1[0]"},
     "sum local operators": {"1[0]"},
     "sum local qutip operators": {"1[0]"},
@@ -84,7 +92,6 @@ ACTS_OVER_RESULTS = {
 @pytest.mark.parametrize(["name", "operator"], list(FULL_TEST_CASES.items()))
 def test_acts_over(name, operator):
     """Check acts_over method"""
-
     print(name)
     acts_over = operator.acts_over()
     print("    acts over ", acts_over)
