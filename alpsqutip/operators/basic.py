@@ -769,7 +769,7 @@ class ProductOperator(Operator):
             return ScalarOperator(prefactor, self.system)
         if nops == 1:
             site, op_local = next(iter(nontrivial_factors.items()))
-            return LocalOperator(site, self.prefactor * op_local, self.system)
+            return LocalOperator(site, prefactor * op_local, self.system)
         if nops != len(self.sites_op):
             return ProductOperator(nontrivial_factors, prefactor, self.system)
         return self

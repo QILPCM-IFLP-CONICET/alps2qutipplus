@@ -29,6 +29,7 @@ TYPES_WITH_PREFACTOR = (ScalarOperator, ProductOperator, QutipOperator)
 SUM_TYPES = (SumOperator, OneBodyOperator)
 
 
+
 @Operator.register_add_handler(
     [
         (Operator, Operator),
@@ -946,10 +947,9 @@ def sum_scalarop_with_qutipop(x_op: ScalarOperator, y_op: QutipOperator):
 def sum_qutip_operator_plus_number(x_op: QutipOperator, y_val: Union[Number, Qobj]):
     """Sum an operator and a number  or a Qobj"""
     return QutipOperator(
-        x_op.operator + y_val,
+        x_op.operator * x_op.prefactor + y_val,
         x_op.system,
         names=x_op.site_names,
-        prefactor=x_op.prefactor,
     )
 
 
