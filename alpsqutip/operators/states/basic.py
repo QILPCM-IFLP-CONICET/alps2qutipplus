@@ -2,6 +2,7 @@
 Density operator classes.
 """
 
+import logging
 from numbers import Number
 from typing import Iterable, Optional, Tuple, Union
 
@@ -72,6 +73,49 @@ class DensityOperatorMixin:
     """
 
     system: SystemDescriptor
+
+    def __add__(self, operand):
+        from alpsqutip.operators.states.arithmetic import MixtureDensityOperator
+
+        if isinstance(operand, (float, np.float64)):
+            if operand == 0.0:
+                return self
+            if 0 < operand <= 1:
+                return self + ProductDensityOperator({}, operand, self.system)
+
+        if isinstance(operand, MixtureDensityOperator):
+            return MixtureDensityOperator(
+                (self,) + operand.terms, self.system.union(operand.system)
+            )
+
+        if isinstance(operand, DensityOperatorMixin):
+            print("adding two density operators as a mixture")
+            return MixtureDensityOperator(
+                tuple((self, operand)), self.system.union(operand.system)
+            )
+
+        return self.to_qutip_operator() + operand
+
+    def __radd__(self, operand):
+        from alpsqutip.operators.states.arithmetic import MixtureDensityOperator
+
+        if isinstance(operand, (float, np.float64)):
+            if operand == 0.0:
+                return self
+            if 0 < operand <= 1:
+                return self + ProductDensityOperator({}, operand, self.system)
+        if isinstance(operand, MixtureDensityOperator):
+            return MixtureDensityOperator(
+                operand.terms + (self,), self.system.union(operand.system)
+            )
+
+        if isinstance(operand, DensityOperatorMixin):
+            print("radding two density operators as a mixture")
+            return MixtureDensityOperator(
+                tuple((operand, self)), self.system.union(operand.system)
+            )
+
+        return self.to_qutip_operator() + operand
 
     def eigenstates(self) -> list:
         if isinstance(self, Operator):
@@ -200,20 +244,31 @@ class ProductDensityOperator(DensityOperatorMixin, ProductOperator):
         self.local_fs = {site: -np.log(z) for site, z in local_zs.items()}
 
     def __mul__(self, a):
-        if isinstance(a, float):
+        if isinstance(a, (float, np.float64)):
             if a >= 0:
                 return ProductDensityOperator(
                     self.sites_op, self.prefactor * a, self.system, False
                 )
-        return super().__mul__(a)
+            logging.warning(
+                "Multiplication of a non positive number by a density operator returns a regular operator."
+            )
+            return ProductOperator(self.sites_op, 1, self.system) * a
+        return ProductOperator(self.sites_op, 1, self.system) * a
 
     def __rmul__(self, a):
-        if isinstance(a, float):
+        print("Product Density Operator rmul", a)
+        if isinstance(a, (float, np.float64)):
+            print("float!")
             if a >= 0:
+                print("non negative")
                 return ProductDensityOperator(
                     self.sites_op, self.prefactor * a, self.system, False
                 )
-        return super().__rmul__(a)
+            logging.warning(
+                "Multiplication of a non positive number by a density operator returns a regular operator."
+            )
+            return ProductOperator(self.sites_op, 1, self.system) * a
+        return a * ProductOperator(self.sites_op, 1, self.system)
 
     def expect(self, obs: Union[Operator, Iterable]) -> Union[np.ndarray, dict, Number]:
         if isinstance(obs, LocalOperator):

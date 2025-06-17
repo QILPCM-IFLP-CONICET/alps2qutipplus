@@ -312,7 +312,7 @@ def qutip_me_solve(
           | Maximum number of (internally defined) steps allowed in one
           ``tlist`` step.
         - | max_step : float
-          | Maximum lenght of one internal step. When using pulses, it
+          | Maximum length of one internal step. When using pulses, it
             should be less than half the width of the thinnest pulse.
 
         Other options could be supported depending on the integration method,

@@ -183,7 +183,9 @@ def safe_exp_and_normalize_qutip_operator(operator):
 
     site_names = operator.site_names
     block = tuple(sorted(site_names, key=lambda x: site_names[x]))
-    rho_qutip, logz = safe_exp_and_normalize_qobj(operator.operator)
+    rho_qutip, logz = safe_exp_and_normalize_qobj(
+        operator.operator * operator.prefactor
+    )
     rest = tuple(sorted(site for site in system.sites if site not in block))
     operator = qutip_tensor(
         rho_qutip,
