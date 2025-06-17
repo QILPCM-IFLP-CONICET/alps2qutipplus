@@ -3,6 +3,7 @@
 Operators
 """
 
+import alpsqutip.operators.register_ops as register_ops
 from alpsqutip.operators.arithmetic import OneBodyOperator, SumOperator
 from alpsqutip.operators.basic import (
     LocalOperator,
@@ -22,4 +23,5 @@ __all__ = [
     "QutipOperator",
     "ScalarOperator",
     "SumOperator",
+    "register_ops",
 ]

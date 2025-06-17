@@ -4,7 +4,7 @@ Basic unit test.
 
 import numpy as np
 import pytest
-from qutip import jmat, qeye, tensor
+from qutip import Qobj, jmat, qeye, tensor
 
 from alpsqutip.operators import Operator, ProductOperator, QutipOperator, ScalarOperator
 from alpsqutip.qutip_tools.tools import (
@@ -48,6 +48,17 @@ SZ_C_QT = SZ_C.to_qutip_operator()
 SX_A_SY_B_QT = SX_A_QT * SY_B_QT
 SX_A_SY_B_TIMES_2_QT = 2 * SX_A_SY_B_QT
 OP_GLOBAL_QT = SZ_C_QT + SX_A_SY_B_TIMES_2_QT
+
+
+SX_A_QT_NATIVE = SX_A_QT.to_qutip()
+SX_A2_QT_NATIVE = SX_A_QT_NATIVE * SX_A_QT_NATIVE
+
+SY_B_QT_NATIVE = SY_B_QT.to_qutip()
+SZ_C_QT_NATIVE = SZ_C_QT.to_qutip()
+SX_A_SY_B_QT_NATIVE = SX_A_QT_NATIVE * SY_B_QT_NATIVE
+SX_A_SY_B_TIMES_2_QT_NATIVE = 2 * SX_A_SY_B_QT_NATIVE
+OP_GLOBAL_QT_NATIVE = SZ_C_QT_NATIVE + SX_A_SY_B_TIMES_2_QT_NATIVE
+
 
 ID_2_QUTIP = qeye(2)
 ID_3_QUTIP = qeye(3)
@@ -237,61 +248,104 @@ def test_decompose_qutip_operators(name, operator_case):
 
 
 @pytest.mark.parametrize(
-    ("case", "op_case", "expected_value"),
+    ("case", "op_case", "expected_value", "op_native"),
     [
-        ("SX_A", SX_A_QT, 0.0),
-        ("sy_B", SY_B_QT, 0.0),
-        ("SX_A^2", SX_A2_QT, 0.25 * 2 ** (CHAIN_SIZE)),
+        ("SX_A", SX_A_QT, 0.0, SX_A_QT_NATIVE),
+        ("sy_B", SY_B_QT, 0.0, SY_B_QT_NATIVE),
+        ("SX_A^2", SX_A2_QT, 0.25 * 2 ** (CHAIN_SIZE), SX_A2_QT_NATIVE),
         (
             "overlap (sxsy, sx*sy)",
             SX_A_SY_B_QT * SX_A_QT * SY_B_QT,
             0.25**2 * 2 ** (CHAIN_SIZE),
+            SX_A_SY_B_QT_NATIVE * SX_A_QT_NATIVE * SY_B_QT_NATIVE,
         ),
         (
             "overlap (global, sx*sy)",
             OP_GLOBAL_QT * SX_A_QT * SY_B_QT,
             2 * (0.25**2) * 2 ** (CHAIN_SIZE),
+            OP_GLOBAL_QT_NATIVE * SX_A_QT_NATIVE * SY_B_QT_NATIVE,
         ),
-        ("Sz_C^2", SZ_C_QT * SZ_C_QT, 0.25 * 2 ** (CHAIN_SIZE)),
+        (
+            "Sz_C^2",
+            SZ_C_QT * SZ_C_QT,
+            0.25 * 2 ** (CHAIN_SIZE),
+            SZ_C_QT_NATIVE * SZ_C_QT_NATIVE,
+        ),
         (
             "sxsy^2",
             SX_A_SY_B_TIMES_2_QT * SX_A_SY_B_TIMES_2_QT,
             4 * (0.25**2) * (2**CHAIN_SIZE),
+            SX_A_SY_B_TIMES_2_QT_NATIVE * SX_A_SY_B_TIMES_2_QT_NATIVE,
+        ),
+        (
+            "global_qt^2",
+            OP_GLOBAL_QT * OP_GLOBAL_QT,
+            (0.25 + 4 * 0.25**2) * (2 ** (CHAIN_SIZE)),
+            OP_GLOBAL_QT_NATIVE * OP_GLOBAL_QT_NATIVE,
+        ),
+        (
+            "global * sx_A",
+            OP_GLOBAL_QT * SX_A_QT,
+            0.0,
+            OP_GLOBAL_QT_NATIVE * SX_A_QT_NATIVE,
+        ),
+        (
+            "sx_A * global",
+            SX_A_QT * OP_GLOBAL_QT,
+            0.0,
+            SX_A_QT_NATIVE * OP_GLOBAL_QT_NATIVE,
         ),
         (
             "global^2",
-            OP_GLOBAL_QT * OP_GLOBAL_QT,
-            (0.25 + 4 * 0.25**2) * (2**CHAIN_SIZE),
-        ),
-        ("global * sx_A", OP_GLOBAL_QT * SX_A_QT, 0.0),
-        ("sx_A * global", SX_A_QT * OP_GLOBAL_QT, 0.0),
-        (
-            "global * global",
             OP_GLOBAL * OP_GLOBAL,
-            (0.25 + 4 * 0.25**2) * (2**CHAIN_SIZE),
-        ),
-        (
-            "global_QT * global_QT",
-            OP_GLOBAL_QT * OP_GLOBAL_QT,
-            (0.25 + 4 * 0.25**2) * (2**CHAIN_SIZE),
+            (0.25 + 4 * 0.25**2) * (2 ** (CHAIN_SIZE)),
+            OP_GLOBAL_QT_NATIVE * OP_GLOBAL_QT_NATIVE,
         ),
         (
             "global * global_qt",
             OP_GLOBAL * OP_GLOBAL_QT,
             (0.25 + 4 * 0.25**2) * (2**CHAIN_SIZE),
+            OP_GLOBAL_QT_NATIVE * OP_GLOBAL_QT_NATIVE,
         ),
         (
-            ">> global_qt * global",
+            "global_qt * global",
             OP_GLOBAL_QT * OP_GLOBAL,
             (0.25 + 4 * 0.25**2) * (2**CHAIN_SIZE),
+            OP_GLOBAL_QT_NATIVE * OP_GLOBAL_QT_NATIVE,
         ),
     ],
 )
-def test_qutip_operators(case: str, op_case: Operator, expected_value: complex):
+def test_qutip_operators(
+    case: str, op_case: Operator, expected_value: complex, op_native: Qobj
+):
     """Test for the qutip representation"""
+    print("testing case", case, expected_value, "=?=", op_native.tr())
+    site_map = {site_name: i for i, site_name in enumerate(op_case.system.sites)}
+    failed_tr = {}
+    failed_pt = {}
     for subsystem in SUBSYSTEMS:
         ptoperator = (op_case).partial_trace(subsystem)
-        assert ptoperator.tr() == expected_value
+        site_indices = [site_map[site_name] for site_name in subsystem]
+        native_pt = op_native.ptrace(site_indices)
+        if not check_operator_equality(ptoperator.to_qutip(), native_pt):
+            print("\n######  Ptrace failed for", (subsystem), "states are different:")
+            failed_pt[subsystem] = (
+                f"PT Operator:\n{ptoperator}\n\nToQutip:\n  {ptoperator.to_qutip()}\n\n native result:\n {native_pt}"
+            )
+            print(failed_pt[subsystem])
+
+        if ptoperator.tr() != expected_value:
+            print(
+                "\n######  Ptrace failed for ",
+                (subsystem),
+                f"{ptoperator.tr()} != {expected_value}",
+            )
+            failed_tr[subsystem] = (
+                f"value:{ptoperator.tr()}\n expected: {expected_value}\n\n Operator:\n {op_case}\n\n PTOperator:\n {ptoperator}"
+            )
+            print(failed_tr[subsystem])
+    assert len(failed_pt) == 0, f"partial traces does not match for {failed_pt}"
+    assert len(failed_tr) == 0, f"traces does not match for {failed_tr}"
 
 
 @pytest.mark.parametrize(["name", "operator_case"], list(OPERATOR_TYPE_CASES.items()))
