@@ -2,6 +2,7 @@
 Helper functions for pytests
 """
 
+import logging
 import os
 from numbers import Number
 from typing import Iterable
@@ -299,6 +300,10 @@ def check_operator_equality(op1, op2, tolerance=1.0e-9):
 
     op_diff = op1 - op2
     distance = abs((op_diff.dag() * op_diff).tr()) ** 0.5
+    if distance > tolerance:
+        logging.warning(
+            f"distance {distance} larger than {tolerance} for comparison between {type(op1)} and {type(op2)}"
+        )
     return distance < tolerance
 
 

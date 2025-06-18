@@ -149,7 +149,7 @@ def test_compare_recursive_and_iterative_n_body_projections(op_name, op_test):
             print("   n=", n_body)
             result_m = project_operator_to_m_body(op_test, n_body, sigma0)
             result_n = project_to_n_body_operator(op_test, n_body, sigma0)
-            if not check_operator_equality(result_m.to_qutip(), result_n.to_qutip()):
+            if not check_operator_equality(result_m, result_n, 1.0e-6):
                 failed[
                     (
                         state_name,
@@ -188,7 +188,7 @@ def test_compare_iterative_and_recursive_n_body_qutip_projections(op_name, op_te
             result_n = project_qutip_operator_as_n_body_operator(
                 op_test, n_body, sigma0
             )
-            if not check_operator_equality(result_m.to_qutip(), result_n.to_qutip()):
+            if not check_operator_equality(result_m, result_n, 5e-6):
                 failed[
                     (
                         state_name,
@@ -203,9 +203,6 @@ def test_compare_iterative_and_recursive_n_body_qutip_projections(op_name, op_te
             print(failed[fail])
             print(60 * "=")
         assert False, "Self-consistency failed for some seeds."
-        # assert check_operator_equality(
-        #    expected[state_name].to_qutip(), result.to_qutip()
-        # ), f"failed projection {state_name} for {op_name}"
 
 
 @pytest.mark.parametrize(["op_name", "op_test"], list(TEST_OPERATORS.items()))
@@ -234,7 +231,7 @@ def test_compare_iterative_and_recursive_n_body_product_projections(op_name, op_
             result_n = project_product_operator_as_n_body_operator(
                 op_test, n_body, sigma0
             )
-            if not check_operator_equality(result_m.to_qutip(), result_n.to_qutip()):
+            if not check_operator_equality(result_m, result_n, 1e-7):
                 failed[
                     (
                         state_name,
@@ -249,9 +246,6 @@ def test_compare_iterative_and_recursive_n_body_product_projections(op_name, op_
             print(failed[fail])
             print(60 * "=")
         assert False, "Self-consistency failed for some seeds."
-        # assert check_operator_equality(
-        #    expected[state_name].to_qutip(), result.to_qutip()
-        # ), f"failed projection {state_name} for {op_name}"
 
 
 @pytest.mark.parametrize(
@@ -274,7 +268,7 @@ def test_idempotency_nbody_projection(op_name, projection_name, projection_funct
     proj_sq_3 = projection_function(op_sq, 3)
     proj_sq_2 = projection_function(op_sq, 2)
     proj_sq_3_2 = projection_function(proj_sq_3, 2)
-    assert check_operator_equality(proj_sq_2.to_qutip(), proj_sq_3_2.to_qutip()), (
+    assert check_operator_equality(proj_sq_2, proj_sq_3_2, 1e-7), (
         f"Projections on two-body manifold using {projection_name} does not match for "
         f"{op_name} and {op_name} projected on the three body manyfold"
     )
@@ -318,7 +312,7 @@ def test_2body_to_1body_projection(
         )
         projected_operator = projection_function(op_prod, 1, state)
         if not check_operator_equality(
-            projected_operator.to_qutip(), projected_operator_analytical.to_qutip()
+            projected_operator, projected_operator_analytical
         ):
             print("projections are different:\n")
             print("function:\n", projected_operator)
