@@ -58,7 +58,7 @@ def test_simplify(key, operator):
 
     print("* check", key)
     simplify1 = operator.simplify()
-    assert check_operator_equality(operator, simplify1), (
+    assert check_operator_equality(operator, simplify1, 1e-8), (
         "Simplify changed the value of the operator."
         f"{type(operator)}\n{operator.to_qutip()}->\n"
         f"{type(simplify1)}\n{simplify1.to_qutip()}\n."
