@@ -3,7 +3,6 @@ Module that implements a meanfield approximation of a Gibbsian state
 """
 
 import logging
-
 from functools import reduce
 from itertools import combinations
 from typing import Optional, Tuple, Union
