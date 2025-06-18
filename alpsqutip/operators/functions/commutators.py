@@ -138,7 +138,7 @@ def commutator_alps2qutip_parallel(
     op_1: Operator, op_2: Operator, use_threads=USE_THREADS, num_workers=MAX_WORKERS
 ) -> Operator:
     """
-    The commutator of two Ooperator objects
+    The commutator of two Operator objects. Parallel implementation.
     """
     system = op_1.system or op_2.system
     op_1 = op_1.flat()
@@ -170,19 +170,11 @@ def commutator_alps2qutip_parallel(
         return ScalarOperator(0, system)
     return SumOperator(terms, system).simplify()
 
-    if isinstance(op_1, SumOperator):
-        return SumOperator(
-            tuple((commutator_alps2qutip(term, op_2) for term in op_1.terms)), system
-        ).simplify()
-    if isinstance(op_2, SumOperator):
-        return SumOperator(
-            tuple((commutator_alps2qutip(op_1, term) for term in op_2.terms)), system
-        ).simplify()
-
 
 def commutator_alps2qutip_serial(op_1: Operator, op_2: Operator) -> Operator:
     """
-    The commutator of two Ooperator objects
+    The commutator of two Operator objects.
+    Serial implementation.
     """
     system = op_1.system or op_2.system
     if isinstance(op_1, SumOperator):

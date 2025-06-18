@@ -19,12 +19,12 @@ if alpsqutip_settings.USE_PARALLEL:
         from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
         from functools import partial
 
-        print("using parallel routines to build Gram's matrices.")
+        logging.info("using parallel routines to build Gram's matrices.")
     except ModuleNotFoundError:
         alpsqutip_settings.USE_PARALLEL = False
         logging.warning("PorcessPool cannot be loaded. Using serial routines.")
 else:
-    print("using serial routines to build Gram's matrices.")
+    logging.info("using serial routines to build Gram's matrices.")
 
 
 # ### Generic functions depending on the SP ###
@@ -41,9 +41,13 @@ def _sp_worker(pair, basis, sp):
     Returns:
         tuple: A tuple (i, j, val) where val is the real part of sp(basis[i], basis[j]).
     """
-    i, j = pair
-    val = float(np.real(sp(basis[i], basis[j])))
-    return (i, j, val)
+    try:
+        i, j = pair
+        val = float(np.real(sp(basis[i], basis[j])))
+        return (i, j, val)
+    except Exception as exc_val:
+        logging.error(f"Error computing Gram's matrix entry ({i},{j}):{exc_val}")
+        return (i, j, np.nan)
 
 
 def gram_matrix_parallel(basis, sp, num_workers=MAX_WORKERS, use_threads=USE_THREADS):
@@ -58,6 +62,9 @@ def gram_matrix_parallel(basis, sp, num_workers=MAX_WORKERS, use_threads=USE_THR
         basis (List[Operator]): List of basis operators.
         sp (Callable): Scalar product function taking two operators and returning a scalar.
                        Must be a top-level, pickleable function if using processes.
+                       Notice that sp must be a top-level function, or in general,
+                       an object that can be stored with pickle. This does not include
+                       lambda functions.
         num_workers (int or None): Number of worker threads or processes to use.
                                    Defaults to the number of cores.
         use_threads (bool): If True, uses threading instead of multiprocessing.
