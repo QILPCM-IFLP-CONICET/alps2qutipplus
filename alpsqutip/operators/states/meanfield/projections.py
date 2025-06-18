@@ -2,6 +2,8 @@
 Module that implements a meanfield approximation of a Gibbsian state
 """
 
+import logging
+
 from functools import reduce
 from itertools import combinations
 from typing import Optional, Tuple, Union
@@ -442,7 +444,7 @@ def project_qutip_operator_as_n_body_operator(
             try:
                 terms_list.append(SumOperator(tuple(block_terms), system))
             except Exception as e:
-                print(e)
+                logging.error(e)
 
     if len(terms_list) == 0:
         return ScalarOperator(0, system)

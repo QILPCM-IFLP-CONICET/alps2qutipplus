@@ -30,12 +30,12 @@ if alpsqutip_settings.USE_PARALLEL:
     try:
         from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 
-        print("using parallel routines to compute commutators.")
+        logging.info("Using parallel routines to compute commutators.")
     except ModuleNotFoundError:
         alpsqutip_settings.USE_PARALLEL = False
-        logging.warning("PorcessPool cannot be loaded. Using serial routines.")
+        logging.warning("ProcessPoolExecutor/ThreadPoolExecutor cannot be loaded. Using serial routines.")
 else:
-    print("using serial routines to compute commutators.")
+    logging.info("Using serial routines to compute commutators.")
 
 
 def anticommutator(

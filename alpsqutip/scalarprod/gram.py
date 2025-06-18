@@ -22,7 +22,7 @@ if alpsqutip_settings.USE_PARALLEL:
         logging.info("using parallel routines to build Gram's matrices.")
     except ModuleNotFoundError:
         alpsqutip_settings.USE_PARALLEL = False
-        logging.warning("PorcessPool cannot be loaded. Using serial routines.")
+        logging.warning("ProcessPoolExecutor/ThreadPoolExecutor cannot be loaded. Using serial routines.")
 else:
     logging.info("using serial routines to build Gram's matrices.")
 

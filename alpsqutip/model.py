@@ -629,7 +629,7 @@ def build_system(
     # pylint: disable=import-outside-toplevel
     from alpsqutip.geometry import graph_from_alps_xml
 
-    print("loading model", model_name, " over graph", geometry_name)
+    logging.info("loading model", model_name, " over graph", geometry_name)
 
     parms = {"L": 4, "J": 1, "Jz0": 1, "Jxy0": 1, "a": 1}
     parms.update(kwargs)

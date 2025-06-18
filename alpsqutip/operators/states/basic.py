@@ -89,7 +89,6 @@ class DensityOperatorMixin:
             )
 
         if isinstance(operand, DensityOperatorMixin):
-            print("adding two density operators as a mixture")
             return MixtureDensityOperator(
                 tuple((self, operand)), self.system.union(operand.system)
             )
@@ -110,7 +109,6 @@ class DensityOperatorMixin:
             )
 
         if isinstance(operand, DensityOperatorMixin):
-            print("radding two density operators as a mixture")
             return MixtureDensityOperator(
                 tuple((operand, self)), self.system.union(operand.system)
             )
@@ -256,11 +254,8 @@ class ProductDensityOperator(DensityOperatorMixin, ProductOperator):
         return ProductOperator(self.sites_op, 1, self.system) * a
 
     def __rmul__(self, a):
-        print("Product Density Operator rmul", a)
         if isinstance(a, (float, np.float64)):
-            print("float!")
             if a >= 0:
-                print("non negative")
                 return ProductDensityOperator(
                     self.sites_op, self.prefactor * a, self.system, False
                 )
