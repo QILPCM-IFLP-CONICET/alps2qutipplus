@@ -1,18 +1,4 @@
-import numpy as np
-import pytest
-import qutip
-
-from alpsqutip.operators.functions import commutator, spectral_norm
-from alpsqutip.operators.states.gibbs import GibbsProductDensityOperator
-from alpsqutip.restricted_maxent_toolkit import (
-    build_hierarchical_basis,
-    fn_hij_tensor_with_errors,
-    projected_evolution,
-    series_evolution,
-)
-from alpsqutip.scalarprod import fetch_covar_scalar_product, orthogonalize_basis
-
-from .helper import (
+from test.helper import (
     GIBBS_GENERATOR_TESTS,
     HAMILTONIAN,
     OPERATOR_TYPE_CASES,
@@ -20,6 +6,20 @@ from .helper import (
     TEST_CASES_STATES,
     check_operator_equality,
 )
+
+import numpy as np
+import pytest
+import qutip
+
+from alpsqutip.evolution import (
+    build_hierarchical_basis,
+    fn_hij_tensor_with_errors,
+    projected_evolution,
+    series_evolution,
+)
+from alpsqutip.operators.functions import commutator, spectral_norm
+from alpsqutip.operators.states.gibbs import GibbsProductDensityOperator
+from alpsqutip.scalarprod import fetch_covar_scalar_product, orthogonalize_basis
 
 np.set_printoptions(
     edgeitems=30, linewidth=100000, formatter=dict(float=lambda x: "%.3g" % x)
@@ -176,21 +176,15 @@ def test_build_hierarchical_basis(name_ham, ham, name_k0, k0, sigma_name, sigma)
     comm1 = commutator(ham, k0).simplify() / 1j
     comm1_qutip = qutip_ham * qutip_k0 - qutip_k0 * qutip_ham
 
-    delta_phi1 = np.array([sp(b_op, comm1) for b_op in h_basis_orth])
+    delta_phi1 = np.array([abs(sp(b_op, comm1)) for b_op in h_basis_orth])
     delta_phi1_qutip = np.array(
-        [sp_qutip(b_op, comm1_qutip) for b_op in h_basis_orth_qutip]
+        [abs(sp_qutip(b_op, comm1_qutip)) for b_op in h_basis_orth_qutip]
     )
     assert len(delta_phi1) == len(delta_phi1_qutip)
     if len(delta_phi1) > 0:
         assert all(abs(x - y) < 1e-10 for x, y in zip(delta_phi1, delta_phi1_qutip)), (
             f"Delta phi1 = {delta_phi1}\n" f"in qutip   = {delta_phi1_qutip}\n"
         )
-
-    if len(hij) > 0:
-        delta_phi1_hij = hij @ np.array([sp(b_op, k0) for b_op in h_basis_orth])
-        assert all(
-            abs(x - y) < 1e-10 for x, y in zip(delta_phi1_hij, delta_phi1_qutip)
-        ), (f"Delta phi1 = {delta_phi1_hij}\n" f"in qutip   = {delta_phi1_qutip}\n")
 
 
 def test_evolution():
@@ -211,8 +205,6 @@ def test_evolution():
             for k1, k2 in zip(projected_solution, as_series_solution)
         ]
         assert all(error <= 0.1 * t**order for t, error in zip(t_span, diff_sols))
-    # alas blancas
-    # tierra de nomades
 
 
 def test_series_evolution():

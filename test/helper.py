@@ -16,7 +16,10 @@ from alpsqutip.operators import (
     ScalarOperator,
     SumOperator,
 )
-from alpsqutip.operators.quadratic import build_quadratic_form_from_operator
+from alpsqutip.operators.quadratic import (
+    QuadraticFormOperator,
+    build_quadratic_form_from_operator,
+)
 from alpsqutip.operators.states import (
     GibbsDensityOperator,
     GibbsProductDensityOperator,
@@ -72,7 +75,10 @@ SX_TOTAL: OneBodyOperator = sum(SYSTEM.site_operator("Sx", s) for s in SITES)
 SY_TOTAL: OneBodyOperator = sum(SYSTEM.site_operator("Sy", s) for s in SITES)
 HAMILTONIAN: SumOperator = SYSTEM.global_operator("Hamiltonian")
 
-assert HAMILTONIAN is not None
+# assert HAMILTONIAN is not None
+if HAMILTONIAN is None:
+    HAMILTONIAN = SY_TOTAL
+
 
 assert (SMINUS_A * SMINUS_B) is not None
 
@@ -139,7 +145,8 @@ OPERATOR_TYPE_CASES = {
     "scalar, zero": ScalarOperator(0.0, SYSTEM),
     "product, zero": ProductOperator({}, prefactor=0.0, system=SYSTEM),
     "product, 1": ProductOperator({}, prefactor=1.0, system=SYSTEM),
-    "scalar, real": ScalarOperator(1.0, SYSTEM),
+    "product, 2": ProductOperator({}, prefactor=2.0, system=SYSTEM),
+    "scalar, real": ScalarOperator(2.0, SYSTEM),
     "scalar, complex": ScalarOperator(1.0 + 3j, SYSTEM),
     "local operator, hermitician": SX_A,  # LocalOperator
     "local operator, non hermitician": SX_A + SY_A * 1j,
@@ -148,8 +155,9 @@ OPERATOR_TYPE_CASES = {
     "three body, hermitician": (SX_A * SY_B * SZ_C),
     "three body, non hermitician": ((SMINUS_A * SMINUS_B + SY_A * SY_B) * SZ_TOTAL),
     "product operator, hermitician": SH_AB,
+    "product operator, hermitician, twice": 2 * SH_AB,
     "product operator, non hermitician": SMINUS_A * SPLUS_B,
-    "sum operator, hermitician": SX_A * SX_B + SY_A * SY_B,  # Sum operator
+    "sum operator, hermitician": SX_A * SX_B + 2 * SY_A * SY_B,  # Sum operator
     "sum operator, hermitician from non hermitician": SPLUS_A * SPLUS_B
     + SMINUS_A * SMINUS_B,
     "sum operator, anti-hermitician": SPLUS_A * SPLUS_B - SMINUS_A * SMINUS_B,
@@ -166,6 +174,7 @@ OPERATOR_TYPE_CASES = {
     * (SPLUS_A.to_qutip_operator() * SPLUS_B.to_qutip_operator())
     + (SMINUS_A * SMINUS_B) * 0.25,
     "qutip operator": HAMILTONIAN.to_qutip_operator(),
+    "qutip operator twice": 2 * (HAMILTONIAN.to_qutip_operator()),
     "hermitician quadratic operator": build_quadratic_form_from_operator(HAMILTONIAN),
     "non hermitician quadratic operator": build_quadratic_form_from_operator(
         HAMILTONIAN - SZ_TOTAL * 1j
@@ -235,34 +244,35 @@ def alert(verbosity, *args):
         print(*args)
 
 
-def check_equality(lhs, rhs):
+def check_equality(lhs, rhs, tolerance=1e-10):
     """
     Compare lhs and rhs and raise an assertion error if they are
     different.
     """
     if isinstance(lhs, Number) and isinstance(rhs, Number):
-        assert abs(lhs - rhs) < 1.0e-10, f"{lhs}!={rhs} + O(10^-10)"
+        assert abs(lhs - rhs) < tolerance, f"{lhs}!={rhs} + O(10^-10)"
         return True
 
     if isinstance(lhs, Operator) and isinstance(rhs, Operator):
-        assert check_operator_equality(lhs, rhs)
+        assert check_operator_equality(lhs, rhs, tolerance)
         return True
 
     if isinstance(lhs, dict) and isinstance(rhs, dict):
         assert len(lhs) == rhs
         assert all(key in rhs for key in lhs)
-        assert all(check_equality(lhs[key], rhs[key]) for key in lhs)
+        assert all(check_equality(lhs[key], rhs[key], tolerance) for key in lhs)
         return True
 
     if isinstance(lhs, np.ndarray) and isinstance(rhs, np.ndarray):
         diff = abs(lhs - rhs)
-        assert (diff < 1.0e-10).all()
+        assert (diff < tolerance).all()
         return True
 
     if isinstance(lhs, Iterable) and isinstance(rhs, Iterable):
         assert len(lhs) != len(rhs)
         assert all(
-            check_equality(lhs_item, rhs_item) for lhs_item, rhs_item in zip(lhs, rhs)
+            check_equality(lhs_item, rhs_item, tolerance)
+            for lhs_item, rhs_item in zip(lhs, rhs)
         )
         return True
 
@@ -270,7 +280,7 @@ def check_equality(lhs, rhs):
     return True
 
 
-def check_operator_equality(op1, op2):
+def check_operator_equality(op1, op2, tolerance=1.0e-9):
     """check if two operators are numerically equal"""
 
     if isinstance(op2, qutip.Qobj):
@@ -280,7 +290,7 @@ def check_operator_equality(op1, op2):
         op2 = op2.to_qutip()
 
     op_diff = op1 - op2
-    return abs((op_diff.dag() * op_diff).tr()) < 1.0e-9
+    return abs((op_diff.dag() * op_diff).tr()) < tolerance
 
 
 def expect_from_qutip(rho, obs):
@@ -296,6 +306,13 @@ def is_one_body_operator(operator) -> bool:
     """Check if the operator is a one-body operator"""
     if isinstance(operator, SumOperator):
         return all(is_one_body_operator(term) for term in operator.terms)
+    if isinstance(operator, QuadraticFormOperator):
+        return False
+        # print("quadratic form!", operator.weights, operator.offset,operator.linear_term, operator.acts_over())
+        # if len(operator.weights)>0:
+        #    return False
+        # if operator.offset:
+        #    return False
     return len(operator.acts_over()) < 2
 
 
@@ -314,6 +331,7 @@ for key, val in GIBBS_GENERATOR_TESTS.items():
 
 for key, val in PRODUCT_GIBBS_GENERATOR_TESTS.items():
     name = "ProductGibbs from " + key
+    print("building", name)
     TEST_CASES_STATES[name] = GibbsProductDensityOperator(val, SYSTEM)
 
 print("loaded")

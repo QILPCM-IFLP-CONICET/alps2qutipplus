@@ -4,7 +4,7 @@ Functions for basic interface with qutip objects.
 
 from functools import reduce
 from itertools import combinations
-from typing import Iterator, List, Tuple
+from typing import Iterator, List, Optional, Tuple
 
 import numpy as np
 from numpy import ndarray, zeros as np_zeros
@@ -14,7 +14,7 @@ from qutip import (  # type: ignore[import-untyped]
     qeye,
     tensor as qutip_tensor,
 )
-from scipy.linalg import svd  # type: ignore[import-untyped]
+from scipy.linalg import norm as scipy_norm, svd  # type: ignore[import-untyped]
 
 if int(qutip_version[0]) < 5:
 
@@ -80,37 +80,97 @@ else:
         """
         walk over data elements.
         """
-        if hasattr(data, "num_diag"):
-            data = data.as_scipy()
+
+        def do_dense():
+            arr = data.as_ndarray() if hasattr(data, "as_ndarray") else data.to_array()
+            dim_i, dim_j = arr.shape
+            for i in range(dim_i):
+                for j in range(dim_j):
+                    v = arr[i, j]
+                    if v != 0:
+                        yield (i, j, v)
+
+        # Backward compatibility v5.0 and v5.1
+        def do_dia_5_0(data_dia):
+            data = data_dia.as_scipy()
+            dim_i, dim_j = data.shape
             for offset, diag_data in zip(data.offsets, data.data):
                 if offset < 0:
-                    for idx, value in enumerate(diag_data):
+                    for j_pos, value in enumerate(diag_data):
+                        i_pos = j_pos - offset
+                        if i_pos >= dim_i:
+                            break
                         yield (
-                            idx - offset,
-                            idx,
+                            i_pos,
+                            j_pos,
                             value,
                         )
                 else:
-                    for idx, value in enumerate(diag_data):
+                    for i_pos, value in enumerate(diag_data):
+                        j_pos = i_pos + offset
+                        if j_pos >= dim_j:
+                            break
                         yield (
-                            idx,
-                            idx + offset,
+                            i_pos,
+                            j_pos,
                             value,
                         )
+
+        def do_dia_5_2(data_dia):
+            data = data_dia.as_scipy()
+            dim_i, dim_j = data.shape
+            for offset, diag_data in zip(data.offsets, data.data):
+                if offset < 0:
+                    for j_pos, value in enumerate(diag_data):
+                        i_pos = j_pos - offset
+                        if i_pos >= dim_i:
+                            break
+                        yield (
+                            i_pos,
+                            j_pos,
+                            value,
+                        )
+                else:
+                    for indx, value in enumerate(diag_data[offset:]):
+                        i_pos = indx
+                        j_pos = i_pos + offset
+                        yield (
+                            i_pos,
+                            j_pos,
+                            value,
+                        )
+
+        # Diagonal format
+        if hasattr(data, "num_diag"):
+            # For 5.0 and 5.1
+            if int(qutip_version[2]) < 2:
+                for item in do_dia_5_0(data):
+                    yield item
+            # For 5.2
+            else:
+                for item in do_dia_5_2(data):
+                    yield item
+            return
         elif hasattr(data, "as_scipy"):
             data = data.as_scipy()
-            i_ind, j_ind = data.nonzero()
-            yield from zip(i_ind, j_ind, data.data)
+            if hasattr(data, "tocoo"):
+                coo = data.tocoo()
+                for i, j, v in zip(coo.row, coo.col, coo.data):
+                    yield (i, j, v)
+            else:
+                # Fallback: try nonzero and data.data
+                try:
+                    i_ind, j_ind = data.nonzero()
+                    for idx in range(len(i_ind)):
+                        yield (i_ind[idx], j_ind[idx], data.data[idx])
+                except Exception:
+                    # Last resort: try dense
+                    for item in do_dense():
+                        yield item
+                    return
         else:
-            data = data.as_ndarray()
-            dim_i, dim_j = data.shape
-            for i_idx in range(dim_i):
-                for j_idx in range(dim_j):
-                    yield (
-                        i_idx,
-                        j_idx,
-                        data[i_idx, j_idx],
-                    )
+            for item in do_dense():
+                yield item
 
     def data_get_coeff(data, i_idx, j_idx):
         """
@@ -237,6 +297,81 @@ def is_scalar_op(op: Qobj) -> bool:
     return data_is_scalar(op.data)
 
 
+def norm(
+    op: Qobj,
+    ord: Optional[int | str | float],
+    axis: Optional[int | Tuple[int, int]] = None,
+    keepdims: bool = False,
+    check_finite: bool = True,
+):
+    """
+    Compute the norm of `op` by converting it to a numpy.array.
+
+    Parameters
+    ----------
+    a : array_like
+        Input array. If `axis` is None, `a` must be 1-D or 2-D, unless `ord`
+        is None. If both `axis` and `ord` are None, the 2-norm of
+        ``a.ravel`` will be returned.
+    ord : {int, inf, -inf, 'fro', 'nuc', None}, optional
+        Order of the norm (see table under ``Notes``). inf means NumPy's
+        `inf` object.
+    axis : {int, 2-tuple of ints, None}, optional
+        If `axis` is an integer, it specifies the axis of `a` along which to
+        compute the vector norms. If `axis` is a 2-tuple, it specifies the
+        axes that hold 2-D matrices, and the matrix norms of these matrices
+        are computed. If `axis` is None then either a vector norm (when `a`
+        is 1-D) or a matrix norm (when `a` is 2-D) is returned.
+    keepdims : bool, optional
+        If this is set to True, the axes which are normed over are left in the
+        result as dimensions with size one. With this option the result will
+        broadcast correctly against the original `a`.
+
+    check_finite : bool, optional
+        Whether to check that the input matrix contains only finite numbers.
+        Disabling may give a performance gain, but may result in problems
+        (crashes, non-termination) if the inputs do contain infinities or NaNs.
+
+    Returns
+    -------
+    n : float or ndarray
+        Norm of the matrix or vector(s).
+
+    `ord` is interpreted as:
+
+    =====  ============================  ==========================
+    ord    norm for matrices             norm for vectors
+    =====  ============================  ==========================
+    None   Frobenius norm                2-norm
+    'fro'  Frobenius norm                --
+    'nuc'  nuclear norm                  --
+    inf    max(sum(abs(a), axis=1))      max(abs(a))
+    -inf   min(sum(abs(a), axis=1))      min(abs(a))
+    0      --                            sum(a != 0)
+    1      max(sum(abs(a), axis=0))      as below
+    -1     min(sum(abs(a), axis=0))      as below
+    2      2-norm (largest sing. value)  as below
+    -2     smallest singular value       as below
+    other  --                            sum(abs(a)**ord)**(1./ord)
+    =====  ============================  ==========================
+
+    See scipy.linalg.norm
+    """
+    try:
+        scipy_norm(op)
+    except TypeError:
+        # Version Qutip 5.2 does not support Qutip as ufunc. Handle
+        # specific cases
+        pass
+
+    data = op.data
+    if op.isbra or op.isket:
+        return scipy_norm(data.to_array(), ord, axis, keepdims, check_finite)
+    if op.isoper:
+        data = op.data
+        return scipy_norm(data.to_array(), ord, axis, keepdims, check_finite)
+
+
 def reshape_qutip_data(data, dims, bs=1) -> ndarray:
     """
     reshape the data representing an operator with dimensions
@@ -339,13 +474,13 @@ def decompose_qutip_operator(operator: Qobj, tol: float = 1e-10) -> List[Tuple]:
     dims = operator.dims[0]
     ops_1, *ops_2 = schmidt_dec_first_rest_qutip_operator(operator, tol)
     if len(ops_2) == 0:
-        return [(op_l,) for op_l in ops_1]
+        return [(op_l.tidyup(),) for op_l in ops_1]
     ops_2 = ops_2[0]
     if len(dims) < 3:
-        return list(zip(ops_1, ops_2))
+        return [(op_1.tidyup(), op_2.tidyup()) for op_1, op_2 in zip(ops_1, ops_2)]
     ops_2_factors = [decompose_qutip_operator(op2, tol) for op2 in ops_2]
     return [
-        (op1,) + factors
+        (op1.tidyup(),) + tuple((op_2.tidyup() for op_2 in factors))
         for op1, op21_factors in zip(ops_1, ops_2_factors)
         for factors in op21_factors
     ]
@@ -413,6 +548,7 @@ def safe_exp_and_normalize(operator: Qobj) -> Tuple[Qobj, float]:
          (exp(operator)/f , f)
 
     """
+    assert isinstance(operator, Qobj)
     num_eigvals = min(3, operator.shape[0])
     k_0 = max(
         np.real(operator.eigenenergies(sparse=True, sort="high", eigvals=num_eigvals))

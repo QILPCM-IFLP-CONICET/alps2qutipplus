@@ -1,3 +1,4 @@
+import alpsqutip.operators.states.register_ops as _register_ops
 from alpsqutip.operators.states.arithmetic import MixtureDensityOperator
 from alpsqutip.operators.states.basic import (
     DensityOperatorMixin,
@@ -16,4 +17,5 @@ __all__ = [
     "MixtureDensityOperator",
     "ProductDensityOperator",
     "QutipDensityOperator",
+    "_register_ops",
 ]

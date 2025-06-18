@@ -4,16 +4,19 @@ Basic unit test.
 
 import numpy as np
 import pytest
-from qutip import jmat, qeye, tensor
+from qutip import Qobj, jmat, qeye, tensor
 
 from alpsqutip.operators import Operator, ProductOperator, QutipOperator, ScalarOperator
 from alpsqutip.qutip_tools.tools import (
+    data_element_iterator,
     data_get_type,
     data_is_diagonal,
     data_is_scalar,
     data_is_zero,
     decompose_qutip_operator,
+    norm,
 )
+from alpsqutip.settings import ALPSQUTIP_TOLERANCE
 
 from .helper import (
     CHAIN_SIZE,
@@ -46,6 +49,17 @@ SX_A_SY_B_QT = SX_A_QT * SY_B_QT
 SX_A_SY_B_TIMES_2_QT = 2 * SX_A_SY_B_QT
 OP_GLOBAL_QT = SZ_C_QT + SX_A_SY_B_TIMES_2_QT
 
+
+SX_A_QT_NATIVE = SX_A_QT.to_qutip()
+SX_A2_QT_NATIVE = SX_A_QT_NATIVE * SX_A_QT_NATIVE
+
+SY_B_QT_NATIVE = SY_B_QT.to_qutip()
+SZ_C_QT_NATIVE = SZ_C_QT.to_qutip()
+SX_A_SY_B_QT_NATIVE = SX_A_QT_NATIVE * SY_B_QT_NATIVE
+SX_A_SY_B_TIMES_2_QT_NATIVE = 2 * SX_A_SY_B_QT_NATIVE
+OP_GLOBAL_QT_NATIVE = SZ_C_QT_NATIVE + SX_A_SY_B_TIMES_2_QT_NATIVE
+
+
 ID_2_QUTIP = qeye(2)
 ID_3_QUTIP = qeye(3)
 SX_QUTIP, SY_QUTIP, SZ_QUTIP = jmat(0.5)
@@ -72,6 +86,14 @@ SUBSYSTEMS = [
 
 
 QUTIP_TEST_CASES = {
+    "hermitician quadratic operator": {
+        "operator": OPERATOR_TYPE_CASES["hermitician quadratic operator"].to_qutip()
+        * 2,
+        "diagonal": False,
+        "scalar": False,
+        "zero": False,
+        "type": np.dtype("complex128"),
+    },
     "product_scalar": {
         "operator": 3 * tensor(ID_2_QUTIP, ID_3_QUTIP),
         "diagonal": True,
@@ -173,111 +195,180 @@ QUTIP_TEST_CASES = {
 }
 
 
-def test_qutip_properties():
+@pytest.mark.parametrize(("case", "operator_spec"), list(QUTIP_TEST_CASES.items()))
+def test_data_element_iterator(case, operator_spec):
 
-    for case, data in QUTIP_TEST_CASES.items():
-        print("testing ", case)
-        operator_data = data["operator"].data
-        assert data["diagonal"] == data_is_diagonal(operator_data)
-        assert data["scalar"] == data_is_scalar(operator_data)
-        assert data["zero"] == data_is_zero(operator_data)
-        assert data["type"] is data_get_type(operator_data)
+    operator = operator_spec["operator"]
+    dtype = operator_spec["type"]
+    data = operator.data
+    array = data.to_array()
+
+    def build_array(op, dims, dtype):
+        result = np.zeros(dims, dtype=dtype)
+        for i, j, val in data_element_iterator(op):
+            result[i, j] = val
+
+        return result
+
+    reconstructed = build_array(data, data.shape, dtype)
+    print(case, type(operator.data))
+    print("array:", type(array), "\n", array.real)
+    print("reconstructed:", type(reconstructed), "\n", reconstructed.real)
+    print("diferencia:\n", array.real - reconstructed.real)
+
+    assert (reconstructed == array).all()
 
 
-def test_decompose_qutip_operators():
+@pytest.mark.parametrize(["case", "data"], list(QUTIP_TEST_CASES.items()))
+def test_qutip_properties(case, data):
+    print("testing ", case)
+    operator_data = data["operator"].data
+    assert data["diagonal"] == data_is_diagonal(operator_data)
+    assert data["scalar"] == data_is_scalar(operator_data)
+    assert data["zero"] == data_is_zero(operator_data)
+    assert data["type"] is data_get_type(operator_data)
+
+
+@pytest.mark.parametrize(["name", "operator_case"], list(OPERATOR_TYPE_CASES.items()))
+def test_decompose_qutip_operators(name, operator_case):
     """
     test decomposition of qutip operators
     as sums of product operators
     """
-    for name, operator_case in OPERATOR_TYPE_CASES.items():
-        print("decomposing ", name)
-        acts_over = tuple(sorted(operator_case.acts_over()))
-        if acts_over:
-            qutip_operator = operator_case.to_qutip(acts_over)
-            terms = decompose_qutip_operator(qutip_operator)
-            reconstructed = sum(tensor(*t) for t in terms)
-            assert check_operator_equality(
-                qutip_operator, reconstructed
-            ), "reconstruction does not match with the original."
+    print("decomposing ", name)
+    acts_over = tuple(sorted(operator_case.acts_over()))
+    if acts_over:
+        qutip_operator = operator_case.to_qutip(acts_over)
+        print("qutip operator:\n", qutip_operator.tidyup())
+        terms = decompose_qutip_operator(qutip_operator)
+        reconstructed = sum(tensor(*t) for t in terms)
+        assert check_operator_equality(
+            qutip_operator, reconstructed
+        ), "reconstruction does not match with the original."
 
 
 @pytest.mark.parametrize(
-    ("case", "op_case", "expected_value"),
+    ("case", "op_case", "expected_value", "op_native"),
     [
-        ("SX_A", SX_A_QT, 0.0),
-        ("sy_B", SY_B_QT, 0.0),
-        ("SX_A^2", SX_A2_QT, 0.25 * 2 ** (CHAIN_SIZE)),
+        ("SX_A", SX_A_QT, 0.0, SX_A_QT_NATIVE),
+        ("sy_B", SY_B_QT, 0.0, SY_B_QT_NATIVE),
+        ("SX_A^2", SX_A2_QT, 0.25 * 2 ** (CHAIN_SIZE), SX_A2_QT_NATIVE),
         (
             "overlap (sxsy, sx*sy)",
             SX_A_SY_B_QT * SX_A_QT * SY_B_QT,
             0.25**2 * 2 ** (CHAIN_SIZE),
+            SX_A_SY_B_QT_NATIVE * SX_A_QT_NATIVE * SY_B_QT_NATIVE,
         ),
         (
             "overlap (global, sx*sy)",
             OP_GLOBAL_QT * SX_A_QT * SY_B_QT,
             2 * (0.25**2) * 2 ** (CHAIN_SIZE),
+            OP_GLOBAL_QT_NATIVE * SX_A_QT_NATIVE * SY_B_QT_NATIVE,
         ),
-        ("Sz_C^2", SZ_C_QT * SZ_C_QT, 0.25 * 2 ** (CHAIN_SIZE)),
+        (
+            "Sz_C^2",
+            SZ_C_QT * SZ_C_QT,
+            0.25 * 2 ** (CHAIN_SIZE),
+            SZ_C_QT_NATIVE * SZ_C_QT_NATIVE,
+        ),
         (
             "sxsy^2",
             SX_A_SY_B_TIMES_2_QT * SX_A_SY_B_TIMES_2_QT,
             4 * (0.25**2) * (2**CHAIN_SIZE),
+            SX_A_SY_B_TIMES_2_QT_NATIVE * SX_A_SY_B_TIMES_2_QT_NATIVE,
+        ),
+        (
+            "global_qt^2",
+            OP_GLOBAL_QT * OP_GLOBAL_QT,
+            (0.25 + 4 * 0.25**2) * (2 ** (CHAIN_SIZE)),
+            OP_GLOBAL_QT_NATIVE * OP_GLOBAL_QT_NATIVE,
+        ),
+        (
+            "global * sx_A",
+            OP_GLOBAL_QT * SX_A_QT,
+            0.0,
+            OP_GLOBAL_QT_NATIVE * SX_A_QT_NATIVE,
+        ),
+        (
+            "sx_A * global",
+            SX_A_QT * OP_GLOBAL_QT,
+            0.0,
+            SX_A_QT_NATIVE * OP_GLOBAL_QT_NATIVE,
         ),
         (
             "global^2",
-            OP_GLOBAL_QT * OP_GLOBAL_QT,
-            (0.25 + 4 * 0.25**2) * (2**CHAIN_SIZE),
-        ),
-        ("global * sx_A", OP_GLOBAL_QT * SX_A_QT, 0.0),
-        ("sx_A * global", SX_A_QT * OP_GLOBAL_QT, 0.0),
-        (
-            "global * global",
             OP_GLOBAL * OP_GLOBAL,
-            (0.25 + 4 * 0.25**2) * (2**CHAIN_SIZE),
-        ),
-        (
-            "global_QT * global_QT",
-            OP_GLOBAL_QT * OP_GLOBAL_QT,
-            (0.25 + 4 * 0.25**2) * (2**CHAIN_SIZE),
+            (0.25 + 4 * 0.25**2) * (2 ** (CHAIN_SIZE)),
+            OP_GLOBAL_QT_NATIVE * OP_GLOBAL_QT_NATIVE,
         ),
         (
             "global * global_qt",
             OP_GLOBAL * OP_GLOBAL_QT,
             (0.25 + 4 * 0.25**2) * (2**CHAIN_SIZE),
+            OP_GLOBAL_QT_NATIVE * OP_GLOBAL_QT_NATIVE,
         ),
         (
-            ">> global_qt * global",
+            "global_qt * global",
             OP_GLOBAL_QT * OP_GLOBAL,
             (0.25 + 4 * 0.25**2) * (2**CHAIN_SIZE),
+            OP_GLOBAL_QT_NATIVE * OP_GLOBAL_QT_NATIVE,
         ),
     ],
 )
-def test_qutip_operators(case: str, op_case: Operator, expected_value: complex):
+def test_qutip_operators(
+    case: str, op_case: Operator, expected_value: complex, op_native: Qobj
+):
     """Test for the qutip representation"""
+    print("testing case", case, expected_value, "=?=", op_native.tr())
+    site_map = {site_name: i for i, site_name in enumerate(op_case.system.sites)}
+    failed_tr = {}
+    failed_pt = {}
     for subsystem in SUBSYSTEMS:
         ptoperator = (op_case).partial_trace(subsystem)
-        assert ptoperator.tr() == expected_value
+        site_indices = [site_map[site_name] for site_name in subsystem]
+        native_pt = op_native.ptrace(site_indices)
+        if not check_operator_equality(ptoperator.to_qutip(), native_pt):
+            print("\n######  Ptrace failed for", (subsystem), "states are different:")
+            failed_pt[subsystem] = (
+                f"PT Operator:\n{ptoperator}\n\nToQutip:\n  {ptoperator.to_qutip()}\n\n native result:\n {native_pt}"
+            )
+            print(failed_pt[subsystem])
+
+        if ptoperator.tr() != expected_value:
+            print(
+                "\n######  Ptrace failed for ",
+                (subsystem),
+                f"{ptoperator.tr()} != {expected_value}",
+            )
+            failed_tr[subsystem] = (
+                f"value:{ptoperator.tr()}\n expected: {expected_value}\n\n Operator:\n {op_case}\n\n PTOperator:\n {ptoperator}"
+            )
+            print(failed_tr[subsystem])
+    assert len(failed_pt) == 0, f"partial traces does not match for {failed_pt}"
+    assert len(failed_tr) == 0, f"traces does not match for {failed_tr}"
 
 
-def test_as_sum_of_products():
+@pytest.mark.parametrize(["name", "operator_case"], list(OPERATOR_TYPE_CASES.items()))
+def test_as_sum_of_products(name, operator_case):
     """
     Convert qutip operators into product
     operators back and forward
     """
     print("testing QutipOperator.as_sum_of_products")
-    for name, operator_case in OPERATOR_TYPE_CASES.items():
-        print("   operator", name, "of type", type(operator_case))
-        qutip_op = 3 * (operator_case.to_qutip_operator())
-        # TODO: support handling hermitician operators
-        if not qutip_op.isherm:
-            continue
-        reconstructed = qutip_op.as_sum_of_products()
-        qutip_op2 = reconstructed.to_qutip_operator()
-        assert qutip_op.system == qutip_op2.system
-        print(operator_case)
-        print(qutip_op.to_qutip())
-        print(qutip_op2.to_qutip())
-        assert qutip_op.to_qutip() == qutip_op2.to_qutip()
+    print("   operator", name, "of type", type(operator_case))
+    qutip_op = 3 * (operator_case.to_qutip_operator())
+
+    # TODO: support handling hermitician operators
+    if not qutip_op.isherm:
+        return
+    reconstructed = qutip_op.as_sum_of_products()
+    qutip_op2 = reconstructed.to_qutip_operator()
+    assert qutip_op.system == qutip_op2.system
+    print("operator case: \n", 3 * operator_case.to_qutip())
+    print("Qutip form:\n", qutip_op.to_qutip())
+    print("reconstructed:\n", reconstructed.to_qutip())
+    print("qutip form reconstructed:\n", qutip_op2.to_qutip())
+    assert qutip_op.to_qutip() == qutip_op2.to_qutip()
 
 
 def test_detached_operators():
@@ -310,6 +401,30 @@ def test_detached_operators():
     )
 
 
+@pytest.mark.parametrize(["name", "spec"], list(QUTIP_TEST_CASES.items()))
+def test_norm(name, spec):
+    print("testing norm on", name)
+    operator = spec["operator"]
+    svlist = np.array(
+        [x**0.5 for x in (operator.dag() * operator).eigenenergies() if x > 0]
+    )
+    frobenius_norm = (operator.dag() * operator).tr() ** 0.5
+    nuclear_norm = sum(svlist)
+    spectral_norm = max(svlist) if len(svlist) else 0.0
+    value = norm(operator, ord="fro")
+    assert (
+        abs(value - frobenius_norm) < ALPSQUTIP_TOLERANCE**0.5
+    ), f"Frobenius norm failed for {name}: {value}!=  {frobenius_norm}."
+    value = norm(operator, ord="nuc")
+    assert (
+        abs(value - nuclear_norm) < ALPSQUTIP_TOLERANCE**0.25
+    ), f"Nuclear norm failed for {name}: {value}!={nuclear_norm}."
+    value = norm(operator, ord=2)
+    assert (
+        abs(value - spectral_norm) < ALPSQUTIP_TOLERANCE**0.5
+    ), f"spectral norm failed for {name}:  {value}!={spectral_norm}."
+
+
 def test_to_qutip_operator():
     # special cases
     expected_types_to_qutip = {
@@ -318,6 +433,7 @@ def test_to_qutip_operator():
         "scalar, complex": ScalarOperator,
         "product, zero": ScalarOperator,
         "product, 1": ScalarOperator,
+        "product, 2": ScalarOperator,
     }
     for name, op_case in OPERATOR_TYPE_CASES.items():
         expected_type = expected_types_to_qutip.get(name, QutipOperator)

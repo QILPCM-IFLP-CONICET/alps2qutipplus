@@ -45,7 +45,7 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
         self.system = k.system.union(system)
 
     def __mul__(self, operand):
-        if isinstance(operand, (int, float, complex)):
+        if isinstance(operand, (int, float, np.float64)) and operand >= 0:
             return GibbsDensityOperator(
                 self.k,
                 self.system,
@@ -58,7 +58,7 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
         return -self.to_qutip_operator()
 
     def __rmul__(self, operand):
-        if isinstance(operand, (int, float, complex)):
+        if isinstance(operand, (int, float, np.float64)) and operand >= 0.0:
             return GibbsDensityOperator(
                 self.k,
                 self.system,
