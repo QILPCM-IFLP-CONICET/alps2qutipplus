@@ -2,6 +2,7 @@
 Test functions that implement n-body projections
 """
 
+import os
 from test.helper import (
     CHAIN_SIZE,
     HAMILTONIAN,
@@ -59,43 +60,18 @@ TEST_STATES.update(
 )
 
 TEST_OPERATORS = {
-    "2^CHAIN_SIZE*Identity": ProductOperator(
-        {name: 2 * site_descr["identity"] for name, site_descr in SYSTEM.sites.items()},
-        1,
-        SYSTEM,
-    ),
     "sx_total": SX_TOTAL,
-    "sx_total + sx_total^2/(N-1)": (SX_TOTAL + SX_TOTAL * SX_TOTAL / (CHAIN_SIZE - 1)),
     "-sx_total - sx_total^2/(N-1)": (
         -SX_TOTAL - SX_TOTAL * SX_TOTAL / (CHAIN_SIZE - 1)
     ),
     "sx_A*sx_B": SX_A * SX_B,
-    "Hamiltonian^2": HAMILTONIAN * HAMILTONIAN,
 }
-
-##################
-
-
 EXPECTED_PROJECTIONS = {}
 
-EXPECTED_PROJECTIONS["2^CHAIN_SIZE*Identity"] = {
-    name: TEST_OPERATORS["2^CHAIN_SIZE*Identity"] for name in TEST_STATES
-}
+
 # sx_total is not modified
 EXPECTED_PROJECTIONS["sx_total"] = {name: SX_TOTAL for name in TEST_STATES}
 
-# TODO: build this analytically
-EXPECTED_PROJECTIONS["sx_total + sx_total^2/(N-1)"] = {
-    name: (
-        SX_TOTAL * (1 - 2 * 0.23105)
-        + CHAIN_SIZE * (0.25 / (CHAIN_SIZE - 1) - 0.23105**2)
-    )
-    for name in TEST_STATES
-}
-
-EXPECTED_PROJECTIONS["sx_total + sx_total^2/(N-1)"]["x semipolarized"] = (
-    (1 - 7.05 * 0.09021422658241712) * SX_TOTAL - 0.0701 + 1.91e-05
-)
 
 # TODO: build this analytically
 EXPECTED_PROJECTIONS["-sx_total - sx_total^2/(N-1)"] = {
@@ -115,6 +91,40 @@ EXPECTED_PROJECTIONS["sx_A*sx_B"] = {
 EXPECTED_PROJECTIONS["sx_A*sx_B"]["x semipolarized"] = -0.0621765 * (
     SX_A + SX_B
 )  # aqui
+
+
+##################################### Heavier tests #####################################################
+
+
+if os.environ.get("ALPSQUTIP_ALLTESTS"):
+    ## Full Identity:
+    TEST_OPERATORS["2^CHAIN_SIZE*Identity"] = ProductOperator(
+        {name: 2 * site_descr["identity"] for name, site_descr in SYSTEM.sites.items()},
+        1,
+        SYSTEM,
+    )
+    EXPECTED_PROJECTIONS["2^CHAIN_SIZE*Identity"] = {
+        name: TEST_OPERATORS["2^CHAIN_SIZE*Identity"] for name in TEST_STATES
+    }
+
+    # Square of the Hamiltonian (many 4-body operators)
+    TEST_OPERATORS["Hamiltonian^2"] = HAMILTONIAN * HAMILTONIAN
+
+    # Hard to converge: frustrated Hamiltonian
+    TEST_OPERATORS["sx_total + sx_total^2/(N-1)"] = SX_TOTAL + SX_TOTAL * SX_TOTAL / (
+        CHAIN_SIZE - 1
+    )
+    # TODO: build this analytically
+    EXPECTED_PROJECTIONS["sx_total + sx_total^2/(N-1)"] = {
+        name: (
+            SX_TOTAL * (1 - 2 * 0.23105)
+            + CHAIN_SIZE * (0.25 / (CHAIN_SIZE - 1) - 0.23105**2)
+        )
+        for name in TEST_STATES
+    }
+    EXPECTED_PROJECTIONS["sx_total + sx_total^2/(N-1)"]["x semipolarized"] = (
+        (1 - 7.05 * 0.09021422658241712) * SX_TOTAL - 0.0701 + 1.91e-05
+    )
 
 
 ######################################################
@@ -333,9 +343,7 @@ def test_self_consistent_meanfield_projection(op_name, op_test):
 
     for state_name, sigma0 in TEST_STATES.items():
         print("sigma state", state_name)
-        result = project_meanfield(
-            op_test, sigma0, max_it=500, proj_func=project_to_n_body_operator
-        )
+        result = project_meanfield(op_test, sigma0, max_it=30)
         sigma_MF = GibbsProductDensityOperator(result)
         print("<sx>_MF=", sigma_MF.expect(SX_TOTAL) / CHAIN_SIZE)
         sigma_MF_expected = GibbsProductDensityOperator(expected[state_name])

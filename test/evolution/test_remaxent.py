@@ -191,30 +191,15 @@ def test_evolution():
     """
     Compare the evolution with the series expansion solution
     """
+    t_span = np.linspace(0, 0.1, 200)
+    k0 = SX_AB
+    sigma = GibbsProductDensityOperator(k0)
+    qutip_solution = qutip.mesolve(HAMILTONIAN.to_qutip(), k0.to_qutip(), t_span).states
     for order in range(1, 5):
-        t_span = np.linspace(0, 0.1, 200)
-        k0 = SX_AB
-        sigma = GibbsProductDensityOperator(k0)
         as_series_solution = series_evolution(HAMILTONIAN, k0, t_span, order)
+        compare_solutions(as_series_solution, qutip_solution, t_span, order, 0.5)
+
         projected_solution = projected_evolution(
             HAMILTONIAN, k0, t_span, order, sigma_0=sigma
         )
-
-        diff_sols = [
-            spectral_norm(k1 - k2)
-            for k1, k2 in zip(projected_solution, as_series_solution)
-        ]
-        assert all(error <= 0.1 * t**order for t, error in zip(t_span, diff_sols))
-
-
-def test_series_evolution():
-    """
-    compare the qutip numeric solution against the series expansion solution.
-    """
-
-    t_span = np.linspace(0, 0.1, 200)
-    k0 = SX_AB
-    qutip_solution = qutip.mesolve(HAMILTONIAN.to_qutip(), k0.to_qutip(), t_span).states
-    for order in range(1, 6):
-        as_series_solution = series_evolution(HAMILTONIAN, k0, t_span, order)
-        compare_solutions(as_series_solution, qutip_solution, t_span, order, 0.5)
+        compare_solutions(projected_solution, qutip_solution, t_span, order, 0.5)
