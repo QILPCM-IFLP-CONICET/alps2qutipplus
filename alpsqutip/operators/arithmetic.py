@@ -369,7 +369,6 @@ class OneBodyOperator(SumOperator):
         if self._simplified:
             return self
         terms, system = self._simplify_terms(self.terms, self.system)
-        print("OneBodyOperator simplifyterms", terms)
         num_terms = len(terms)
         if num_terms == 0:
             return ScalarOperator(0, system)

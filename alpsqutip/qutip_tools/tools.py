@@ -131,7 +131,6 @@ else:
                             value,
                         )
                 else:
-                    print([(i, val) for i, val in enumerate(diag_data)])
                     for indx, value in enumerate(diag_data[offset:]):
                         i_pos = indx
                         j_pos = i_pos + offset

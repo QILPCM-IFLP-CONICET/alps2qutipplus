@@ -130,7 +130,6 @@ class Operator:
         if func:
             return func(term, self)
         try:
-            print("trying with radd", type(term))
             return term.__radd__(self)
         except TypeError:
             raise TypeError(f"{type(self)} cannot be added with  {type(term)}")
