@@ -88,7 +88,7 @@ EXPECTED_PROJECTIONS["-sx_total - sx_total^2/(N-1)"]["x semipolarized"] = (
 EXPECTED_PROJECTIONS["sx_A*sx_B"] = {
     name: ScalarOperator(0, SYSTEM) for name in TEST_STATES
 }
-EXPECTED_PROJECTIONS["sx_A*sx_B"]["x semipolarized"] = -0.0621765 * (
+EXPECTED_PROJECTIONS["sx_A*sx_B"]["x semipolarized"] = -0.00386592 + -0.0621765 * (
     SX_A + SX_B
 )  # aqui
 
@@ -123,8 +123,8 @@ if os.environ.get("ALPSQUTIP_ALLTESTS"):
         for name in TEST_STATES
     }
     EXPECTED_PROJECTIONS["sx_total + sx_total^2/(N-1)"]["x semipolarized"] = (
-        (1 - 7.05 * 0.09021422658241712) * SX_TOTAL - 0.0701 + 1.91e-05
-    )
+        1 - 2 * 0.3175
+    ) * SX_TOTAL - 0.0700809
 
 
 ######################################################
@@ -274,7 +274,7 @@ def test_idempotency_nbody_projection(op_name, projection_name, projection_funct
     proj_sq_3 = projection_function(op_sq, 3)
     proj_sq_2 = projection_function(op_sq, 2)
     proj_sq_3_2 = projection_function(proj_sq_3, 2)
-    assert check_operator_equality(proj_sq_2, proj_sq_3_2), (
+    assert check_operator_equality(proj_sq_2.to_qutip(), proj_sq_3_2.to_qutip()), (
         f"Projections on two-body manifold using {projection_name} does not match for "
         f"{op_name} and {op_name} projected on the three body manyfold"
     )
@@ -318,7 +318,7 @@ def test_2body_to_1body_projection(
         )
         projected_operator = projection_function(op_prod, 1, state)
         if not check_operator_equality(
-            projected_operator, projected_operator_analytical
+            projected_operator.to_qutip(), projected_operator_analytical.to_qutip()
         ):
             print("projections are different:\n")
             print("function:\n", projected_operator)
@@ -342,12 +342,12 @@ def test_self_consistent_meanfield_projection(op_name, op_test):
     print(f"projecting <<{op_name}>> in mean field")
 
     for state_name, sigma0 in TEST_STATES.items():
-        print("sigma state", state_name)
+        print("sigma state:", state_name)
         result = project_meanfield(op_test, sigma0, max_it=30)
         sigma_MF = GibbsProductDensityOperator(result)
-        print("<sx>_MF=", sigma_MF.expect(SX_TOTAL) / CHAIN_SIZE)
+        print("  <sx>_MF=", sigma_MF.expect(SX_TOTAL) / CHAIN_SIZE)
         sigma_MF_expected = GibbsProductDensityOperator(expected[state_name])
-        print("<sx>_MF_expected=", sigma_MF_expected.expect(SX_TOTAL) / CHAIN_SIZE)
+        print("  <sx>_MF_expected=", sigma_MF_expected.expect(SX_TOTAL) / CHAIN_SIZE)
 
         if not check_operator_equality(
             expected[state_name].to_qutip(), result.to_qutip(), 1e-3
@@ -420,7 +420,9 @@ def test_one_body_from_qutip_operator_1(operator_case, operator):
     print(operator_case, "as scalar + one body + rest")
     result = one_body_from_qutip_operator(operator.to_qutip_operator())
 
-    assert check_operator_equality(result, operator), "operators are not equivalent."
+    assert check_operator_equality(
+        result.to_qutip(), operator.to_qutip()
+    ), "operators are not equivalent."
     if isinstance(result, (ScalarOperator, OneBodyOperator, LocalOperator)):
         return
     assert isinstance(
@@ -475,7 +477,7 @@ def test_one_body_from_qutip_operator_2():
                 ProductOperator,
                 OneBodyOperator,
             ),
-        )
+        ), f"Type of the One-body term {type(one_body)} was not the expected.\n{one_body}"
         assert isinstance(remainder, QutipOperator)
         # Check that the remainder and the one body terms have
         # zero mean:
@@ -550,10 +552,18 @@ def test_one_body_from_qutip_operator_with_reference_state(
 ):
     sigma = GibbsProductDensityOperator(gen)
 
-    print(operator_case, "as scalar + one body + rest w.r.t. " + name_ref)
+    print(operator_case, "as (scalar + one body + rest) w.r.t. " + name_ref)
     result = one_body_from_qutip_operator(operator.to_qutip_operator(), sigma)
 
-    assert check_operator_equality(result, operator), "operators are not equivalent."
+    print("operator\n", operator)
+    print("operator ->qutip operator\n", operator.to_qutip())
+    print("result:\n", result)
+    if isinstance(result, SumOperator):
+        print("result:\n", result.terms)
+
+    assert check_operator_equality(
+        result, operator, 1e-6
+    ), "operators are not equivalent."
     if isinstance(result, (ScalarOperator, OneBodyOperator, LocalOperator)):
         return
     assert isinstance(

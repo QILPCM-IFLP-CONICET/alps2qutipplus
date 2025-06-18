@@ -210,7 +210,7 @@ def _(x_op: LocalOperator, y_op: LocalOperator):
     )
 )
 def _(x_op: ProductOperator, y_op: ProductOperator):
-    system = x_op.system * y_op.system if x_op.system else y_op.system
+    system = x_op.system.union(y_op.system)
     site_op = x_op.sites_op.copy()
     site_op_y = y_op.sites_op
     for site, op_local in site_op_y.items():
@@ -522,7 +522,7 @@ def _(x_op: SumOperator, y_op: Operator):
     )
 )
 def _(x_op: SumOperator, y_op: SumOperator):
-    system = x_op.system or y_op.system
+    system = x_op.system.union(y_op.system)
     terms = x_op.terms + y_op.terms
     isherm = x_op._isherm and y_op._isherm
     if len(terms) == 0:
@@ -538,7 +538,8 @@ def _(x_op: SumOperator, y_op: SumOperator):
     )
 )
 def _(x_op: SumOperator, y_op: SumOperator):
-    system = x_op.system * y_op.system if x_op.system else y_op.system
+    system = x_op.system.union(y_op.system)
+
     terms = tuple(
         factor_x * factor_y for factor_x in x_op.terms for factor_y in y_op.terms
     )

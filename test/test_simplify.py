@@ -58,12 +58,18 @@ def test_simplify(key, operator):
 
     print("* check", key)
     simplify1 = operator.simplify()
-    if not (check_operator_equality(operator, simplify1)):
-        print("    1. simplify changed the value of the operator")
-        return
-
+    assert check_operator_equality(operator, simplify1), (
+        "Simplify changed the value of the operator."
+        f"{type(operator)}\n{operator.to_qutip()}->\n"
+        f"{type(simplify1)}\n{simplify1.to_qutip()}\n."
+        f"\nDelta: \n{(simplify1-operator).to_qutip()}\n."
+    )
     try:
-        cases_dict = {"square": operator * operator, "sum": operator + operator}
+        cases_dict = {
+            "square": operator * operator,
+            "sum": operator + operator,
+            "double": 2 * operator,
+        }
     except ValueError:
         return
 
@@ -73,7 +79,13 @@ def test_simplify(key, operator):
         print("    checking with ", arith_op, " which produced", type(op_test))
         type_operand = type(op_test)
         simplify1 = op_test.simplify()
+        assert check_operator_equality(op_test, simplify1, 1e-6), (
+            f"{arith_op} changed after .simplify():\n"
+            f"{type(op_test)}\n{op_test.to_qutip()}->\n"
+            f"{type(simplify1)}\n{simplify1.to_qutip()}\n."
+        )
         simplify2 = simplify1.simplify()
+        print("simplify() is", simplify1.simplify.__code__)
         assert simplify1 is simplify2, "the result of simplify must be a fixed point."
 
         print("        checking properties")

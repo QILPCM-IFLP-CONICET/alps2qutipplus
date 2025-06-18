@@ -6,6 +6,7 @@ implemented though the class MixtureDensityOperator.
 
 """
 
+import logging
 from numbers import Number
 from typing import Iterable, Optional, Tuple, Union
 
@@ -45,7 +46,12 @@ class MixtureDensityOperator(DensityOperatorMixin, SumOperator):
             terms = terms + (ProductDensityOperator({}, rho, system, False),)
         else:
             # return super().__add__(rho)
-            return SumOperator(terms, system) + rho
+            return (
+                SumOperator(
+                    tuple((-(-term) * term.prefactor for term in terms)), system
+                )
+                + rho
+            )
         return MixtureDensityOperator(terms, system)
 
     def __mul__(self, a):
@@ -72,8 +78,13 @@ class MixtureDensityOperator(DensityOperatorMixin, SumOperator):
                 self.system,
             )
         return SumOperator(
-            tuple((term * a) * term.prefactor for term in self.terms), self.system
+            tuple((-term * a) * (-term.prefactor) for term in self.terms), self.system
         )
+
+    def __neg__(self):
+        logging.warning("Negate a DensityOperator leads to a regular operator.")
+        new_terms = tuple(((-t) * (t.prefactor) for t in self.terms))
+        return SumOperator(new_terms, self.system, isherm=True)
 
     def __radd__(self, rho: Operator):
         terms = self.terms
@@ -107,7 +118,7 @@ class MixtureDensityOperator(DensityOperatorMixin, SumOperator):
                 self.system,
             )
         return SumOperator(
-            tuple(a * term * term.prefactor for term in self.terms), self.system
+            tuple((-a * term) * (-term.prefactor) for term in self.terms), self.system
         )
 
     def acts_over(self) -> set:
@@ -141,6 +152,10 @@ class MixtureDensityOperator(DensityOperatorMixin, SumOperator):
         new_terms = tuple(t.partial_trace(sites) for t in self.terms)
         subsystem = new_terms[0].system
         return MixtureDensityOperator(new_terms, subsystem)
+
+    def simplify(self):
+        # DensityOperator's are considered "simplified".
+        return self
 
     def to_qutip(self, block: Optional[Tuple[str]] = None):
         """Produce a qutip compatible object"""
