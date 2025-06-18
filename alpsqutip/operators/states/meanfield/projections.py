@@ -5,7 +5,7 @@ Module that implements a meanfield approximation of a Gibbsian state
 import logging
 from functools import reduce
 from itertools import combinations
-from typing import Optional, Tuple, Union
+from typing import Optional, Union
 
 import qutip
 from qutip import Qobj
@@ -24,7 +24,6 @@ from alpsqutip.operators.states.basic import (
     ProductDensityOperator,
 )
 from alpsqutip.qutip_tools.tools import schmidt_dec_firsts_last_qutip_operator
-from alpsqutip.settings import ALPSQUTIP_TOLERANCE
 
 
 def one_body_from_qutip_operator(
@@ -33,7 +32,7 @@ def one_body_from_qutip_operator(
     """
     Decompose a qutip operator as a sum of an scalar term,
     a one-body term and a remainder, with
-    the one-body term and the reamainder having zero mean
+    the one-body term and the remainder having zero mean
     regarding sigma0.
 
     Parameters
@@ -51,96 +50,50 @@ def one_body_from_qutip_operator(
        w.r.t `sigma0`), a LocalOperator and a QutipOperator.
 
     """
-
     if isinstance(operator, (ScalarOperator, OneBodyOperator, LocalOperator)):
         return operator
 
-    # Determine the system and ensure that operator is a QutipOperator.
-
-    system = sigma0.system if sigma0 is not None else None
     if isinstance(operator, Qobj):
-        operator = QutipOperator(operator, system=system)
-
-    if system is None:
+        if sigma0 is None:
+            operator = QutipOperator(operator)
+            system = operator.system
+        else:
+            system = sigma0.system
+            operator = QutipOperator(operator, system=system)
+    else:
         system = operator.system
 
     if sigma0 is None:
         sigma0 = ProductDensityOperator({}, system=system)
 
-    site_names = operator.site_names
-    subsystem = system.subsystem(frozenset(site_names))
+    av = sigma0.expect(operator)
+    scalar_term = ScalarOperator(av, system)
+    one_body_term = project_operator_to_m_body(operator - av, 1, sigma0).simplify()
 
-    # Reduce the problem to the subsystem where operator acts:
-    sigma0 = sigma0.partial_trace(subsystem)
-    operator = QutipOperator(
-        operator.to_qutip(tuple()), names=site_names, system=subsystem
-    )
-
-    # Scalar term
-    scalar_term_value = sigma0.expect(operator)
-    scalar_term = ScalarOperator(scalar_term_value, system)
-    if scalar_term_value != 0:
-        operator = operator - scalar_term_value
-
-    # One-body terms
-    local_states = {
-        name: sigma0.partial_trace(frozenset((name,))).to_qutip() for name in site_names
-    }
-
-    local_terms = []
-    for name in local_states:
-        # Build a product operator Sigma_compl
-        # s.t. Tr_{i}Sigma_i =Tr_i sigma0
-        #      Tr{/i} Sigma_i = Id
-        # Then, for any local operators q_i, q_j s.t.
-        # Tr[q_i sigma0]= Tr[q_j sigma0]=0,
-        # Tr_{/i}[q_i  Sigma_compl] = q_i
-        # Tr_{/i}[q_j  Sigma_compl] = 0
-        # Tr_{/i}[q_i q_j Sigma_compl] = 0
-        block: Tuple[str] = (name,)
-        sigma_compl_factors = {
-            name_loc: s_loc
-            for name_loc, s_loc in local_states.items()
-            if name != name_loc
-        }
-        sigma_compl = ProductOperator(
-            sigma_compl_factors,
-            system=system,
+    # If the one_body_term is a SumOperator, but not a OneBodyOperator, reduce it.
+    if isinstance(one_body_term, SumOperator) and not isinstance(
+        one_body_term, OneBodyOperator
+    ):
+        one_body_term = one_body_term.flat()
+        local_terms = []
+        for term in one_body_term.terms:
+            if isinstance(term, LocalOperator):
+                local_terms.append(term)
+            elif isinstance(term, ScalarOperator):
+                local_terms.append(term)
+            elif isinstance(term, OneBodyOperator):
+                local_terms.extend(term.terms)
+            else:
+                raise TypeError(
+                    f"Got an unexpected type {type(term)} for a OneBodyOperator term."
+                )
+        one_body_term = OneBodyOperator(
+            tuple(local_terms), system, one_body_term.isherm
         )
-        local_term = (sigma_compl * operator).partial_trace(frozenset(block))
-        # Split the zero-average part from the average
 
-        if isinstance(local_term, ScalarOperator):
-            assert (
-                abs(local_term.prefactor) < ALPSQUTIP_TOLERANCE
-            ), f"{abs(local_term.prefactor)} should be 0."
-        else:
-            local_term_qutip = local_term.to_qutip(block)
-            local_average = (local_term_qutip * local_states[name]).tr()
-            assert (
-                abs(local_average) < ALPSQUTIP_TOLERANCE
-            ), f"{abs(local_average)} should be 0."
-            local_terms.append(LocalOperator(name, local_term_qutip, system))
-
-    one_body_term = OneBodyOperator(tuple(local_terms), system=system)
-    # Comunte the remainder of the opertator
-    remaining_qutip = operator.to_qutip(tuple(site_names)) - one_body_term.to_qutip(
-        tuple(site_names)
-    )
-    remaining = QutipOperator(
-        remaining_qutip,
-        system=system,
-        names={name: pos for pos, name in enumerate(site_names)},
-    )
+    remainder = (operator - one_body_term - scalar_term).simplify().to_qutip_operator()
     return SumOperator(
-        tuple(
-            (
-                scalar_term,
-                one_body_term,
-                remaining,
-            )
-        ),
-        system,
+        (scalar_term, one_body_term, remainder), operator.system, operator.isherm
     )
 
 

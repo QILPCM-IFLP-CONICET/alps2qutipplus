@@ -55,7 +55,7 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
         return self.to_qutip_operator() * operand
 
     def __neg__(self):
-        return -self.to_qutip_operator()
+        return -(self.to_qutip_operator())
 
     def __rmul__(self, operand):
         if isinstance(operand, (int, float, np.float64)) and operand >= 0.0:
@@ -221,7 +221,7 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
         return self.to_product_state() * operand
 
     def __neg__(self):
-        return -self.to_product_state()
+        return -(self.to_product_state())
 
     def __rmul__(self, operand):
         if isinstance(operand, (int, float)):

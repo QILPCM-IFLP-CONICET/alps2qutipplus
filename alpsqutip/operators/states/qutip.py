@@ -29,11 +29,9 @@ class QutipDensityOperator(DensityOperatorMixin, QutipOperator):
         prefactor=1,
         normalized=False,
     ):
-        if not normalized:
-            tr_op = qoperator.tr()
-            if tr_op != 1:
-                qoperator = qoperator / tr_op
+        self._normalized = normalized
         super().__init__(qoperator, system, names, prefactor)
+        self.normalize()
 
     def __add__(self, operand) -> Operator:
         if isinstance(operand, (int, float, np.float64)):
@@ -114,6 +112,11 @@ class QutipDensityOperator(DensityOperatorMixin, QutipOperator):
             rho_qo * op_qo, names={s: i for i, s in enumerate(block)}, system=system
         )
 
+    def __neg__(self):
+        logging.warning("Negate a DensityOperator leads to a regular operator.")
+        self.normalize()
+        return QutipOperator(self.operator, self.system, self.site_names, -1)
+
     def __radd__(self, operand) -> Operator:
         if isinstance(operand, (int, float, np.float64)):
             if operand >= 0:
@@ -193,6 +196,7 @@ class QutipDensityOperator(DensityOperatorMixin, QutipOperator):
         )
 
     def logm(self):
+        self.normalize()
         operator = self.operator
         evals, evecs = operator.eigenstates()
         evals[abs(evals) < 1.0e-30] = 1.0e-30
@@ -201,7 +205,19 @@ class QutipDensityOperator(DensityOperatorMixin, QutipOperator):
         )
         return QutipOperator(log_op, self.system, self.site_names)
 
+    def normalize(self):
+        if self._normalized:
+            return self
+        qoperator = self.operator
+        tr_op = qoperator.tr()
+        if tr_op != 1:
+            qoperator = qoperator / tr_op
+        self.operator = qoperator
+        self._normalized = True
+        return self
+
     def partial_trace(self, sites: Union[frozenset, SystemDescriptor]):
+        self.normalize()
         self_pt = super().partial_trace(sites)
         if isinstance(self_pt, ScalarOperator):
             return self_pt
@@ -214,8 +230,6 @@ class QutipDensityOperator(DensityOperatorMixin, QutipOperator):
         )
 
     def to_qutip(self, block: Optional[Tuple[str]] = None):
+        self.normalize()
         qutip_op = super().to_qutip(block)
-        tr_op = qutip_op.tr()
-        if tr_op != 1:
-            qutip_op = qutip_op / tr_op
         return qutip_op

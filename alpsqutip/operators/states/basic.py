@@ -93,7 +93,11 @@ class DensityOperatorMixin:
                 tuple((self, operand)), self.system.union(operand.system)
             )
 
-        return self.to_qutip_operator() + operand
+        return operand - (-self)
+
+    def __neg__(self):
+        logging.warning("Negate a DensityOperator leads to a regular operator.")
+        return -self.to_qutip_operator()
 
     def __radd__(self, operand):
         from alpsqutip.operators.states.arithmetic import MixtureDensityOperator
@@ -112,8 +116,10 @@ class DensityOperatorMixin:
             return MixtureDensityOperator(
                 tuple((operand, self)), self.system.union(operand.system)
             )
+        return operand - (-self)
 
-        return self.to_qutip_operator() + operand
+    def dag(self) -> Operator:
+        return self
 
     def eigenstates(self) -> list:
         if isinstance(self, Operator):
@@ -180,6 +186,10 @@ class DensityOperatorMixin:
     @property
     def isherm(self):
         return True
+
+    def simplify(self):
+        # DensityOperator's are considered "simplified".
+        return self
 
     def to_qutip_operator(self):
         from alpsqutip.operators.states import QutipDensityOperator
@@ -252,6 +262,10 @@ class ProductDensityOperator(DensityOperatorMixin, ProductOperator):
             )
             return ProductOperator(self.sites_op, 1, self.system) * a
         return ProductOperator(self.sites_op, 1, self.system) * a
+
+    def __neg__(self):
+        logging.warning("Negate a DensityOperator leads to a regular operator.")
+        return ProductOperator(self.sites_op, -1, self.system)
 
     def __rmul__(self, a):
         if isinstance(a, (float, np.float64)):

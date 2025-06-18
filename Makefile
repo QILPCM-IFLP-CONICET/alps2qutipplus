@@ -43,3 +43,6 @@ install:
 pytest:
 	ALPSQUTIP_ALLTESTS=1 $(PYTHON) -m pytest $(PYTEST_OPTIONS) $(PYTEST_WORKERS) test
 
+codespell:
+	codespell -L parms,fro,coo,indx,ket test
+	codespell -L parms,fro,coo,indx,ket alpsqutip
