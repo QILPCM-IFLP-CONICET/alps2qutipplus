@@ -205,8 +205,6 @@ def test_evolution():
             for k1, k2 in zip(projected_solution, as_series_solution)
         ]
         assert all(error <= 0.1 * t**order for t, error in zip(t_span, diff_sols))
-    # alas blancas
-    # tierra de nomades
 
 
 def test_series_evolution():
