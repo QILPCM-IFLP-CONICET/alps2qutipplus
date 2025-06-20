@@ -103,7 +103,7 @@ def operator_components(op, orthogonal_basis, sp: Callable):
     return np.array([sp(op2, op) for op2 in orthogonal_basis])
 
 
-def orthogonalize_basis(basis, sp: callable, tol=1e-5):
+def orthogonalize_basis(basis, sp: Callable, tol: float = 1.0e-5):
     """
     Orthogonalize a given basis of operators using the default method.
 
@@ -125,7 +125,7 @@ def orthogonalize_basis(basis, sp: callable, tol=1e-5):
     return orthogonalize_basis_gs(basis, sp, tol)
 
 
-def orthogonalize_basis_gs(basis, sp: callable, tol=1e-5):
+def orthogonalize_basis_gs(basis, sp: Callable, tol: float = 1.0e-5):
     """
     Orthogonalizes a given basis of operators using a scalar product and the
     Gram-Schmidt method.
@@ -145,7 +145,7 @@ def orthogonalize_basis_gs(basis, sp: callable, tol=1e-5):
         AssertionError: If the orthogonalized basis does not satisfy
         orthonormality within the specified tolerance.
     """
-    orth_basis = []
+    orth_basis: list = []
     for op_orig in basis:
         norm: float = abs(sp(op_orig, op_orig)) ** 0.5
         if norm < tol:
@@ -166,7 +166,7 @@ def orthogonalize_basis_gs(basis, sp: callable, tol=1e-5):
     return orth_basis
 
 
-def orthogonalize_basis_cholesky(basis, sp: callable, tol=1e-5):
+def orthogonalize_basis_cholesky(basis, sp: Callable, tol: float = 1.0e-5):
     """
     Orthogonalizes a given basis of operators using a scalar product and the
     Cholesky decomposition
@@ -190,7 +190,8 @@ def orthogonalize_basis_cholesky(basis, sp: callable, tol=1e-5):
     local_basis = basis
 
     # Compute the inverse Gram matrix for the given basis
-    cholesky_gram_matrix = cholesky(gram_matrix(basis=local_basis, sp=sp), lower=False)
+    gram = gram_matrix(basis=local_basis, sp=sp)
+    cholesky_gram_matrix = cholesky(gram, lower=False)
     linv_t = inv(cholesky_gram_matrix).transpose()
 
     # Construct the orthogonalized basis by linear combinations of
@@ -209,7 +210,7 @@ def orthogonalize_basis_cholesky(basis, sp: callable, tol=1e-5):
     return orth_basis
 
 
-def orthogonalize_basis_svd(basis, sp: callable, tol=1e-5):
+def orthogonalize_basis_svd(basis, sp: Callable, tol: float = 1.0e-5):
     """
     Orthogonalizes a given basis of operators using a scalar product and the
     svd decomposition method.

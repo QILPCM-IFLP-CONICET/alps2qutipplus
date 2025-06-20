@@ -7,6 +7,7 @@ from typing import Callable, Optional, Tuple
 
 import numpy as np
 from numpy.linalg import LinAlgError, cholesky, inv, qr
+from numpy.typing import NDArray
 from scipy.linalg import expm as linalg_expm
 
 from alpsqutip.operators import Operator, ScalarOperator
@@ -15,7 +16,7 @@ from alpsqutip.scalarprod.build import fetch_HS_scalar_product
 from alpsqutip.scalarprod.gram import gram_matrix
 
 
-def find_linearly_independent_rows(mat: np.ndarray, tol: float = 1e-12) -> Tuple[int]:
+def find_linearly_independent_rows(mat: NDArray, tol: float = 1e-12) -> Tuple[int]:
     """
     Find indices of a maximal subset of linearly independent columns of the matrix.
     """
@@ -38,11 +39,11 @@ class OperatorBasis:
     more operators.
     """
 
-    operator_basis: Tuple[Operator]
+    operator_basis: Tuple[Operator, ...]
     sp: Callable
     generator: Optional[Operator]
-    gram: np.ndarray
-    gram_inv: np.ndarray
+    gram: NDArray
+    gram_inv: NDArray
     errors: np.ndarray
     gen: np.ndarray
 
@@ -76,7 +77,7 @@ class OperatorBasis:
         elif isinstance(other_basis, Operator):
             other_basis = (other_basis,)
 
-        return OperatorBasis(self.operators + other_basis, self.generator, self.sp)
+        return OperatorBasis(self.operator_basis + other_basis, self.generator, self.sp)
 
     def build_tensors(
         self, generator: Optional[Operator] = None, sp: Optional[Callable] = None
@@ -163,7 +164,7 @@ class OperatorBasis:
         """
         return self.operator_from_coefficients(self.coefficient_expansion(operator))
 
-    def evolve(self, t: float, a_0: np.array) -> Tuple[np.ndarray, np.ndarray]:
+    def evolve(self, t: float, a_0: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
         Compute the coefficients for the expansion of the operator
         operator(t) = sum a_i(t) b_i
@@ -176,7 +177,7 @@ class OperatorBasis:
         # |\Delta K| = |\int_0^t \sum_a \Pi_{\perp}[H,Q_a] phi_a(\tau)d \tau  |
         #            <= \sum_a |\Pi_{\perp}[H,Q_a]| |phi_a(t)| t
         #
-        return a_t, t * self.errors @ abs(a_t)
+        return a_t, t * self.errors @ np.abs(a_t)
 
 
 class HierarchicalOperatorBasis(OperatorBasis):
@@ -215,15 +216,14 @@ class HierarchicalOperatorBasis(OperatorBasis):
         return OperatorBasis(self.operator_basis, self.generator, self.sp) + other
 
     def _build_basis(self, seed, deep, projection_function=None):
-        print("deep", deep)
         elements = [seed]
         sp = self.sp
         generator = self.generator
         errors = np.zeros((deep,))
         for i in range(deep):
             new_elem = commutator(elements[-1], generator)
-            comm_norm = abs(sp(new_elem, new_elem))
-            if abs(comm_norm) < 1e-16:
+            comm_norm = np.abs(sp(new_elem, new_elem))
+            if np.abs(comm_norm) < 1e-16:
                 logging.warning(
                     f"A commutator got (almost) zero norm. deep->{len(elements)}"
                 )
@@ -237,7 +237,6 @@ class HierarchicalOperatorBasis(OperatorBasis):
 
         self.operator_basis = elements[:deep]
         gram = gram_matrix(elements, sp)
-        print("gram extended\n", gram)
         self._hij = gram[:deep, 1:]
         self.gram = gram[:deep, :deep]
         self.errors = errors
@@ -268,11 +267,8 @@ class HierarchicalOperatorBasis(OperatorBasis):
 
         l_inv = inv(l_gram)
         self.gram_inv = l_inv.T @ l_inv
-        print("l_inv\n:", l_inv)
-        print("hij\n:", hij)
 
         for j, row in enumerate(hij):
-            print(f"row {j}:", row)
             proj_coeffs = l_inv @ row
             norm_par = proj_coeffs @ proj_coeffs
             errors[j] = (max(errors[j] - norm_par, 0)) ** 0.5

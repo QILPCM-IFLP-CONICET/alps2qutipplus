@@ -10,6 +10,7 @@ from numpy import real
 
 from alpsqutip.operators import Operator
 from alpsqutip.operators.functions import anticommutator
+from alpsqutip.operators.states import DensityOperatorMixin
 
 #  ### Functions that build the scalar products ###
 
@@ -72,7 +73,7 @@ def fetch_kubo_int_scalar_product(sigma: Operator) -> Callable:
     return return_func
 
 
-def fetch_covar_scalar_product(sigma: Operator) -> Callable:
+def fetch_covar_scalar_product(sigma: DensityOperatorMixin) -> Callable:
     """
     Returns a scalar product function based on the covariance of a density
     operator.
