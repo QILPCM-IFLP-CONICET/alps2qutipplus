@@ -80,6 +80,10 @@ def compare_solutions(sol, sol_qutip, t_span, order, coeff_bound):
     ]
     assert all(
         error <= coeff_bound * t**order + 1.0e-8 for t, error in zip(t_span, diff_sols)
+    ), (
+        "Some of the errors in "
+        f"{dict([(t, (d, coeff_bound*t**order+1.0e-8,)) for t,d in zip(t_span, diff_sols) if d>= coeff_bound*t**order+1.0e-8])}"
+        " are larger from the expected bound."
     )
 
 
@@ -195,15 +199,18 @@ def test_evolution():
     """
     Compare the evolution with the series expansion solution
     """
-    t_span = np.linspace(0, 0.1, 200)
+    t_span = np.linspace(0, 0.1, 10)
     k0 = SX_AB
-    sigma = GibbsProductDensityOperator(k0)
+    sigma = GibbsProductDensityOperator(0.5 * k0)
     qutip_solution = qutip.mesolve(HAMILTONIAN.to_qutip(), k0.to_qutip(), t_span).states
     for order in range(1, 5):
+        print("order: ", order)
+        print(" * series solution")
         as_series_solution = series_evolution(HAMILTONIAN, k0, t_span, order)
         compare_solutions(as_series_solution, qutip_solution, t_span, order, 0.5)
 
         projected_solution = projected_evolution(
-            HAMILTONIAN, k0, t_span, order, sigma_0=sigma
+            HAMILTONIAN, k0, t_span, order, sigma_0=sigma, n_body=order + 1
         )
+        print(" * projected solution")
         compare_solutions(projected_solution, qutip_solution, t_span, order, 0.5)

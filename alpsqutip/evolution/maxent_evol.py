@@ -6,17 +6,12 @@ from __future__ import annotations
 
 from typing import List
 
-import numpy as np
-from scipy import linalg
-
 from alpsqutip.evolution.hierarchical_basis import (
     build_hierarchical_basis,
-    fn_hij_tensor_with_errors,
-    k_state_from_phi_basis,
 )
 from alpsqutip.operators import Operator
 from alpsqutip.operators.states.meanfield.projections import project_to_n_body_operator
-from alpsqutip.scalarprod import fetch_covar_scalar_product, orthogonalize_basis
+from alpsqutip.scalarprod import OperatorBasis, fetch_covar_scalar_product
 
 # function used to safely and robustly map K-states to states
 
@@ -56,20 +51,17 @@ def projected_evolution(
         A list with the solution at times t_span
 
     """
-    h_basis = build_hierarchical_basis(ham, k0, order)
     sp = fetch_covar_scalar_product(sigma_0)
-    # Project to n_body subspace if required
-    if n_body >= 0:
-        h_basis = [
-            project_to_n_body_operator(op_b, nmax=n_body, sigma=sigma_0)
-            for op_b in h_basis
-        ]
-    h_basis = orthogonalize_basis(h_basis, sp)
-    hij, werrs = fn_hij_tensor_with_errors(h_basis, sp, ham)
-    result = []
-    phi0 = np.array([sp(b_op, k0) for b_op in h_basis])
-    for indx, t in enumerate(t_span):
-        phi = linalg.expm(hij * t) @ phi0
-        k_inst = k_state_from_phi_basis(phi, h_basis)
-        result.append(k_inst)
-    return result
+    basis = build_hierarchical_basis(ham, k0, order)
+
+    basis = OperatorBasis(
+        basis,
+        ham,
+        sp,
+        n_body_projection=lambda op_b: project_to_n_body_operator(
+            op_b, nmax=n_body, sigma=sigma_0
+        ),
+    )
+
+    phi_0 = basis.coefficient_expansion(k0)
+    return [basis.operator_from_coefficients(basis.evolve(t, phi_0)[0]) for t in t_span]

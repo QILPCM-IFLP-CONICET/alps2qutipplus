@@ -125,6 +125,7 @@ def gram_matrix_serial(basis, sp: Callable):
         for j, op2 in enumerate(basis):
             if j < i:
                 continue  # Use symmetry: Gij = Gji.
+
             entry = np.real(sp(op1, op2))
             if i == j:
                 result[i, i] = entry  # Diagonal elements.

@@ -99,8 +99,9 @@ class QutipOperator(Operator):
         )
 
     def __repr__(self) -> str:
-        return f"qutip interface operator for {self.prefactor} x  \n" + repr(
-            self.operator
+        return (
+            f"qutip interface operator over sites {self.site_names} for {self.prefactor} x  \n"
+            + repr(self.operator)
         )
 
     def acts_over(self) -> set:
