@@ -6,9 +6,9 @@ import logging
 from typing import Callable, Optional, Tuple
 
 import numpy as np
-from numpy.linalg import LinAlgError, cholesky, inv, qr
+from numpy.linalg import LinAlgError, cholesky, inv
 from numpy.typing import NDArray
-from scipy.linalg import expm as linalg_expm
+from scipy.linalg import expm as linalg_expm, qr
 
 from alpsqutip.operators import Operator, ScalarOperator
 from alpsqutip.operators.functions import commutator
@@ -16,7 +16,7 @@ from alpsqutip.scalarprod.build import fetch_HS_scalar_product
 from alpsqutip.scalarprod.gram import gram_matrix
 
 
-def find_linearly_independent_rows(mat: NDArray, tol: float = 1e-12) -> Tuple[int]:
+def find_linearly_independent_rows(mat: NDArray, tol: float = 1e-6) -> Tuple[int]:
     """
     Find indices of a maximal subset of linearly independent columns of the matrix.
     """
@@ -110,6 +110,8 @@ class OperatorBasis:
         # G = L . L^\dagger
         try:
             l_gram = cholesky(gram)
+            if any(abs(row[i]) < 1e-6 for i, row in enumerate(l_gram)):
+                raise LinAlgError("too small diagonal elements...")
         except LinAlgError:
             logging.warning(
                 (
@@ -223,7 +225,7 @@ class HierarchicalOperatorBasis(OperatorBasis):
         for i in range(deep):
             new_elem = commutator(elements[-1], generator)
             comm_norm = np.abs(sp(new_elem, new_elem))
-            if np.abs(comm_norm) < 1e-16:
+            if np.abs(comm_norm) < 1e-12:
                 logging.warning(
                     f"A commutator got (almost) zero norm. deep->{len(elements)}"
                 )

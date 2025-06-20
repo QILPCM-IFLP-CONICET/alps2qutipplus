@@ -1,4 +1,4 @@
-from test.helper import HAMILTONIAN, SX_A, SX_TOTAL, check_operator_equality
+from test.helper import HAMILTONIAN, SX_A, SX_TOTAL, SY_TOTAL, check_operator_equality
 
 import numpy as np
 
@@ -39,6 +39,20 @@ def compare_basis(b1, b2):
     assert np.allclose(
         b1.gen_matrix, b2.gen_matrix
     ), f"{b1.gen_matrix} != {b2.gen_matrix}"
+
+
+def test_singular_basis_operator():
+    h = SY_TOTAL
+    basis1 = OperatorBasis(
+        (K0_REFERENCE, HAMILTONIAN_REFERENCE, K0_REFERENCE - HAMILTONIAN_REFERENCE),
+        h,
+        REFERENCE_SP,
+    )
+    basis2 = HierarchicalOperatorBasis(K0_REFERENCE, h, 4, REFERENCE_SP)
+    print("basis1.gram\n", basis1.gram)
+    print("basis1.gram_inv\n", basis1.gram_inv)
+    assert len(basis1.operator_basis) == 2
+    assert len(basis2.operator_basis) == 2
 
 
 def test_basis_operator():
