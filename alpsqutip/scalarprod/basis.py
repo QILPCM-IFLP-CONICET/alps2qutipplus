@@ -1,21 +1,28 @@
+"""
+Basis of Operator metric sub-spaces
+"""
+
+import logging
 from typing import Callable, Optional, Tuple
 
 import numpy as np
 from numpy.linalg import LinAlgError, cholesky, inv, qr
 from scipy.linalg import expm as linalg_expm
 
-from alpsqutip.operators import Operator
+from alpsqutip.operators import Operator, ScalarOperator
 from alpsqutip.operators.functions import commutator
 from alpsqutip.scalarprod.build import fetch_HS_scalar_product
 from alpsqutip.scalarprod.gram import gram_matrix
 
 
-def find_linearly_dependent_sites(mat: np.ndarray) -> Tuple[int]:
+def find_linearly_independent_rows(mat: np.ndarray, tol: float = 1e-12) -> Tuple[int]:
     """
-    Find the subset of rows that are linearly independent.
+    Find indices of a maximal subset of linearly independent columns of the matrix.
     """
-    q_mat, r_mat = qr(mat, mode="complete")
-    return tuple((i for i, row in enumerate(mat) if abs(row[i]) > 1e-12))
+    _, inds = qr(mat, mode="r", pivoting=True)
+    rank = np.linalg.matrix_rank(mat, tol=tol)
+    # The first `rank` indices are linearly independent columns
+    return tuple(sorted(inds[:rank]))
 
 
 class OperatorBasis:
@@ -44,11 +51,11 @@ class OperatorBasis:
         operators: Tuple[Operator],
         generator: Optional[Operator] = None,
         sp: Optional[Callable] = None,
-        n_body_projection: Optional[Callable] = None,
+        n_body_projection: Callable = lambda x: x,
     ):
 
-        if generator.isherm:
-            generator = 1j * generator
+        if generator is not None and generator.isherm:
+            generator = generator * 1j
 
         self.generator = generator
         if sp is None:
@@ -103,7 +110,13 @@ class OperatorBasis:
         try:
             l_gram = cholesky(gram)
         except LinAlgError:
-            ld_indx = find_linearly_dependent_sites(gram)
+            logging.warning(
+                (
+                    "using a non-independent set of operators. "
+                    "Reduce it to a linearly independent set..."
+                )
+            )
+            ld_indx = find_linearly_independent_rows(gram)
             self.operator_basis = tuple((operator_basis[i] for i in ld_indx))
             return self.build_tensors()
 
@@ -164,3 +177,105 @@ class OperatorBasis:
         #            <= \sum_a |\Pi_{\perp}[H,Q_a]| |phi_a(t)| t
         #
         return a_t, t * self.errors @ abs(a_t)
+
+
+class HierarchicalOperatorBasis(OperatorBasis):
+    """
+    A HierarchicalOperatorBasis is a basis where
+    the elements are linear combinations of iterated commutators
+    of a seed element and the generator of the evolutions.
+    """
+
+    comm_norms: np.ndarray
+    deep: int
+
+    def __init__(
+        self,
+        seed: Operator,
+        generator: Operator,
+        deep: int = 1,
+        sp: Optional[Callable] = None,
+        n_body_projection: Callable = lambda x: x,
+    ):
+        if generator.isherm:
+            generator = 1j * generator
+
+        if sp is None:
+            sp = fetch_HS_scalar_product()
+
+        self.sp = sp
+        self.generator = generator
+        self._build_basis(seed, deep, n_body_projection)
+        self.build_tensors()
+
+    def __add__(self, other):
+        logging.warning(
+            "Adding a HierarchicalBasis to another basis requires an explicit conversion."
+        )
+        return OperatorBasis(self.operator_basis, self.generator, self.sp) + other
+
+    def _build_basis(self, seed, deep, projection_function=None):
+        print("deep", deep)
+        elements = [seed]
+        sp = self.sp
+        generator = self.generator
+        errors = np.zeros((deep,))
+        for i in range(deep):
+            new_elem = commutator(elements[-1], generator)
+            comm_norm = abs(sp(new_elem, new_elem))
+            if abs(comm_norm) < 1e-16:
+                logging.warning(
+                    f"A commutator got (almost) zero norm. deep->{len(elements)}"
+                )
+                deep = len(elements)
+                elements.append(ScalarOperator(0, new_elem.system))
+                errors = errors[:deep]
+                break
+            errors[i] = comm_norm
+            new_elem = projection_function(new_elem)
+            elements.append(new_elem)
+
+        self.operator_basis = elements[:deep]
+        gram = gram_matrix(elements, sp)
+        print("gram extended\n", gram)
+        self._hij = gram[:deep, 1:]
+        self.gram = gram[:deep, :deep]
+        self.errors = errors
+
+    def build_tensors(
+        self, generator: Optional[Operator] = None, sp: Optional[Callable] = None
+    ):
+        if generator is not None or sp is not None:
+            logging.warning("A HierarchicalBasis cannot regenerate its elements.")
+
+        gram = self.gram
+        hij = self._hij
+        errors = self.errors
+        try:
+            l_gram = cholesky(gram)
+        except LinAlgError:
+            logging.warning(
+                (
+                    "using a non-independent set of operators. "
+                    "Reduce it to a linearly independent set..."
+                )
+            )
+            # Remove the last element and try again
+            self.operator_basis = self.operator_basis[:-1]
+            self.gram = self.gram[:-1, :-1]
+            self._hij = self._hij[:-1, :-1]
+            return self.build_tensors()
+
+        l_inv = inv(l_gram)
+        self.gram_inv = l_inv.T @ l_inv
+        print("l_inv\n:", l_inv)
+        print("hij\n:", hij)
+
+        for j, row in enumerate(hij):
+            print(f"row {j}:", row)
+            proj_coeffs = l_inv @ row
+            norm_par = proj_coeffs @ proj_coeffs
+            errors[j] = (max(errors[j] - norm_par, 0)) ** 0.5
+
+        self.errors = errors
+        self.gen_matrix = self.gram_inv @ hij

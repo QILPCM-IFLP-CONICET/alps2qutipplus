@@ -6,12 +6,9 @@ from __future__ import annotations
 
 from typing import List
 
-from alpsqutip.evolution.hierarchical_basis import (
-    build_hierarchical_basis,
-)
 from alpsqutip.operators import Operator
 from alpsqutip.operators.states.meanfield.projections import project_to_n_body_operator
-from alpsqutip.scalarprod import OperatorBasis, fetch_covar_scalar_product
+from alpsqutip.scalarprod import HierarchicalOperatorBasis, fetch_covar_scalar_product
 
 # function used to safely and robustly map K-states to states
 
@@ -52,11 +49,11 @@ def projected_evolution(
 
     """
     sp = fetch_covar_scalar_product(sigma_0)
-    basis = build_hierarchical_basis(ham, k0, order)
 
-    basis = OperatorBasis(
-        basis,
+    basis = HierarchicalOperatorBasis(
+        k0,
         ham,
+        order,
         sp,
         n_body_projection=lambda op_b: project_to_n_body_operator(
             op_b, nmax=n_body, sigma=sigma_0

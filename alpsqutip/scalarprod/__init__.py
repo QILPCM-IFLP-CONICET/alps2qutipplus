@@ -3,7 +3,7 @@ Routines to compute scalar products of operators and related functions,
 like orthogonalize sets of operators.
 """
 
-from alpsqutip.scalarprod.basis import OperatorBasis
+from alpsqutip.scalarprod.basis import HierarchicalOperatorBasis, OperatorBasis
 from alpsqutip.scalarprod.build import (
     fetch_covar_scalar_product,
     fetch_HS_scalar_product,
@@ -22,6 +22,7 @@ from alpsqutip.scalarprod.orthogonalize import (
 
 __all__ = [
     "OperatorBasis",
+    "HierarchicalOperatorBasis",
     "build_hermitician_basis",
     "fetch_HS_scalar_product",
     "fetch_covar_scalar_product",

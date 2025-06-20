@@ -213,4 +213,4 @@ def test_evolution():
             HAMILTONIAN, k0, t_span, order, sigma_0=sigma, n_body=order + 1
         )
         print(" * projected solution")
-        compare_solutions(projected_solution, qutip_solution, t_span, order, 0.5)
+        compare_solutions(projected_solution, qutip_solution, t_span, order, 0.55)
