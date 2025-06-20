@@ -74,8 +74,6 @@ def _hij_worker_explicit(args):
 ###
 
 
-
-
 def parallelized_real_time_projection_of_hierarchical_basis(
     generator,
     seed_op,
