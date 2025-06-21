@@ -83,10 +83,13 @@ def test_trace(name, value):
     ):
         return
     value_tr = value.tr()
-    value_qtip_tr = value.to_qutip().tr()
+    value_qutip = value.to_qutip()
+    value_qtip_tr = value_qutip.tr()
     print(name, "of type ", type(value), "->", value.tr(), value_qtip_tr)
     print(" trace match?", value_tr == value_qtip_tr)
-    assert abs(value_tr - value_qtip_tr) < 1.0e-9
+    assert (
+        abs(value_tr - value_qtip_tr) < 1.0e-9
+    ), f"operator {name} of type {type(value)}\n{value}\nand its qutip representation\n{value_qutip}\n have different traces. {value_tr} =!= {value_qtip_tr}."
 
 
 @pytest.mark.parametrize(["key", "observable"], list(OBSERVABLE_CASES.items()))
