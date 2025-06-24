@@ -2,7 +2,9 @@
 """
 Functions to simplify sums of operators
 """
+import logging
 from numbers import Number
+from typing import Callable, Optional
 
 import numpy as np
 from qutip import tensor
@@ -52,7 +54,7 @@ def collect_nbody_terms(operator: Operator) -> dict:
     return terms_by_block
 
 
-def group_terms_by_blocks(operator, fn=None):
+def group_terms_by_blocks(operator, fn:Optional[Callable]=None):
     """
     Rewrite a sum of operators as a sum
     of a ScalarOperator, a OneBodyOperator
@@ -63,35 +65,32 @@ def group_terms_by_blocks(operator, fn=None):
 
     For example
     ```
-    sums_as_blocks(operator, lambda op:op.to_qutip_operator())
+    group_terms_by_blocks(operator, lambda op:op.to_qutip_operator())
     ```
     convert these many-body terms into Qutip operators,
-    which for small blocks could provide a more efficient
+    which, for small blocks, could provide a more efficient
     representation.
 
     """
-    changed = False
-    system = operator.system
-    assert operator is not None
-
     if (
         not isinstance(operator, SumOperator)
         or operator._simplified
         or isinstance(operator, (OneBodyOperator, DensityOperatorMixin))
     ):
         return operator
-
+    
+    changed = False
+    system = operator.system
     operator_flat = operator.flat()
     if operator_flat is not operator:
         changed = True
         operator = operator_flat
 
-    assert operator is not None
     terms_dict = collect_nbody_terms(operator)
     new_terms = []
     one_body_terms = []
-    isherm = operator._isherm
-    isdiag = operator._isdiagonal
+    isherm = getattr(operator, "_isherm", None)
+    isdiag = getattr(operator,"_isdiagonal", None)
 
     for block, terms in terms_dict.items():
         if block is None or len(block) == 0:
@@ -107,7 +106,8 @@ def group_terms_by_blocks(operator, fn=None):
                     if new_term_simpl is not new_term:
                         changed = True
                         new_term = new_term_simpl
-                except Exception:
+                except Exception as e:
+                    logging.warning(e)
                     pass
 
             else:
@@ -123,31 +123,28 @@ def group_terms_by_blocks(operator, fn=None):
             new_terms.append(new_term)
 
     new_terms = [term for term in new_terms if term]
-
+    result = None
     if one_body_terms:
         new_term = OneBodyOperator(tuple(one_body_terms), system)
         changed = True
         if new_term:
-            if len(new_terms) == 0:
-                return new_term
             new_terms.append(new_term)
-        else:
-            if len(new_terms) == 0:
-                return ScalarOperator(0, system)
-            if len(new_terms) == 1:
-                return new_terms[0]
+        result = (
+            new_terms[0] if len(new_terms) == 1 else
+            SumOperator(tuple(new_terms), system=system, isherm=isherm, isdiag=isdiag, simplified=True)
+        )
+            
     else:
-        if len(new_terms) == 0:
+        if not new_terms:
             return ScalarOperator(0, system)
         if len(new_terms) == 1:
             return new_terms[0]
-
+        else:
+            result = SumOperator(tuple(new_terms), system=system, isherm=isherm, isdiag=isdiag, simplified=True)
     if not changed:
         operator._simplified = True
         return operator
-    return SumOperator(
-        tuple(new_terms), system=system, isherm=isherm, isdiag=isdiag, simplified=True
-    )
+    return result
 
 
 def simplify_qutip_sums(sum_operator):
