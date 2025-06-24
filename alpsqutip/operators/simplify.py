@@ -22,35 +22,33 @@ from alpsqutip.qutip_tools.tools import data_is_diagonal, decompose_qutip_operat
 from alpsqutip.scalarprod import orthogonalize_basis
 from alpsqutip.settings import ALPSQUTIP_TOLERANCE
 
-
 def collect_nbody_terms(operator: Operator) -> dict:
     """
-    build a dictionary whose keys are subsystems and
-    the values are lists of operators acting exactly
-    over the subsystem.
+    Build a dictionary whose keys are subsystems (tuples of site indices)
+    and the values are lists of operators acting exactly over those subsystems.
+    The empty tuple key () is used for scalar terms.
     """
-    terms_by_block = {None: []}
+    terms_by_block = {}
     scalar_term = 0.0
     system = operator.system
 
     for term in operator.terms:
         acts_over = term.acts_over()
         if acts_over is None:
-            acts_over_key = None
-            terms_by_block[None].append(term)
+            # Terms not associated with any subsystem (global or ambiguous)
+            terms_by_block.setdefault(None, []).append(term)
             continue
 
-        acts_over_key = tuple(acts_over)
-        num_bodies = len(acts_over_key)
-        if num_bodies == 0:
+        acts_over_tuple = tuple(sorted(acts_over))
+        if not acts_over_tuple:
+            # Scalar-only term (acts on no sites)
             scalar_term += term.prefactor
         else:
-            acts_over_key = tuple(sorted(acts_over))
-            terms_by_block.setdefault(acts_over_key, []).append(term)
+            terms_by_block.setdefault(acts_over_tuple, []).append(term)
 
-    # Add a scalar term
+    # Add a scalar term if present
     if scalar_term:
-        terms_by_block[tuple()] = [ScalarOperator(scalar_term, system)]
+        terms_by_block[()] = [ScalarOperator(scalar_term, system)]
     return terms_by_block
 
 
