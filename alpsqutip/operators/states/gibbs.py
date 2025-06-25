@@ -10,7 +10,12 @@ import numpy as np
 
 from alpsqutip.model import SystemDescriptor
 from alpsqutip.operators.arithmetic import OneBodyOperator
-from alpsqutip.operators.basic import LocalOperator, Operator, is_diagonal_op
+from alpsqutip.operators.basic import (
+    LocalOperator,
+    Operator,
+    ScalarOperator,
+    is_diagonal_op,
+)
 from alpsqutip.operators.states.basic import (
     DensityOperatorMixin,
     ProductDensityOperator,
@@ -36,6 +41,16 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
         prefactor=1.0,
         normalized=False,
     ):
+        if prefactor == 0:
+            self.k = ScalarOperator(0, k.system)
+            self.f_global = 0.0
+            self._free_energy = 0.0
+            self.normalized = normalized
+            self.prefactor = 0
+            self.normalized = normalized
+            self.system = k.system.union(system)
+            return
+
         assert prefactor > 0
         self.k = k
         self.f_global = 0.0

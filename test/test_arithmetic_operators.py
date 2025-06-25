@@ -65,14 +65,18 @@ def test_arithmetic_operators(key1, test_operator1, key2, test_operator2):
         for key1, test_operator1 in OPERATORS_AND_STATE_CASES.items()
         for key2, value in [
             ("int positive", 2),
-            ("int negative", -1),
+            ("int negative", -3),
+            ("int zero", 0),
+            ("float zero", 0.0),
             ("float positive", 2.0),
             ("float negative", -2.0),
             ("imaginary", 2.0j),
+            ("complex zero", 0.0j),
             ("complex negative", 2.0 + 2.0j),
             ("float64 positive", np.float64(2.0)),
             ("float64 negative", np.float64(-2.0)),
-            ("imaginary", np.complex128(2.0j)),
+            ("imaginary 128", np.complex128(2.0j)),
+            ("zero complex 128", np.complex128(0.0j)),
             ("complex128", np.complex128(2.0 + 2.0j)),
         ]
     ],
