@@ -6,10 +6,11 @@ Routines to compute generalized scalar products over the algebra of operators.
 from typing import Callable
 
 import numpy as np
-from numpy.linalg import cholesky, inv, norm, svd
+from numpy.linalg import LinAlgError, cholesky, inv, norm, svd
 from scipy.linalg import sqrtm
 
 from alpsqutip.scalarprod.gram import gram_matrix
+from alpsqutip.scalarprod.utils import find_linearly_independent_rows
 
 
 def build_hermitician_basis(basis, sp=lambda x, y: ((x.dag() * y).tr())):
@@ -158,7 +159,7 @@ def orthogonalize_basis_gs(basis, sp: Callable, tol: float = 1.0e-5):
                 new_op -= prev_op * overlap
                 changed = True
         if changed:
-            norm = np.real(sp(new_op, new_op) ** 0.5)
+            norm = abs(sp(new_op, new_op)) ** 0.5
             if norm < tol:
                 continue
             new_op = new_op / norm
@@ -191,21 +192,36 @@ def orthogonalize_basis_cholesky(basis, sp: Callable, tol: float = 1.0e-5):
 
     # Compute the inverse Gram matrix for the given basis
     gram = gram_matrix(basis=local_basis, sp=sp)
-    cholesky_gram_matrix = cholesky(gram, lower=False)
-    linv_t = inv(cholesky_gram_matrix).transpose()
+
+    try:
+        l_gram = cholesky(gram)
+        for i, c in enumerate(l_gram):
+            if abs(c[i]) < tol:
+                raise LinAlgError
+    except LinAlgError:
+        li_indices = find_linearly_independent_rows(gram, tol)
+        if len(li_indices) == 1:
+            idx = li_indices[0]
+            return [local_basis[idx] / abs(gram[idx, idx]) ** 0.5]
+        elif len(li_indices) == 0:
+            return []
+        local_basis = [local_basis[ind] for ind in li_indices]
+        gram = np.array([[gram[i, j] for i in li_indices] for j in li_indices])
+        l_gram = cholesky(gram)
+
+    l_inv = inv(l_gram)
 
     # Construct the orthogonalized basis by linear combinations of
     # the original basis
     orth_basis = [
-        sum(local_basis[s] * linv_t[i, s] for s in range(i + 1))
+        sum(local_basis[s] * l_inv[i, s] for s in range(i + 1))
         for i in range(len(local_basis))
     ]
-
     # Verify the orthogonality by checking that the Gram matrix is
     # approximately the identity matrix
     assert (
         norm(gram_matrix(basis=orth_basis, sp=sp) - np.identity(len(orth_basis))) < tol
-    ), "Error: Basis not correctly orthogonalized"
+    ), f"Error: Basis not correctly orthogonalized\n{gram_matrix(basis=orth_basis, sp=sp)}"
 
     return orth_basis
 
