@@ -131,6 +131,7 @@ def fetch_covar_scalar_product(sigma: DensityOperatorMixin) -> Callable:
     """
     return CovariantScalarProductFunction(sigma)
 
+
 def fetch_HS_scalar_product() -> Callable:
     """
     Build a HS scalar product function
