@@ -20,6 +20,7 @@ from alpsqutip.operators.basic import (
     ProductOperator,
     ScalarOperator,
 )
+from alpsqutip.operators.quadratic import QuadraticFormOperator
 
 
 class DensityOperatorMixin:
@@ -130,8 +131,6 @@ class DensityOperatorMixin:
         self, obs_objs: Union[Operator, Iterable]
     ) -> Union[np.ndarray, dict, Number]:
         """Compute the expectation value of an observable"""
-        from alpsqutip.operators.quadratic import QuadraticFormOperator
-
         # TODO: expode that expectation values of operators just requires the
         # state where the operators acts.
 
@@ -156,11 +155,12 @@ class DensityOperatorMixin:
             if isinstance(obs, QuadraticFormOperator):
                 obs = obs.to_sum_operator()
 
+            obs = obs.simplify()
             if isinstance(obs, SumOperator):
                 return sum(do_evaluate_expect(term) for term in obs.terms)
 
             acts_over = obs.acts_over()
-            if len(acts_over) == 0:
+            if acts_over is not None and len(acts_over) == 0:
                 if hasattr(obs, "prefactor"):
                     return obs.prefactor
 
@@ -287,9 +287,6 @@ class ProductDensityOperator(DensityOperatorMixin, ProductOperator):
             if site in local_states:
                 return (local_states[site] * operator).tr()
             return operator.tr() / self.system.dimensions[site]
-
-        if isinstance(obs, SumOperator):
-            return sum(self.expect(term) for term in obs.terms)
 
         if isinstance(obs, ProductOperator):
             sites_obs = obs.sites_op

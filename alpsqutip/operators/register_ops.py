@@ -860,7 +860,7 @@ def _(x_op: ProductOperator, y_op: LocalOperator):
     ]
 )
 def _(x_op: QutipOperator, y_op: Operator):
-    system = x_op.system or y_op.system
+    system = x_op.system.union(y_op.system)
     return SumOperator(
         (
             x_op,
@@ -889,8 +889,18 @@ def sum_qutip_operator_plus_operator(x_op: QutipOperator, y_op: QutipOperator):
     x_site_names = x_op.site_names
     y_site_names = y_op.site_names
     if x_site_names == y_site_names:
+        x_op_qutip = x_op.operator
+        y_op_qutip = y_op.operator
+        if x_op_qutip is y_op_qutip:
+            return QutipOperator(
+                x_op_qutip,
+                system,
+                names=x_site_names,
+                prefactor=(x_op.prefactor + y_op.prefactor),
+            )
+
         return QutipOperator(
-            x_op.operator * x_op.prefactor + y_op.operator * y_op.prefactor,
+            x_op_qutip * x_op.prefactor + y_op_qutip * y_op.prefactor,
             system,
             names=x_site_names,
             prefactor=1,
@@ -919,18 +929,20 @@ def sum_qutip_operator_plus_operator(x_op: QutipOperator, y_op: QutipOperator):
 
 
 @Operator.register_add_handler(
-    (
-        ScalarOperator,
-        QutipOperator,
-    )
+    [
+        (
+            num_type,
+            QutipOperator,
+        )
+        for num_type in NUMERIC_TYPES
+    ]
 )
-def sum_scalarop_with_qutipop(x_op: ScalarOperator, y_op: QutipOperator):
-    """Sum a Scalar operator to a Qutip Operator"""
-    system = y_op.system or x_op.system
+def _(y_val: Number, x_op: QutipOperator):
+    """product of a number and a QutipOperator."""
     return QutipOperator(
-        y_op.operator * y_op.prefactor + x_op.prefactor,
-        system=system,
-        names=y_op.site_names,
+        x_op.operator * x_op.prefactor + y_val,
+        x_op.system,
+        names=x_op.site_names,
         prefactor=1,
     )
 
@@ -950,6 +962,7 @@ def sum_qutip_operator_plus_number(x_op: QutipOperator, y_val: Union[Number, Qob
         x_op.operator * x_op.prefactor + y_val,
         x_op.system,
         names=x_op.site_names,
+        prefactor=1,
     )
 
 
@@ -1039,9 +1052,9 @@ def _(
         )
     ]
 )
-def _(x_op: Operator, y_qutip_op: QutipOperator):
+def _(x_qutip_op: QutipOperator, y_op: Operator):
     """Multiply an operator and a number  or a Qobj"""
-    return x_op * y_qutip_op.to_qutip_operator()
+    return x_qutip_op * y_op.to_qutip_operator()
 
 
 @Operator.register_mul_handler(
@@ -1052,7 +1065,7 @@ def _(x_op: Operator, y_qutip_op: QutipOperator):
 )
 def mul_qutip_operator_qutip_operator(x_op: QutipOperator, y_op: QutipOperator):
     """Product of two qutip operators"""
-    system = x_op.system * y_op.system if x_op.system else y_op.system
+    system = x_op.system.union(y_op.system)
     x_names = x_op.site_names
     y_names = y_op.site_names
     if x_names == y_names:
@@ -1105,25 +1118,6 @@ def mul_qutipop_with_scalarop(y_op: QutipOperator, x_op: ScalarOperator):
         names=y_op.site_names,
         prefactor=x_op.prefactor * y_op.prefactor,
         system=system,
-    )
-
-
-@Operator.register_add_handler(
-    [
-        (
-            num_type,
-            QutipOperator,
-        )
-        for num_type in NUMERIC_TYPES
-    ]
-)
-def mul_number_and_qutipoperator(y_val: Number, x_op: QutipOperator):
-    """product of a number and a QutipOperator."""
-    return QutipOperator(
-        x_op.operator,
-        x_op.system,
-        names=x_op.site_names,
-        prefactor=x_op.prefactor * y_val,
     )
 
 

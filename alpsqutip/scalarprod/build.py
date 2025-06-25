@@ -95,6 +95,12 @@ def fetch_covar_scalar_product(sigma: DensityOperatorMixin) -> Callable:
     def sp_(op1: Operator, op2: Operator):
         """Correlation scalar product between
         two operators"""
+        if op1 is op2:
+            op1_herm = op1.isherm
+            if op1_herm:
+                return abs(sigma.expect(op1 * op1))
+            return 0.5 * abs(sigma.expect(anticommutator(op1.dag(), op1)))
+
         op1_herm = op1.isherm
         op2_herm = op2.isherm
         if op1_herm:

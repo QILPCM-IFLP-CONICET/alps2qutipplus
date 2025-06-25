@@ -285,6 +285,16 @@ else:
         )
 
 
+def data_has_nan(data) -> bool:
+    """
+    Check if data has `nan` entries
+    """
+    for i, j, val in data_element_iterator(data):
+        if not (val == val):
+            return True
+    return False
+
+
 def data_is_scalar(data) -> bool:
     """
     Check if data is a multiple of the identity matrix.
@@ -295,6 +305,10 @@ def data_is_scalar(data) -> bool:
 def is_scalar_op(op: Qobj) -> bool:
     """Check if op is a multiple of the identity operator"""
     return data_is_scalar(op.data)
+
+
+def isnan_qutip(op: Qobj) -> bool:
+    return data_has_nan(op.data)
 
 
 def norm(
