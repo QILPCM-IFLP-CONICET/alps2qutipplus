@@ -110,8 +110,14 @@ class OperatorBasis:
                     "Reduce it to a linearly independent set..."
                 )
             )
-            ld_indx = find_linearly_independent_rows(gram)
-            self.operator_basis = tuple((operator_basis[i] for i in ld_indx))
+            li_indx = find_linearly_independent_rows(gram)
+            operator_basis_it = (operator_basis[i] for i in li_indx)
+            operator_basis = tuple((op_b for op_b in operator_basis_it if op_b))
+
+            if not operator_basis:
+                raise ValueError("No linear independent elements.")
+
+            self.operator_basis = operator_basis
             return self.build_tensors()
 
         # G^{-1} = (L^{-1})^\dagger . L^{-1}
