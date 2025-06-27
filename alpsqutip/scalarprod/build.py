@@ -3,7 +3,7 @@ Functions to fetch specific scalar product functions.
 """
 
 # from datetime import datetime
-from typing import Callable, Tuple
+from typing import Callable
 
 import numpy as np
 from numpy import real
@@ -51,7 +51,6 @@ class CovariantScalarProductFunction(Callable):
             return sigma.expect((op1_dag * op2).simplify())
         else:
             return 0.5 * sigma.expect(anticommutator(op1_dag, op2).simplify())
-
 
 
 def fetch_kubo_scalar_product(sigma: Operator, threshold=0) -> Callable:
