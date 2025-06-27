@@ -1,5 +1,5 @@
 """
-Operator Functions 
+Operator Functions
 """
 
 from alpsqutip.operators.functions.commutators import (
