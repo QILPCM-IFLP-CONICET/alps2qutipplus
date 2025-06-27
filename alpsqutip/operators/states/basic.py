@@ -165,7 +165,16 @@ class DensityOperatorMixin:
                     return obs.prefactor
 
             if acts_over not in local_states:
-                local_states[acts_over] = self.partial_trace(acts_over)
+                parent_state = self
+                for block, candidate in sorted(
+                    local_states.items(),
+                    key=lambda x: (len(x[0]) if x[0] is not None else 100),
+                ):
+                    if block is not None and acts_over.issubset(block):
+                        parent_state = candidate
+                        break
+                local_states[acts_over] = parent_state.partial_trace(acts_over)
+
 
             # if the argument matches with the argument of expect, it means that
             # we already try with the implementation of the subclasses. Then, let's rely

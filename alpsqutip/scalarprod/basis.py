@@ -8,22 +8,13 @@ from typing import Callable, Optional, Tuple
 import numpy as np
 from numpy.linalg import LinAlgError, cholesky, inv
 from numpy.typing import NDArray
-from scipy.linalg import expm as linalg_expm, qr
+from scipy.linalg import expm as linalg_expm
 
 from alpsqutip.operators import Operator, ScalarOperator
 from alpsqutip.operators.functions import commutator
 from alpsqutip.scalarprod.build import fetch_HS_scalar_product
 from alpsqutip.scalarprod.gram import gram_matrix
-
-
-def find_linearly_independent_rows(mat: NDArray, tol: float = 1e-6) -> Tuple[int]:
-    """
-    Find indices of a maximal subset of linearly independent columns of the matrix.
-    """
-    _, inds = qr(mat, mode="r", pivoting=True)
-    rank = np.linalg.matrix_rank(mat, tol=tol)
-    # The first `rank` indices are linearly independent columns
-    return tuple(sorted(inds[:rank]))
+from alpsqutip.scalarprod.utils import find_linearly_independent_rows
 
 
 class OperatorBasis:
@@ -58,7 +49,7 @@ class OperatorBasis:
         if generator is not None and generator.isherm:
             generator = generator * 1j
 
-        self.generator = generator
+        self.generator = generator.simplify()
         if sp is None:
             sp = fetch_HS_scalar_product()
 
@@ -119,8 +110,14 @@ class OperatorBasis:
                     "Reduce it to a linearly independent set..."
                 )
             )
-            ld_indx = find_linearly_independent_rows(gram)
-            self.operator_basis = tuple((operator_basis[i] for i in ld_indx))
+            li_indx = find_linearly_independent_rows(gram)
+            operator_basis_it = (operator_basis[i] for i in li_indx)
+            operator_basis = tuple((op_b for op_b in operator_basis_it if op_b))
+
+            if not operator_basis:
+                raise ValueError("No linear independent elements.")
+
+            self.operator_basis = operator_basis
             return self.build_tensors()
 
         # G^{-1} = (L^{-1})^\dagger . L^{-1}
@@ -207,7 +204,7 @@ class HierarchicalOperatorBasis(OperatorBasis):
             sp = fetch_HS_scalar_product()
 
         self.sp = sp
-        self.generator = generator
+        self.generator = generator.simplify()
         self._build_basis(seed, deep, n_body_projection)
         self.build_tensors()
 
@@ -218,12 +215,12 @@ class HierarchicalOperatorBasis(OperatorBasis):
         return OperatorBasis(self.operator_basis, self.generator, self.sp) + other
 
     def _build_basis(self, seed, deep, projection_function=None):
-        elements = [seed]
+        elements = [seed.simplify()]
         sp = self.sp
         generator = self.generator
         errors = np.zeros((deep,))
         for i in range(deep):
-            new_elem = commutator(elements[-1], generator)
+            new_elem = commutator(elements[-1], generator).simplify()
             comm_norm = np.abs(sp(new_elem, new_elem))
             if np.abs(comm_norm) < 1e-12:
                 logging.warning(
@@ -265,6 +262,7 @@ class HierarchicalOperatorBasis(OperatorBasis):
             self.operator_basis = self.operator_basis[:-1]
             self.gram = self.gram[:-1, :-1]
             self._hij = self._hij[:-1, :-1]
+            self.errors = self.errors[:-1]
             return self.build_tensors()
 
         l_inv = inv(l_gram)

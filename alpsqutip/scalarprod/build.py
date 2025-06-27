@@ -3,7 +3,7 @@ Functions to fetch specific scalar product functions.
 """
 
 # from datetime import datetime
-from typing import Callable
+from typing import Callable, Tuple
 
 import numpy as np
 from numpy import real
@@ -13,6 +13,77 @@ from alpsqutip.operators.functions import anticommutator
 from alpsqutip.operators.states import DensityOperatorMixin
 
 #  ### Functions that build the scalar products ###
+
+
+class CovariantScalarProductFunction(Callable):
+    """
+    A callable object that computes the Covariance scalar
+    product of two operators, relative to a given
+    reference state sigma.
+    """
+
+    def __init__(self, state):
+
+        self.sigma = state
+
+    def __call__(self, op1, op2):
+        sigma = self.sigma
+        if op1 is op2:
+            op1 = op1.simplify()
+            op1_herm = op1.isherm
+            if op1_herm:
+                return abs(sigma.expect(op1 * op1))
+            return abs(0.5 * sigma.expect(anticommutator(op1.dag(), op1).simplify()))
+
+        op1 = op1.simplify()
+        op1_herm = op1.isherm
+        op2 = op2.simplify()
+        op2_herm = op2.isherm
+
+        if op1_herm:
+            if op2_herm:
+                o1o2 = (op1 * op2).simplify()
+                return real(sigma.expect(o1o2))
+            op1_dag = op1
+        else:
+            op1_dag = op1.dag()
+        if op1_dag is op2:
+            return sigma.expect((op1_dag * op2).simplify())
+        else:
+            return 0.5 * sigma.expect(anticommutator(op1_dag, op2).simplify())
+
+    def compute_gram_matrix(self, basis: Tuple[Operator]):
+        """
+        Compute the gram matrix associated to the hermitician operators
+        speficied in `basis`.
+        """
+        basis_size = len(basis)
+        operators_dict = {}
+        for i in range(basis_size):
+            for j in range(i + 1):
+                operators_dict[
+                    (
+                        i,
+                        j,
+                    )
+                ] = (basis[i] * basis[j]).simplify()
+
+        coeffs_dict = self.sigma.expect(operators_dict)
+        gram_matrix = np.zeros(
+            (
+                basis_size,
+                basis_size,
+            )
+        )
+
+        for pos, val in coeffs_dict.items():
+            i, j = pos
+            if i == j:
+                gram_matrix[i, i] = np.abs(val)
+            else:
+                val = np.real(val)
+                gram_matrix[i, j] = gram_matrix[j, i] = val
+        return gram_matrix
 
 
 def fetch_kubo_scalar_product(sigma: Operator, threshold=0) -> Callable:
@@ -91,30 +162,7 @@ def fetch_covar_scalar_product(sigma: DensityOperatorMixin) -> Callable:
         A function that takes two operators (op1, op2) and computes their
         covariance-based scalar product.
     """
-
-    def sp_(op1: Operator, op2: Operator):
-        """Correlation scalar product between
-        two operators"""
-        if op1 is op2:
-            op1_herm = op1.isherm
-            if op1_herm:
-                return abs(sigma.expect(op1 * op1))
-            return 0.5 * abs(sigma.expect(anticommutator(op1.dag(), op1)))
-
-        op1_herm = op1.isherm
-        op2_herm = op2.isherm
-        if op1_herm:
-            if op2_herm:
-                return real(sigma.expect(op1 * op2))
-            op1_dag = op1
-        else:
-            op1_dag = op1.dag()
-        if op1_dag is op2:
-            return sigma.expect((op1_dag * op2).simplify())
-        else:
-            return 0.5 * sigma.expect(anticommutator(op1_dag, op2))
-
-    return sp_
+    return CovariantScalarProductFunction(sigma)
 
 
 def fetch_HS_scalar_product() -> Callable:
