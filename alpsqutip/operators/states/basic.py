@@ -133,8 +133,10 @@ class DensityOperatorMixin:
         """Compute the expectation value of an observable"""
         # TODO: expode that expectation values of operators just requires the
         # state where the operators acts.
+        from alpsqutip.operators.states.utils import collect_local_states
 
-        local_states = {None: self}
+        local_states = collect_local_states(obs_objs, self)
+        local_states.update({None: self})
 
         def do_evaluate_expect(obs):
             """
@@ -163,9 +165,6 @@ class DensityOperatorMixin:
             if acts_over is not None and len(acts_over) == 0:
                 if hasattr(obs, "prefactor"):
                     return obs.prefactor
-
-            if acts_over not in local_states:
-                local_states[acts_over] = self.partial_trace(acts_over)
 
             # if the argument matches with the argument of expect, it means that
             # we already try with the implementation of the subclasses. Then, let's rely

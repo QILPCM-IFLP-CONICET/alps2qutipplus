@@ -3,7 +3,7 @@ Utility functions for alpsqutip.operators.states
 
 """
 
-from typing import Dict
+from typing import Dict, Iterable, List, Union
 
 import numpy as np
 from qutip import tensor as qutip_tensor
@@ -15,12 +15,92 @@ from alpsqutip.operators.basic import (
     ProductOperator,
     ScalarOperator,
 )
+from alpsqutip.operators.quadratic import QuadraticFormOperator
 from alpsqutip.operators.qutip import QutipOperator
-from alpsqutip.operators.states.basic import ProductDensityOperator
+from alpsqutip.operators.states.basic import (
+    DensityOperatorMixin,
+    ProductDensityOperator,
+)
 from alpsqutip.operators.states.qutip import QutipDensityOperator
 from alpsqutip.qutip_tools.tools import (
     safe_exp_and_normalize as safe_exp_and_normalize_qobj,
 )
+
+
+def collect_blocks_for_expect(obs_objs: Union[Operator, Iterable]) -> List[frozenset]:
+    """
+    Find the subsystems required to compute the expectation values
+    of obs_objs.
+
+    Parameters
+    ==========
+
+    obs_objs: Union[Operator, Iterable]
+        an object, or a container of objects.
+
+    Result
+    ======
+
+    Tuple:
+    a list of `frozenset` objects, sorted from the larger to the smaller in size.
+
+    """
+    if isinstance(obs_objs, dict):
+        result = collect_blocks_for_expect(tuple(obs_objs.values()))
+        return result
+    if isinstance(obs_objs, QuadraticFormOperator):
+        obs_objs = obs_objs.to_sum_operator()
+    if isinstance(obs_objs, SumOperator):
+        result = collect_blocks_for_expect(obs_objs.terms)
+        return result
+    elif isinstance(obs_objs, Operator):
+        acts_over = obs_objs.acts_over()
+        if acts_over is None:
+            return []
+        return [acts_over]
+    # tuple or list
+    block_set = set()
+    for elem in obs_objs:
+        block_set.update(collect_blocks_for_expect(elem))
+    return sorted(block_set, key=lambda x: -len(x))
+
+
+def collect_local_states(
+    obs_objs: Union[Operator, Iterable], global_state
+) -> Dict[frozenset, DensityOperatorMixin]:
+    """
+    Build a dict of local states required to compute the expectation values of the observable
+    or the observables contained in obs_objs.
+
+    Parameters
+    ==========
+
+    obs_objs: Union[Operator], Iterable
+       an Operator or an iterable containing the operators requiered to compute the
+       required expectation values.
+
+    Return
+    ======
+    Dict[frozenset, DensityMatrixMixin]
+
+    A dict of local states associated to the sites enumerated in the keys.
+
+    """
+    local_states = {}
+    block_objts = collect_blocks_for_expect(obs_objs)
+    for obj_block in (frozenset(blk) for blk in block_objts):
+        if obj_block in local_states:
+            continue
+        parent_state = global_state
+        for block, candidate in sorted(
+            local_states.items(),
+            key=lambda x: (len(x[0]) if x[0] is not None else 0),
+        ):
+            if block is not None and obj_block.issubset(block):
+                parent_state = candidate
+                break
+        local_states[obj_block] = parent_state.partial_trace(obj_block)
+    return local_states
 
 
 def k_by_site_from_operator(k: Operator) -> Dict[str, Operator]:
