@@ -52,38 +52,6 @@ class CovariantScalarProductFunction(Callable):
         else:
             return 0.5 * sigma.expect(anticommutator(op1_dag, op2).simplify())
 
-    def compute_gram_matrix(self, basis: Tuple[Operator]):
-        """
-        Compute the gram matrix associated to the hermitician operators
-        speficied in `basis`.
-        """
-        basis_size = len(basis)
-        operators_dict = {}
-        for i in range(basis_size):
-            for j in range(i + 1):
-                operators_dict[
-                    (
-                        i,
-                        j,
-                    )
-                ] = (basis[i] * basis[j]).simplify()
-
-        coeffs_dict = self.sigma.expect(operators_dict)
-        gram_matrix = np.zeros(
-            (
-                basis_size,
-                basis_size,
-            )
-        )
-
-        for pos, val in coeffs_dict.items():
-            i, j = pos
-            if i == j:
-                gram_matrix[i, i] = np.abs(val)
-            else:
-                val = np.real(val)
-                gram_matrix[i, j] = gram_matrix[j, i] = val
-        return gram_matrix
 
 
 def fetch_kubo_scalar_product(sigma: Operator, threshold=0) -> Callable:

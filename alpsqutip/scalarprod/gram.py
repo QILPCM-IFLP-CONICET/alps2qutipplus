@@ -118,9 +118,6 @@ def gram_matrix_serial(basis, sp: Callable):
         A symmetric NumPy array representing the Gram matrix, with entries
         rounded to 14 decimal places.
     """
-    if hasattr(sp, "compute_gram_matrix") and all(b_i.isherm for b_i in basis):
-        return sp.compute_gram_matrix(basis)
-
     size = len(basis)
     result = np.zeros([size, size], dtype=float)
 
