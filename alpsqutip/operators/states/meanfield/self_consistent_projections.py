@@ -3,11 +3,12 @@ Module that implements a meanfield approximation of a Gibbsian state
 """
 
 import logging
-from typing import Tuple
+from typing import Callable, Optional, Tuple
 
 import numpy as np
 
 from alpsqutip.operators import Operator
+from alpsqutip.operators.states import DensityOperatorMixin
 from alpsqutip.operators.states.gibbs import GibbsProductDensityOperator
 from alpsqutip.operators.states.meanfield.projections import (
     project_operator_to_m_body,
@@ -16,8 +17,11 @@ from alpsqutip.operators.states.meanfield.projections import (
 
 
 def self_consistent_project_meanfield(
-    k_op, sigma=None, max_it=100, proj_func=project_operator_to_m_body
-) -> Tuple[Operator, Operator]:
+    k_op: Operator,
+    sigma: Optional[DensityOperatorMixin] = None,
+    max_it: int = 100,
+    proj_func: Callable = project_operator_to_m_body,
+) -> Tuple[Operator, DensityOperatorMixin]:
     """
     Iteratively computes the one-body component from a QuTip operator and state
     using a self-consistent Mean-Field Projection (MF).
