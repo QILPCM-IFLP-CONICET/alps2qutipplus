@@ -5,7 +5,8 @@ Module that implements a meanfield approximation of a Gibbsian state
 from typing import Callable, Optional
 
 from alpsqutip.operators import Operator
-from alpsqutip.operators.states import DensityOperatorMixin
+from alpsqutip.operators.states import DensityOperatorMixin, ProductDensityOperator
+from alpsqutip.operators.states.gibbs import GibbsProductDensityOperator
 from alpsqutip.operators.states.meanfield.projections import project_operator_to_m_body
 from alpsqutip.operators.states.meanfield.self_consistent_projections import (
     self_consistent_project_meanfield,
@@ -14,7 +15,7 @@ from alpsqutip.operators.states.meanfield.self_consistent_projections import (
 
 def project_meanfield(
     k_op,
-    sigma0: Optional[DensityOperatorMixin] = None,
+    sigma0: Optional[ProductDensityOperator | GibbsProductDensityOperator] = None,
     max_it: int = 100,
     proj_func: Callable = project_operator_to_m_body,
 ) -> Operator:
