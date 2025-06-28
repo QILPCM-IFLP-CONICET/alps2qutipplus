@@ -5,7 +5,7 @@ Module that implements a meanfield approximation of a Gibbsian state
 import logging
 from functools import reduce
 from itertools import combinations
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union, cast
 
 import qutip
 from qutip import Qobj
@@ -264,7 +264,7 @@ def project_qutip_operator_to_m_body(
 
 
 def project_product_operator_as_n_body_operator(
-    operator: ProductOperator,
+    operator: Operator,
     nmax: int = 1,
     sigma: Optional[ProductDensityOperator] = None,
 ) -> Operator:
@@ -272,8 +272,9 @@ def project_product_operator_as_n_body_operator(
     Project a product operator to the manifold of n-body operators
     """
     # Trivial case
-    sites_op = operator.sites_op
-    prefactor = operator.prefactor
+    src_operator: ProductOperator = cast(ProductOperator, operator)
+    sites_op = src_operator.sites_op
+    prefactor = src_operator.prefactor
     system = operator.system
     if prefactor == 0.0:
         return ScalarOperator(0, system)
@@ -288,8 +289,11 @@ def project_product_operator_as_n_body_operator(
         sigma = ProductDensityOperator({}, system=system)
 
     terms = []
-    averages:dict = sigma.expect(
-        {site: LocalOperator(site, l_op, system) for site, l_op in sites_op.items()}
+    averages: Dict[str, Operator] = cast(
+        Dict[str, Operator],
+        sigma.expect(
+            {site: LocalOperator(site, l_op, system) for site, l_op in sites_op.items()}
+        ),
     )
     fluct_op = {site: l_op - averages[site] for site, l_op in sites_op.items()}
     # Now, we run a loop over
@@ -331,26 +335,26 @@ def project_quadraticform_operator_as_n_body_operator(
 
 
 def project_qutip_operator_as_n_body_operator(
-    operator, nmax: Optional[int] = 1, sigma: Optional[ProductDensityOperator] = None
+    operator, nmax: int = 1, sigma_ref: Optional[ProductDensityOperator] = None
 ) -> Operator:
     """
     Project a qutip operator to the manifold of n-body operators
     """
     acts_over = operator.acts_over()
-    assert isinstance(
-        acts_over, frozenset
-    ), f"{type(operator)}.acts_over() should return a frozenset. Got({type(acts_over)})"
-    if len(acts_over) <= nmax:
+    if acts_over is not None and len(cast(frozenset, acts_over)) <= nmax:
         return operator
 
     system = operator.system
-    if sigma is None:
+    sigma: ProductDensityOperator
+    if sigma_ref is None:
         sigma = ProductDensityOperator({}, system=system)
+    else:
+        sigma = sigma_ref
 
     operator = operator.as_sum_of_products()
-    terms_by_block = {}
-    one_body_terms = []
-    scalar = 0
+    terms_by_block: Dict[Optional[frozenset], List[Operator]] = {}
+    one_body_terms: List[Operator] = []
+    scalar: complex = 0.0
     for term in operator.terms if isinstance(operator, SumOperator) else (operator,):
         acts_over = term.acts_over()
         assert isinstance(
@@ -367,14 +371,16 @@ def project_qutip_operator_as_n_body_operator(
             terms_by_block.setdefault(acts_over, []).append(term)
             continue
 
-        term = project_product_operator_as_n_body_operator(term, nmax, sigma).simplify()
+        term = project_product_operator_as_n_body_operator(
+            cast(ProductOperator, term), nmax, sigma
+        ).simplify()
         if isinstance(term, OneBodyOperator):
             one_body_terms.append(term)
         elif isinstance(term, SumOperator):
             for sub_term in term.terms:
-                if (
-                    isinstance(sub_term, (OneBodyOperator, LocalOperator))
-                    or len(sub_term.acts_over()) < 2
+                acts_over_subterm = sub_term.acts_over()
+                if isinstance(sub_term, (OneBodyOperator, LocalOperator)) or (
+                    acts_over_subterm is not None and len(acts_over_subterm) < 2
                 ):
                     one_body_terms.append(sub_term)
                 else:
@@ -390,11 +396,11 @@ def project_qutip_operator_as_n_body_operator(
             else:
                 terms_by_block.setdefault(term_acts_over2, []).append(term)
 
-    terms_list = []
+    terms_list: List[Operator] = []
     if scalar:
         terms_list.append(ScalarOperator(scalar, system))
     if one_body_terms:
-        terms_list.append(sum(one_body_terms).simplify())
+        terms_list.append(cast(Operator, sum(one_body_terms)).simplify())
     for block, block_terms in terms_by_block.items():
         if block_terms:
             try:
@@ -419,6 +425,7 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
     """
     from alpsqutip.operators.quadratic import QuadraticFormOperator
 
+    terms_tuple: Tuple[Operator]
     system = operator.system
     if sigma is None:
         sigma = ProductDensityOperator({}, system=system)
@@ -432,13 +439,13 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
         operator = operator.simplify().flat()
     # If still a sum operator
     if isinstance(operator, SumOperator):
-        terms = operator.terms
+        terms_tuple = operator.terms
     else:
-        terms = (operator,)
+        terms_tuple = (operator,)
 
     changed = False
     one_body_terms = []
-    block_terms = {}
+    block_terms: Dict[Optional[frozenset], Operator] = {}
 
     def dispatch_term(t):
         """
@@ -473,7 +480,7 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
         QuadraticFormOperator: project_quadraticform_operator_as_n_body_operator,
     }
 
-    for term in terms:
+    for term in terms_tuple:
         if dispatch_term(term):
             continue
         changed = True

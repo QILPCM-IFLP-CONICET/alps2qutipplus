@@ -3,12 +3,12 @@ Module that implements a meanfield approximation of a Gibbsian state
 """
 
 import logging
-from typing import Callable, Optional, Tuple
+from typing import Callable, Optional, Tuple, cast
 
 import numpy as np
 
 from alpsqutip.operators import Operator
-from alpsqutip.operators.states import DensityOperatorMixin
+from alpsqutip.operators.states import DensityOperatorMixin, ProductDensityOperator
 from alpsqutip.operators.states.gibbs import GibbsProductDensityOperator
 from alpsqutip.operators.states.meanfield.projections import (
     project_operator_to_m_body,
@@ -43,13 +43,13 @@ def self_consistent_project_meanfield(
     """
     if sigma is None:
         sigma = GibbsProductDensityOperator(k={}, system=k_op.system)
-        neg_log_sigma = -sigma.logm()
+        neg_log_sigma = cast(GibbsProductDensityOperator, -sigma).logm()
     else:
-        neg_log_sigma = -sigma.logm()
+        neg_log_sigma = cast(ProductDensityOperator, -sigma).logm()
         if not isinstance(sigma, GibbsProductDensityOperator):
             sigma = GibbsProductDensityOperator(neg_log_sigma)
 
-    rel_s = 10000
+    rel_s: float = 10000
     opt_sigma = sigma
     # print("self consistent loop using", proj_func)
     for it in range(max_it):
@@ -58,7 +58,7 @@ def self_consistent_project_meanfield(
         new_sigma = GibbsProductDensityOperator(k_one_body)
 
         log_k_one_body = new_sigma.logm()
-        rel_s_new = np.real(sigma.expect(k_op + log_k_one_body))
+        rel_s_new: float = np.real(cast(complex, sigma.expect(k_op + log_k_one_body)))
         rel_entropy_txt = f"     S(curr||target)={rel_s_new}"
         logging.debug(rel_entropy_txt)
         # print(it, "->", rel_entropy_txt)

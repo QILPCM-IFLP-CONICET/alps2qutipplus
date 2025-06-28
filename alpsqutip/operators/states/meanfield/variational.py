@@ -6,7 +6,7 @@ Build variational approximations to a Gibbsian state.
 """
 
 import logging
-from typing import Callable, Optional, Tuple
+from typing import Callable, Optional, Tuple, cast
 
 import numpy as np
 from numpy.random import random_sample
@@ -17,7 +17,7 @@ from alpsqutip.operators.quadratic import (
     QuadraticFormOperator,
     build_quadratic_form_from_operator,
 )
-from alpsqutip.operators.states import DensityOperatorMixin
+from alpsqutip.operators.states import ProductDensityOperator
 from alpsqutip.operators.states.gibbs import GibbsProductDensityOperator
 from alpsqutip.settings import ALPSQUTIP_TOLERANCE
 
@@ -41,7 +41,7 @@ def compute_rel_entropy(state: GibbsProductDensityOperator, ham: Operator) -> fl
     float64
     The relative entropy S(sigma|exp(-ham))
     """
-    result: float | complex = state.expect(ham + state.logm())
+    result: float | complex = cast(float | complex, state.expect(ham + state.logm()))
     return np.real(result)
 
 
@@ -239,7 +239,7 @@ def self_consistent_mf(
 def variational_quadratic_mfa(
     ham: Operator,
     numfields: int = 1,
-    sigma_ref: Optional[DensityOperatorMixin] = None,
+    sigma_ref: Optional[ProductDensityOperator] = None,
     **kwargs,
 ) -> GibbsProductDensityOperator:
     r"""
@@ -301,7 +301,7 @@ def variational_quadratic_mfa(
     callback_self_consistent_step: Callable = kwargs.get(
         "callback_self_consistent_step", None
     )
-    sigma_0: GibbsProductDensityOperator = sigma_ref
+    sigma_0: GibbsProductDensityOperator = cast(GibbsProductDensityOperator, sigma_ref)
     current_rel_entropy = None
     if isinstance(ham, OneBodyOperator):
         return GibbsProductDensityOperator(ham)

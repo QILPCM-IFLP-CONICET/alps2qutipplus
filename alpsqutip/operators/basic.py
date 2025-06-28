@@ -248,7 +248,7 @@ class Operator:
         result = f"${tex}_" + "{" + ",".join(acts_over) + "}$"
         return result
 
-    def acts_over(self) -> Optional[set]:
+    def acts_over(self) -> Optional[frozenset]:
         """
         Return the list of sites over which the operator acts nontrivially.
         If this cannot be determined, return None.
