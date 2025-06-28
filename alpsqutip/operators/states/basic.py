@@ -279,6 +279,7 @@ class ProductDensityOperator(DensityOperatorMixin, ProductOperator):
         return a * ProductOperator(self.sites_op, 1, self.system)
 
     def expect(self, obs: Union[Operator, Iterable]) -> Union[np.ndarray, dict, Number]:
+        """Compute the expectation value of an operator or a sequence of operators"""
         if isinstance(obs, LocalOperator):
             operator = obs.operator
             site = obs.site
@@ -301,6 +302,15 @@ class ProductDensityOperator(DensityOperatorMixin, ProductOperator):
                 else:
                     result *= obs_op.tr() / dimensions[site]
             return result
+
+        if isinstance(obs, SumOperator):
+            return sum(self.expect(term) for term in obs.terms)
+
+        if isinstance(obs, (tuple, list)):
+            return np.array([self.expect(elem) for elem in obs])
+
+        if isinstance(obs, dict):
+            return {key: self.expect(val) for key, val in obs.items()}
 
         return super().expect(obs)
 
