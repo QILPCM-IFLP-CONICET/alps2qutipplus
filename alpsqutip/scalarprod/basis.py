@@ -97,25 +97,18 @@ class OperatorBasis:
 
         operator_basis = self.operator_basis
 
-        self.gram = gram = gram_matrix(operator_basis, self.sp)
-        size = len(operator_basis)
-        hij = np.zeros(
-            (
-                size,
-                size,
-            )
-        )
-        errors = np.zeros((size,))
-        if self.generator is None:
-            return
+        gram = gram_matrix(operator_basis, self.sp)
 
         # Cholesky decomposition
         # G = L . L^\dagger
-        try:
-            l_gram = cholesky(gram)
-            if any(abs(row[i]) < 1e-6 for i, row in enumerate(l_gram)):
-                raise LinAlgError("too small diagonal elements...")
-        except LinAlgError as exc:
+        while operator_basis:
+            try:
+                l_gram = cholesky(gram)
+                if all(abs(row[i]) > 1e-6 for i, row in enumerate(l_gram)):
+                    break
+            except LinAlgError:
+                pass
+
             logging.warning(
                 (
                     "using a non-independent set of operators. "
@@ -125,12 +118,23 @@ class OperatorBasis:
             li_indx = find_linearly_independent_rows(gram)
             operator_basis_it = (operator_basis[i] for i in li_indx)
             operator_basis = tuple((op_b for op_b in operator_basis_it if op_b))
+            gram = np.array([[gram[i, j] for i in li_indx] for j in li_indx])
 
             if not operator_basis:
-                raise ValueError("No linear independent elements.") from exc
+                raise ValueError("No linear independent elements.")
 
             self.operator_basis = operator_basis
-            self.build_tensors()
+
+        self.gram = gram
+        size = len(operator_basis)
+        hij = np.zeros(
+            (
+                size,
+                size,
+            )
+        )
+        errors = np.zeros((size,))
+        if self.generator is None:
             return
 
         # G^{-1} = (L^{-1})^\dagger . L^{-1}
@@ -262,25 +266,28 @@ class HierarchicalOperatorBasis(OperatorBasis):
         if generator is not None or sp is not None:
             logging.warning("A HierarchicalBasis cannot regenerate its elements.")
 
-        gram = self.gram
-        hij = self._hij
-        errors = self.errors
-        try:
-            l_gram = cholesky(gram)
-        except LinAlgError:
-            logging.warning(
-                (
-                    "using a non-independent set of operators. "
-                    "Reduce it to a linearly independent set..."
+        # Loop to ensure that all the elements
+        # in the basis are linearly independent.
+        while self.operator_basis:
+            try:
+                gram = self.gram
+                l_gram = cholesky(gram)
+                break
+            except LinAlgError:
+                logging.warning(
+                    (
+                        "using a non-independent set of operators. "
+                        "Reduce it to a linearly independent set..."
+                    )
                 )
-            )
             # Remove the last element and try again
             self.operator_basis = self.operator_basis[:-1]
-            self.gram = self.gram[:-1, :-1]
+            self.gram = gram[:-1, :-1]
             self._hij = self._hij[:-1, :-1]
             self.errors = self.errors[:-1]
-            self.build_tensors()
-            return
+
+        hij = self._hij
+        errors = self.errors
 
         l_inv = inv(l_gram)
         self.gram_inv = l_inv.T @ l_inv

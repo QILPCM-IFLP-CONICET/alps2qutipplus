@@ -1,6 +1,5 @@
 """
-Utility functions to import and process
-ALPS specification files.
+Utility functions to import and process ALPS specification files.
 """
 
 import logging
@@ -59,17 +58,21 @@ def draw_ellipse_around_points(p1, p2, ax, b_ratio=0.15):
 def draw_operator(op, axis: "plt.Axis") -> "plt.Axis":
     """
     Draw the operator op over the axis.
+
+    Parameters
+    ----------
+
     op: Operator
       If the operator acts on a single site, draws a disk on its coordinates.
       If is a SumOperator, flatten it and draw each term.
       For many-body operators, a line is drawn.
     ax: mpl.Axis
       the axis over which the operator is going to be drawn.
+
     Return
     ------
     mpl.Axis
       the axis over which the operator was drawn.
-
     """
     # TODO: handle 3D graphs
     from alpsqutip.operators import SumOperator
