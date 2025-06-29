@@ -1,8 +1,17 @@
+alps2qutipplus modules
+======================
 
-API Reference
-=============
+.. toctree::
+   :maxdepth: 2
 
 .. automodule:: alpsqutip
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. autosummary::
+   :toctree: _autosummary
+   :recursive:
+
+   alps2qutipplus
+
