@@ -618,9 +618,7 @@ def build_system(
 
     lattice_lib_file: str
 
-
-    **kwargs: Optional keyword parameters are passed to the model.
-
+    kwargs: Optional keyword parameters are passed to the model.
 
     """
     # pylint: disable=import-outside-toplevel

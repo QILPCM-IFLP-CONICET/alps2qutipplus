@@ -22,9 +22,17 @@ class OperatorBasis:
     Represent a basis of a subspace of the operator algebra with a
     metric given by a scalar product function.
 
-    If a generator is given,
+    If a generator is given, the basis stores an array hij, which
+    defines the evolution of the coefficients `coeff_a` in the
+    expansion of an operator $K$
 
+    K = sum_a coeff_a(t) Q_a
 
+    in a way that Q
+
+    dK
+    -- = -i [H, K]
+    dt
 
     The __add__ operator allows to extend the basis by adding
     more operators.
@@ -73,6 +81,23 @@ class OperatorBasis:
     def build_tensors(
         self, generator: Optional[Operator] = None, sp: Optional[Callable] = None
     ):
+        """
+        Build the arrays required to compute projections, expansions
+        and evolutions
+
+        Parameters
+        ----------
+        generator : Optional[Operator], optional
+            The operator that generates the evolution. The default is None.
+        sp : Optional[Callable], optional
+            A scalar product. The default is None.
+
+        Raises
+        ------
+        ValueError
+            Raised if the basis elements does not span a non-trivial subspace.
+
+        """
 
         if generator is not None:
             self.generator = generator
@@ -85,7 +110,35 @@ class OperatorBasis:
 
         operator_basis = self.operator_basis
 
-        self.gram = gram = gram_matrix(operator_basis, self.sp)
+        gram = gram_matrix(operator_basis, self.sp)
+
+        # Cholesky decomposition
+        # G = L . L^\dagger
+        while operator_basis:
+            try:
+                l_gram = cholesky(gram)
+                if all(abs(row[i]) > 1e-6 for i, row in enumerate(l_gram)):
+                    break
+            except LinAlgError:
+                pass
+
+            logging.warning(
+                (
+                    "using a non-independent set of operators. "
+                    "Reduce it to a linearly independent set..."
+                )
+            )
+            li_indx = find_linearly_independent_rows(gram)
+            operator_basis_it = (operator_basis[i] for i in li_indx)
+            operator_basis = tuple((op_b for op_b in operator_basis_it if op_b))
+            gram = np.array([[gram[i, j] for i in li_indx] for j in li_indx])
+
+            if not operator_basis:
+                raise ValueError("No linear independent elements.")
+
+            self.operator_basis = operator_basis
+
+        self.gram = gram
         size = len(operator_basis)
         hij = np.zeros(
             (
@@ -97,29 +150,6 @@ class OperatorBasis:
         if self.generator is None:
             return
 
-        # Cholesky decomposition
-        # G = L . L^\dagger
-        try:
-            l_gram = cholesky(gram)
-            if any(abs(row[i]) < 1e-6 for i, row in enumerate(l_gram)):
-                raise LinAlgError("too small diagonal elements...")
-        except LinAlgError:
-            logging.warning(
-                (
-                    "using a non-independent set of operators. "
-                    "Reduce it to a linearly independent set..."
-                )
-            )
-            li_indx = find_linearly_independent_rows(gram)
-            operator_basis_it = (operator_basis[i] for i in li_indx)
-            operator_basis = tuple((op_b for op_b in operator_basis_it if op_b))
-
-            if not operator_basis:
-                raise ValueError("No linear independent elements.")
-
-            self.operator_basis = operator_basis
-            return self.build_tensors()
-
         # G^{-1} = (L^{-1})^\dagger . L^{-1}
         l_inv = inv(l_gram)
         self.gram_inv = l_inv.T @ l_inv
@@ -128,9 +158,11 @@ class OperatorBasis:
             comm = commutator(op_2, generator)
             error_sq = np.real(sp(comm, comm))
             hj = np.array([sp(op_1, comm) for op_1 in operator_basis])
-            # |Pi_{\parallel} A|^2 = h^*_{ji}g^{-1}_{ik} h_{kj} = |L^{-1}_{ik} h_{kj}|^2
+            # |Pi_{\parallel} A|^2 = h^*_{ji}g^{-1}_{ik} h_{kj}
+            # = |L^{-1}_{ik} h_{kj}|^2
             proj_coeffs = l_inv @ hj
-            # errors_j = |Pi_{\perp} [H,Q_j]| = sqrt(|[H,Q_j]|^2- | L_{ki} h_{ij}|^2)
+            # errors_j = |Pi_{\perp} [H,Q_j]| =
+            # sqrt(|[H,Q_j]|^2- | L_{ki} h_{ij}|^2)
             norm_par = proj_coeffs @ proj_coeffs
             error_sq = (max(error_sq - norm_par, 0)) ** 0.5
             return hj, error_sq
@@ -142,34 +174,86 @@ class OperatorBasis:
         self.gen_matrix = self.gram_inv @ hij
         self.errors = errors
 
-    def coefficient_expansion(self, operator: Operator):
+    def coefficient_expansion(self, operator: Operator) -> NDArray:
         """
         Get the coefficients a_i s.t. the orthogonal projection
         of `operator` onto the basis is
         sum(a_i*b_i)
+
+        Parameters
+        ----------
+        operator : Operator
+            The operator to be decomposed on the basis elements.
+
+        Returns
+        -------
+        NDArray
+            the coeffients of the expansion.
+
         """
         sp = self.sp
         return self.gram_inv @ np.array(
             [sp(op, operator) for op in self.operator_basis]
         )
 
-    def operator_from_coefficients(self, phi):
-        """Build an operator from coefficients"""
+    def operator_from_coefficients(self, phi) -> Operator:
+        """
+        Build an operator from coefficients
+
+        Parameters
+        ----------
+        phi : TYPE
+            The coefficients of the expansion.
+
+        Returns
+        -------
+        Operator
+            The operator obtained from the components.
+
+        """
+
         return sum(op_i * a_i for op_i, a_i in zip(self.operator_basis, phi))
 
-    def project_onto(self, operator):
+    def project_onto(self, operator) -> Operator:
         """
         Project operator onto the subspace
+
+        Parameters
+        ----------
+        operator : TYPE
+            The operator to be projected.
+
+        Returns
+        -------
+        Operator
+            The projection of the operator in the subspace spanned by
+            the basis.
+
         """
+
         return self.operator_from_coefficients(self.coefficient_expansion(operator))
 
-    def evolve(self, t: float, a_0: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    def evolve(self, t: float, a_0: np.ndarray) -> Tuple[np.ndarray, float]:
         """
         Compute the coefficients for the expansion of the operator
         operator(t) = sum a_i(t) b_i
         evolving according the projected evolution,
         given its expansion at t=0, and the estimated error induced by
         the projection.
+
+        Parameters
+        ----------
+        t : float
+            DESCRIPTION.
+        a_0 : np.ndarray
+            DESCRIPTION.
+
+        Returns
+        -------
+        Tuple(ndarray, float)
+            Returns two ndarrays: the first with the evolved coefficient, and
+            the second with the estimated error.
+
         """
         a_t = linalg_expm(t * self.gen_matrix) @ a_0
         # The error is estimated by
@@ -186,7 +270,6 @@ class HierarchicalOperatorBasis(OperatorBasis):
     of a seed element and the generator of the evolutions.
     """
 
-    comm_norms: np.ndarray
     deep: int
 
     def __init__(
@@ -210,7 +293,8 @@ class HierarchicalOperatorBasis(OperatorBasis):
 
     def __add__(self, other):
         logging.warning(
-            "Adding a HierarchicalBasis to another basis requires an explicit conversion."
+            "Adding a HierarchicalBasis to another basis "
+            "requires an explicit conversion."
         )
         return OperatorBasis(self.operator_basis, self.generator, self.sp) + other
 
@@ -224,7 +308,10 @@ class HierarchicalOperatorBasis(OperatorBasis):
             comm_norm = np.abs(sp(new_elem, new_elem))
             if np.abs(comm_norm) < 1e-12:
                 logging.warning(
-                    f"A commutator got (almost) zero norm. deep->{len(elements)}"
+                    (
+                        f"""A commutator got (almost) zero norm. deep->"""
+                        f"""{len(elements)}"""
+                    )
                 )
                 deep = len(elements)
                 elements.append(ScalarOperator(0, new_elem.system))
@@ -243,27 +330,46 @@ class HierarchicalOperatorBasis(OperatorBasis):
     def build_tensors(
         self, generator: Optional[Operator] = None, sp: Optional[Callable] = None
     ):
+        """
+        Build the tensors required to compute projections and evolutions.
+
+        Parameters
+        ----------
+        generator : Optional[Operator], optional
+            The generator of the time evolution. The default is None.
+        sp : Optional[Callable], optional
+            The scalar product. The default is None.
+
+        Returns
+        -------
+        None.
+
+        """
         if generator is not None or sp is not None:
             logging.warning("A HierarchicalBasis cannot regenerate its elements.")
 
-        gram = self.gram
-        hij = self._hij
-        errors = self.errors
-        try:
-            l_gram = cholesky(gram)
-        except LinAlgError:
-            logging.warning(
-                (
-                    "using a non-independent set of operators. "
-                    "Reduce it to a linearly independent set..."
+        # Loop to ensure that all the elements
+        # in the basis are linearly independent.
+        while self.operator_basis:
+            try:
+                gram = self.gram
+                l_gram = cholesky(gram)
+                break
+            except LinAlgError:
+                logging.warning(
+                    (
+                        "using a non-independent set of operators. "
+                        "Reduce it to a linearly independent set..."
+                    )
                 )
-            )
             # Remove the last element and try again
             self.operator_basis = self.operator_basis[:-1]
-            self.gram = self.gram[:-1, :-1]
+            self.gram = gram[:-1, :-1]
             self._hij = self._hij[:-1, :-1]
             self.errors = self.errors[:-1]
-            return self.build_tensors()
+
+        hij = self._hij
+        errors = self.errors
 
         l_inv = inv(l_gram)
         self.gram_inv = l_inv.T @ l_inv
