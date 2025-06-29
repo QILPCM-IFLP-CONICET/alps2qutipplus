@@ -127,7 +127,7 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
     def normalize(self) -> Operator:
         """Normalize the operator in a way that exp(-K).tr()==1"""
         if not self.normalized:
-            self.to_qutip(tuple())
+            self.to_qutip(cast(Tuple[str], tuple()))
 
         return self
 

@@ -5,7 +5,7 @@ Module that implements a meanfield approximation of a Gibbsian state
 import logging
 from functools import reduce
 from itertools import combinations
-from typing import Dict, List, Optional, Tuple, Union, cast
+from typing import Callable, Dict, List, Optional, Tuple, Union, cast
 
 import qutip
 from qutip import Qobj
@@ -24,6 +24,12 @@ from alpsqutip.operators.states.basic import (
     ProductDensityOperator,
 )
 from alpsqutip.qutip_tools.tools import schmidt_dec_firsts_last_qutip_operator
+
+# Alias: the type of the functions that project operators to a n-body sector, relative to a
+# given reference state.
+ProjectingOperatorFunction = Callable[
+    [Operator, int, Optional[DensityOperatorMixin]], Operator
+]
 
 
 def one_body_from_qutip_operator(

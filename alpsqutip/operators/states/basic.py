@@ -73,6 +73,7 @@ class DensityOperatorMixin:
     ```
     """
 
+    prefactor: complex
     system: SystemDescriptor
 
     def __add__(self, operand):

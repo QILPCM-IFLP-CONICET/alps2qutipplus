@@ -22,9 +22,17 @@ class OperatorBasis:
     Represent a basis of a subspace of the operator algebra with a
     metric given by a scalar product function.
 
-    If a generator is given,
+    If a generator is given, the basis stores an array hij, which
+    defines the evolution of the coefficients `coeff_a` in the
+    expansion of an operator $K$
 
+    K = sum_a coeff_a(t) Q_a
 
+    in a way that Q
+
+    dK
+    -- = -i [H, K]
+    dt
 
     The __add__ operator allows to extend the basis by adding
     more operators.
@@ -73,6 +81,10 @@ class OperatorBasis:
     def build_tensors(
         self, generator: Optional[Operator] = None, sp: Optional[Callable] = None
     ):
+        """
+        Build the arrays required to compute projections, expansions
+        and evolutions
+        """
 
         if generator is not None:
             self.generator = generator
@@ -103,7 +115,7 @@ class OperatorBasis:
             l_gram = cholesky(gram)
             if any(abs(row[i]) < 1e-6 for i, row in enumerate(l_gram)):
                 raise LinAlgError("too small diagonal elements...")
-        except LinAlgError:
+        except LinAlgError as exc:
             logging.warning(
                 (
                     "using a non-independent set of operators. "
@@ -115,10 +127,11 @@ class OperatorBasis:
             operator_basis = tuple((op_b for op_b in operator_basis_it if op_b))
 
             if not operator_basis:
-                raise ValueError("No linear independent elements.")
+                raise ValueError("No linear independent elements.") from exc
 
             self.operator_basis = operator_basis
-            return self.build_tensors()
+            self.build_tensors()
+            return
 
         # G^{-1} = (L^{-1})^\dagger . L^{-1}
         l_inv = inv(l_gram)
@@ -128,9 +141,11 @@ class OperatorBasis:
             comm = commutator(op_2, generator)
             error_sq = np.real(sp(comm, comm))
             hj = np.array([sp(op_1, comm) for op_1 in operator_basis])
-            # |Pi_{\parallel} A|^2 = h^*_{ji}g^{-1}_{ik} h_{kj} = |L^{-1}_{ik} h_{kj}|^2
+            # |Pi_{\parallel} A|^2 = h^*_{ji}g^{-1}_{ik} h_{kj}
+            # = |L^{-1}_{ik} h_{kj}|^2
             proj_coeffs = l_inv @ hj
-            # errors_j = |Pi_{\perp} [H,Q_j]| = sqrt(|[H,Q_j]|^2- | L_{ki} h_{ij}|^2)
+            # errors_j = |Pi_{\perp} [H,Q_j]| =
+            # sqrt(|[H,Q_j]|^2- | L_{ki} h_{ij}|^2)
             norm_par = proj_coeffs @ proj_coeffs
             error_sq = (max(error_sq - norm_par, 0)) ** 0.5
             return hj, error_sq
@@ -186,7 +201,6 @@ class HierarchicalOperatorBasis(OperatorBasis):
     of a seed element and the generator of the evolutions.
     """
 
-    comm_norms: np.ndarray
     deep: int
 
     def __init__(
@@ -210,7 +224,8 @@ class HierarchicalOperatorBasis(OperatorBasis):
 
     def __add__(self, other):
         logging.warning(
-            "Adding a HierarchicalBasis to another basis requires an explicit conversion."
+            "Adding a HierarchicalBasis to another basis "
+            "requires an explicit conversion."
         )
         return OperatorBasis(self.operator_basis, self.generator, self.sp) + other
 
@@ -224,7 +239,8 @@ class HierarchicalOperatorBasis(OperatorBasis):
             comm_norm = np.abs(sp(new_elem, new_elem))
             if np.abs(comm_norm) < 1e-12:
                 logging.warning(
-                    f"A commutator got (almost) zero norm. deep->{len(elements)}"
+                    f"A commutator got (almost) zero norm. deep->{
+                        len(elements)}"
                 )
                 deep = len(elements)
                 elements.append(ScalarOperator(0, new_elem.system))
@@ -263,7 +279,8 @@ class HierarchicalOperatorBasis(OperatorBasis):
             self.gram = self.gram[:-1, :-1]
             self._hij = self._hij[:-1, :-1]
             self.errors = self.errors[:-1]
-            return self.build_tensors()
+            self.build_tensors()
+            return
 
         l_inv = inv(l_gram)
         self.gram_inv = l_inv.T @ l_inv
