@@ -84,6 +84,19 @@ class OperatorBasis:
         """
         Build the arrays required to compute projections, expansions
         and evolutions
+
+        Parameters
+        ----------
+        generator : Optional[Operator], optional
+            The operator that generates the evolution. The default is None.
+        sp : Optional[Callable], optional
+            A scalar product. The default is None.
+
+        Raises
+        ------
+        ValueError
+            Raised if the basis elements does not span a non-trivial subspace.
+
         """
 
         if generator is not None:
@@ -161,34 +174,86 @@ class OperatorBasis:
         self.gen_matrix = self.gram_inv @ hij
         self.errors = errors
 
-    def coefficient_expansion(self, operator: Operator):
+    def coefficient_expansion(self, operator: Operator) -> NDArray:
         """
         Get the coefficients a_i s.t. the orthogonal projection
         of `operator` onto the basis is
         sum(a_i*b_i)
+
+        Parameters
+        ----------
+        operator : Operator
+            The operator to be decomposed on the basis elements.
+
+        Returns
+        -------
+        NDArray
+            the coeffients of the expansion.
+
         """
         sp = self.sp
         return self.gram_inv @ np.array(
             [sp(op, operator) for op in self.operator_basis]
         )
 
-    def operator_from_coefficients(self, phi):
-        """Build an operator from coefficients"""
+    def operator_from_coefficients(self, phi) -> Operator:
+        """
+        Build an operator from coefficients
+
+        Parameters
+        ----------
+        phi : TYPE
+            The coefficients of the expansion.
+
+        Returns
+        -------
+        Operator
+            The operator obtained from the components.
+
+        """
+
         return sum(op_i * a_i for op_i, a_i in zip(self.operator_basis, phi))
 
-    def project_onto(self, operator):
+    def project_onto(self, operator) -> Operator:
         """
         Project operator onto the subspace
+
+        Parameters
+        ----------
+        operator : TYPE
+            The operator to be projected.
+
+        Returns
+        -------
+        Operator
+            The projection of the operator in the subspace spanned by
+            the basis.
+
         """
+
         return self.operator_from_coefficients(self.coefficient_expansion(operator))
 
-    def evolve(self, t: float, a_0: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    def evolve(self, t: float, a_0: np.ndarray) -> Tuple[np.ndarray, float]:
         """
         Compute the coefficients for the expansion of the operator
         operator(t) = sum a_i(t) b_i
         evolving according the projected evolution,
         given its expansion at t=0, and the estimated error induced by
         the projection.
+
+        Parameters
+        ----------
+        t : float
+            DESCRIPTION.
+        a_0 : np.ndarray
+            DESCRIPTION.
+
+        Returns
+        -------
+        Tuple(ndarray, float)
+            Returns two ndarrays: the first with the evolved coefficient, and
+            the second with the estimated error.
+
         """
         a_t = linalg_expm(t * self.gen_matrix) @ a_0
         # The error is estimated by
@@ -243,8 +308,11 @@ class HierarchicalOperatorBasis(OperatorBasis):
             comm_norm = np.abs(sp(new_elem, new_elem))
             if np.abs(comm_norm) < 1e-12:
                 logging.warning(
-                    f"A commutator got (almost) zero norm. deep->{
-                        len(elements)}"
+                    (
+                        f"A commutator got (almost) zero norm. deep->"
+                        f"{
+                     len(elements)}"
+                    )
                 )
                 deep = len(elements)
                 elements.append(ScalarOperator(0, new_elem.system))
@@ -263,6 +331,21 @@ class HierarchicalOperatorBasis(OperatorBasis):
     def build_tensors(
         self, generator: Optional[Operator] = None, sp: Optional[Callable] = None
     ):
+        """
+        Build the tensors required to compute projections and evolutions.
+
+        Parameters
+        ----------
+        generator : Optional[Operator], optional
+            The generator of the time evolution. The default is None.
+        sp : Optional[Callable], optional
+            The scalar product. The default is None.
+
+        Returns
+        -------
+        None.
+
+        """
         if generator is not None or sp is not None:
             logging.warning("A HierarchicalBasis cannot regenerate its elements.")
 
