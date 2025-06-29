@@ -3,11 +3,12 @@ Module that implements a meanfield approximation of a Gibbsian state
 """
 
 import logging
-from typing import Tuple
+from typing import Callable, Optional, Tuple, cast
 
 import numpy as np
 
 from alpsqutip.operators import Operator
+from alpsqutip.operators.states import DensityOperatorMixin, ProductDensityOperator
 from alpsqutip.operators.states.gibbs import GibbsProductDensityOperator
 from alpsqutip.operators.states.meanfield.projections import (
     project_operator_to_m_body,
@@ -16,8 +17,11 @@ from alpsqutip.operators.states.meanfield.projections import (
 
 
 def self_consistent_project_meanfield(
-    k_op, sigma=None, max_it=100, proj_func=project_operator_to_m_body
-) -> Tuple[Operator, Operator]:
+    k_op: Operator,
+    sigma: Optional[ProductDensityOperator | GibbsProductDensityOperator] = None,
+    max_it: int = 100,
+    proj_func: Callable = project_operator_to_m_body,
+) -> Tuple[Operator, DensityOperatorMixin]:
     """
     Iteratively computes the one-body component from a QuTip operator and state
     using a self-consistent Mean-Field Projection (MF).
@@ -37,24 +41,33 @@ def self_consistent_project_meanfield(
         - sigma_one_body: The one-body state normalized through the
         MFT process.
     """
-    if sigma is None:
-        sigma = GibbsProductDensityOperator(k={}, system=k_op.system)
-        neg_log_sigma = -sigma.logm()
-    else:
-        neg_log_sigma = -sigma.logm()
-        if not isinstance(sigma, GibbsProductDensityOperator):
-            sigma = GibbsProductDensityOperator(neg_log_sigma)
+    it: int
+    curr_sigma: GibbsProductDensityOperator
+    new_sigma: GibbsProductDensityOperator
+    opt_sigma: GibbsProductDensityOperator
+    k_one_body: Operator
+    rel_s: float
+    rel_s_new: float
 
-    rel_s = 10000
-    opt_sigma = sigma
+    if sigma is None:
+        curr_sigma = GibbsProductDensityOperator(k={}, system=k_op.system)
+        k_one_body = -(curr_sigma.logm())
+    else:
+        k_one_body = -(cast(GibbsProductDensityOperator, sigma).logm())
+        if not isinstance(sigma, GibbsProductDensityOperator):
+            curr_sigma = GibbsProductDensityOperator(k_one_body)
+        else:
+            curr_sigma = sigma
+
+    rel_s = np.real(cast(complex, curr_sigma.expect(k_op - k_one_body)))
+    opt_sigma = curr_sigma
     # print("self consistent loop using", proj_func)
+    sigma = None
     for it in range(max_it):
         # k_one_body = project_operator_to_m_body(k_op, 1, sigma)
-        k_one_body = project_to_n_body_operator(k_op, 1, sigma).simplify()
+        k_one_body = project_to_n_body_operator(k_op, 1, curr_sigma).simplify()
         new_sigma = GibbsProductDensityOperator(k_one_body)
-
-        log_k_one_body = new_sigma.logm()
-        rel_s_new = np.real(sigma.expect(k_op + log_k_one_body))
+        rel_s_new = np.real(cast(complex, curr_sigma.expect(k_op + new_sigma.logm())))
         rel_entropy_txt = f"     S(curr||target)={rel_s_new}"
         logging.debug(rel_entropy_txt)
         # print(it, "->", rel_entropy_txt)
@@ -65,7 +78,7 @@ def self_consistent_project_meanfield(
         if rel_s_new < rel_s:
             rel_s = rel_s_new
             opt_sigma = new_sigma
-        sigma = new_sigma
+        curr_sigma = new_sigma
 
     k_one_body = project_to_n_body_operator(k_op, 1, opt_sigma).simplify()
     return k_one_body, opt_sigma

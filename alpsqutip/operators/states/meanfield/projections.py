@@ -5,7 +5,7 @@ Module that implements a meanfield approximation of a Gibbsian state
 import logging
 from functools import reduce
 from itertools import combinations
-from typing import Optional, Union
+from typing import Dict, List, Optional, Tuple, Union, cast
 
 import qutip
 from qutip import Qobj
@@ -28,7 +28,7 @@ from alpsqutip.qutip_tools.tools import schmidt_dec_firsts_last_qutip_operator
 
 def one_body_from_qutip_operator(
     operator: Union[Operator, Qobj], sigma0: Optional[DensityOperatorMixin] = None
-) -> SumOperator:
+) -> Operator:
     """
     Decompose a qutip operator as a sum of an scalar term,
     a one-body term and a remainder, with
@@ -67,7 +67,7 @@ def one_body_from_qutip_operator(
         sigma0 = ProductDensityOperator({}, system=system)
 
     av = sigma0.expect(operator)
-    scalar_term = ScalarOperator(av, system)
+    scalar_term: ScalarOperator = ScalarOperator(av, system)
     one_body_term = project_operator_to_m_body(operator - av, 1, sigma0).simplify()
 
     # If the one_body_term is a SumOperator, but not a OneBodyOperator, reduce it.
@@ -75,7 +75,7 @@ def one_body_from_qutip_operator(
         one_body_term, OneBodyOperator
     ):
         one_body_term = one_body_term.flat()
-        local_terms = []
+        local_terms: List[Operator] = []
         for term in one_body_term.terms:
             if isinstance(term, LocalOperator):
                 local_terms.append(term)
@@ -91,7 +91,9 @@ def one_body_from_qutip_operator(
             tuple(local_terms), system, one_body_term.isherm
         )
 
-    remainder = (operator - one_body_term - scalar_term).simplify().to_qutip_operator()
+    remainder: Operator = (
+        (operator - one_body_term - scalar_term).simplify().to_qutip_operator()
+    )
     return SumOperator(
         (scalar_term, one_body_term, remainder), operator.system, operator.isherm
     )
@@ -111,9 +113,11 @@ def project_operator_to_m_body(
             sigma_0 = ProductDensityOperator({}, 1, full_operator.system)
         return ScalarOperator(sigma_0.expect(full_operator), full_operator.system)
 
-    if isinstance(full_operator, (OneBodyOperator, LocalOperator)) or (
-        len(full_operator.acts_over()) <= m_max
-    ):
+    if isinstance(full_operator, (OneBodyOperator, LocalOperator)):
+        return full_operator
+
+    acts_over = full_operator.acts_over()
+    if acts_over is not None and len(acts_over) <= m_max:
         return full_operator
 
     full_operator = full_operator.simplify()
@@ -183,7 +187,7 @@ def project_operator_to_m_body(
 
 
 def project_qutip_operator_to_m_body(
-    full_operator: Operator, m_max=2, sigma_0=None
+    full_operator: QutipOperator, m_max=2, sigma_0=None
 ) -> Operator:
     """
     Recursive implementation for the m-body Projection
@@ -260,16 +264,17 @@ def project_qutip_operator_to_m_body(
 
 
 def project_product_operator_as_n_body_operator(
-    operator: ProductOperator,
-    nmax: Optional[int] = 1,
+    operator: Operator,
+    nmax: int = 1,
     sigma: Optional[ProductDensityOperator] = None,
 ) -> Operator:
     """
     Project a product operator to the manifold of n-body operators
     """
     # Trivial case
-    sites_op = operator.sites_op
-    prefactor = operator.prefactor
+    src_operator: ProductOperator = cast(ProductOperator, operator)
+    sites_op = src_operator.sites_op
+    prefactor = src_operator.prefactor
     system = operator.system
     if prefactor == 0.0:
         return ScalarOperator(0, system)
@@ -284,8 +289,11 @@ def project_product_operator_as_n_body_operator(
         sigma = ProductDensityOperator({}, system=system)
 
     terms = []
-    averages = sigma.expect(
-        {site: LocalOperator(site, l_op, system) for site, l_op in sites_op.items()}
+    averages: Dict[str, Operator] = cast(
+        Dict[str, Operator],
+        sigma.expect(
+            {site: LocalOperator(site, l_op, system) for site, l_op in sites_op.items()}
+        ),
     )
     fluct_op = {site: l_op - averages[site] for site, l_op in sites_op.items()}
     # Now, we run a loop over
@@ -327,26 +335,26 @@ def project_quadraticform_operator_as_n_body_operator(
 
 
 def project_qutip_operator_as_n_body_operator(
-    operator, nmax: Optional[int] = 1, sigma: Optional[ProductDensityOperator] = None
+    operator, nmax: int = 1, sigma_ref: Optional[ProductDensityOperator] = None
 ) -> Operator:
     """
     Project a qutip operator to the manifold of n-body operators
     """
     acts_over = operator.acts_over()
-    assert isinstance(
-        acts_over, frozenset
-    ), f"{type(operator)}.acts_over() should return a frozenset. Got({type(acts_over)})"
-    if len(acts_over) <= nmax:
+    if acts_over is not None and len(cast(frozenset, acts_over)) <= nmax:
         return operator
 
     system = operator.system
-    if sigma is None:
+    sigma: ProductDensityOperator
+    if sigma_ref is None:
         sigma = ProductDensityOperator({}, system=system)
+    else:
+        sigma = sigma_ref
 
     operator = operator.as_sum_of_products()
-    terms_by_block = {}
-    one_body_terms = []
-    scalar = 0
+    terms_by_block: Dict[Optional[frozenset], List[Operator]] = {}
+    one_body_terms: List[Operator] = []
+    scalar: complex = 0.0
     for term in operator.terms if isinstance(operator, SumOperator) else (operator,):
         acts_over = term.acts_over()
         assert isinstance(
@@ -363,14 +371,16 @@ def project_qutip_operator_as_n_body_operator(
             terms_by_block.setdefault(acts_over, []).append(term)
             continue
 
-        term = project_product_operator_as_n_body_operator(term, nmax, sigma).simplify()
+        term = project_product_operator_as_n_body_operator(
+            cast(ProductOperator, term), nmax, sigma
+        ).simplify()
         if isinstance(term, OneBodyOperator):
             one_body_terms.append(term)
         elif isinstance(term, SumOperator):
             for sub_term in term.terms:
-                if (
-                    isinstance(sub_term, (OneBodyOperator, LocalOperator))
-                    or len(sub_term.acts_over()) < 2
+                acts_over_subterm = sub_term.acts_over()
+                if isinstance(sub_term, (OneBodyOperator, LocalOperator)) or (
+                    acts_over_subterm is not None and len(acts_over_subterm) < 2
                 ):
                     one_body_terms.append(sub_term)
                 else:
@@ -386,11 +396,11 @@ def project_qutip_operator_as_n_body_operator(
             else:
                 terms_by_block.setdefault(term_acts_over2, []).append(term)
 
-    terms_list = []
+    terms_list: List[Operator] = []
     if scalar:
         terms_list.append(ScalarOperator(scalar, system))
     if one_body_terms:
-        terms_list.append(sum(one_body_terms).simplify())
+        terms_list.append(cast(Operator, sum(one_body_terms)).simplify())
     for block, block_terms in terms_by_block.items():
         if block_terms:
             try:
@@ -415,6 +425,7 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
     """
     from alpsqutip.operators.quadratic import QuadraticFormOperator
 
+    terms_tuple: Tuple[Operator]
     system = operator.system
     if sigma is None:
         sigma = ProductDensityOperator({}, system=system)
@@ -428,13 +439,13 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
         operator = operator.simplify().flat()
     # If still a sum operator
     if isinstance(operator, SumOperator):
-        terms = operator.terms
+        terms_tuple = operator.terms
     else:
-        terms = (operator,)
+        terms_tuple = (operator,)
 
     changed = False
     one_body_terms = []
-    block_terms = {}
+    block_terms: Dict[Optional[frozenset], Operator] = {}
 
     def dispatch_term(t):
         """
@@ -469,7 +480,7 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
         QuadraticFormOperator: project_quadraticform_operator_as_n_body_operator,
     }
 
-    for term in terms:
+    for term in terms_tuple:
         if dispatch_term(term):
             continue
         changed = True
@@ -497,7 +508,7 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
         (term for term in one_body_terms if not isinstance(term, ScalarOperator))
     )
 
-    terms = list(block_terms.values())
+    terms: List[Operator] = list(block_terms.values())
     if scalar != 0:
         terms.append(ScalarOperator(scalar, system))
     if proper_local_terms:
