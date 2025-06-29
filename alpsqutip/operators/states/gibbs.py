@@ -4,7 +4,7 @@ Classes to represent density operators as Gibbs states $rho=e^{-k}$.
 """
 
 from numbers import Number
-from typing import Dict, Iterable, Optional, Tuple, Union
+from typing import Dict, Iterable, Optional, Tuple, Union, cast
 
 import numpy as np
 
@@ -94,7 +94,7 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
             return self * operand.inv()
         raise ValueError("Division of an operator by ", type(operand), " not defined.")
 
-    def acts_over(self) -> set:
+    def acts_over(self) -> Optional[frozenset]:
         """
         Return a set with the name of the
         sites where the operator nontrivially acts
@@ -179,24 +179,29 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
         prefactor: float = 1,
         normalized: bool = False,
     ):
+        self_system: SystemDescriptor
+        k_by_site: Dict[str, Operator]
+        f_locals: Dict[str, float]
+
         assert prefactor > 0.0
 
         self.prefactor = prefactor
         if isinstance(k, dict):
             assert system is not None
-            self.system = system
+            self_system = self.system = cast(SystemDescriptor, system)
             k_by_site = k
         else:
-            k = k.simplify()
+            k_operator: Operator = cast(Operator, k)
+            k_operator = k_operator.simplify()
             if system:
-                system = k.system.union(system)
+                system = k_operator.system.union(system)
             else:
-                system = k.system
-            self.system = system
-            k_by_site = k_by_site_from_operator(k)
+                system = k_operator.system
+            self_system = self.system = cast(SystemDescriptor, system)
+            k_by_site = k_by_site_from_operator(k_operator)
 
         if normalized:
-            f_locals = {site: 0 for site in k_by_site}
+            f_locals = {site: 0.0 for site in k_by_site}
         else:
 
             def safe_local_f(op_loc):
@@ -211,12 +216,12 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
                 k_by_site[site] = k_by_site[site] - f_locals[site]
 
         # Add missing terms
-        for site in system.sites:
+        for site in self_system.sites:
             if site in k_by_site:
                 continue
-            f_local = np.log(system.dimensions[site])
+            f_local = np.log(self_system.dimensions[site])
             f_locals[site] = -f_local
-            k_by_site[site] = system.site_identity(site) * f_local
+            k_by_site[site] = self_system.site_identity(site) * f_local
 
         # for site, op_qutip in k_by_site.items():
         #     eig_vals = op_qutip.eigenenergies()
@@ -246,12 +251,12 @@ class GibbsProductDensityOperator(DensityOperatorMixin, Operator):
                 )
         return operand * self.to_product_state()
 
-    def acts_over(self) -> set:
+    def acts_over(self) -> Optional[frozenset]:
         """
         Return a set with the names of the sites where
         the operator non-trivially acts over.
         """
-        return set(site for site in self.k_by_site)
+        return frozenset(site for site in self.k_by_site)
 
     def expect(
         self, obs_objs: Union[Operator, Iterable]
