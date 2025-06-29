@@ -309,9 +309,8 @@ class HierarchicalOperatorBasis(OperatorBasis):
             if np.abs(comm_norm) < 1e-12:
                 logging.warning(
                     (
-                        f"A commutator got (almost) zero norm. deep->"
-                        f"{
-                     len(elements)}"
+                        f"""A commutator got (almost) zero norm. deep->"""
+                        f"""{len(elements)}"""
                     )
                 )
                 deep = len(elements)

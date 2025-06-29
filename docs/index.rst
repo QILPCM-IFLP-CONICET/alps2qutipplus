@@ -13,12 +13,11 @@ Welcome to Alps2Qutip++'s documentation!
    what-is-alps2qutippp
    installing
    running
+   alpsqutip
    bugs
-   modules
-   cli_tools
 	
 
-automodule:: alps2qutipplus
+automodule:: alpsqutip
 
 
 Indices and tables

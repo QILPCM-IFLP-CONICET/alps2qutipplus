@@ -1,7 +1,8 @@
-alpsqutip
-=========
 
-.. toctree::
-   :maxdepth: 4
+API Reference
+=============
 
-   source/alpsqutip
+.. automodule:: alpsqutip
+    :members:
+    :undoc-members:
+    :show-inheritance:
