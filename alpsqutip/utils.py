@@ -24,9 +24,23 @@ default_parms = {
 
 
 def draw_ellipse_around_points(p1, p2, ax, b_ratio=0.15):
-    """
-    Draw an ellipse containing p1 and p2 located over the main axis,
+    """Draw an ellipse containing p1 and p2 located over the main axis,
     symmetrically around the center.
+
+    Parameters
+    ----------
+    p1 :
+
+    p2 :
+
+    ax :
+
+    b_ratio :
+         (Default value = 0.15)
+
+    Returns
+    -------
+
     """
     # Compute center
     x1, y1 = p1
@@ -56,23 +70,19 @@ def draw_ellipse_around_points(p1, p2, ax, b_ratio=0.15):
 
 
 def draw_operator(op, axis: "plt.Axis") -> "plt.Axis":
-    """
-    Draw the operator op over the axis.
+    """Draw the operator op over the axis.
 
     Parameters
     ----------
+    op :
 
-    op: Operator
-      If the operator acts on a single site, draws a disk on its coordinates.
-      If is a SumOperator, flatten it and draw each term.
-      For many-body operators, a line is drawn.
-    ax: mpl.Axis
-      the axis over which the operator is going to be drawn.
+    axis: "plt.Axis" :
 
-    Return
-    ------
-    mpl.Axis
-      the axis over which the operator was drawn.
+
+    Returns
+    -------
+
+
     """
     # TODO: handle 3D graphs
     from alpsqutip.operators import SumOperator
@@ -104,10 +114,20 @@ def draw_operator(op, axis: "plt.Axis") -> "plt.Axis":
 
 
 def eval_expr(expr: str, parms: dict):
-    """
-    Evaluate the expression `expr` replacing the variables defined in `parms`.
+    """Evaluate the expression `expr` replacing the variables defined in `parms`.
     expr can include python`s arithmetic expressions, and some elementary
     functions.
+
+    Parameters
+    ----------
+    expr: str :
+
+    parms: dict :
+
+
+    Returns
+    -------
+
     """
     # TODO: Improve the workflow in a way that numpy functions
     # and constants be loaded just if they are needed.
@@ -175,8 +195,7 @@ def eval_expr(expr: str, parms: dict):
 
 
 def find_ref(node, root):
-    """
-    Find a node in the root
+    """Find a node in the root
 
     Parameters
     ----------
@@ -188,8 +207,7 @@ def find_ref(node, root):
 
     Returns
     -------
-    dict
-        the node corresponding to `node`.
+
 
     """
     node_items = dict(node.items())
@@ -202,15 +220,34 @@ def find_ref(node, root):
 
 
 def operator_to_wolfram(operator) -> str:
-    """
-    Produce a string with a Wolfram Mathematica expression
+    """Produce a string with a Wolfram Mathematica expression
     representing the operator.
+
+    Parameters
+    ----------
+    operator :
+
+
+    Returns
+    -------
+
     """
     from alpsqutip.operators.arithmetic import SumOperator
     from alpsqutip.operators.basic import LocalOperator, Operator, ProductOperator
     from alpsqutip.operators.qutip import Qobj
 
     def get_site_identity(site_name):
+        """
+
+        Parameters
+        ----------
+        site_name :
+
+
+        Returns
+        -------
+
+        """
         site_spec = sites[site_name]
         if "operators" in site_spec:
             return site_spec["operators"]["identity"]
@@ -281,12 +318,33 @@ def operator_to_wolfram(operator) -> str:
 
 
 def matrix_to_wolfram(matr: np.ndarray):
-    """Produce a string representing the data in the matrix"""
+    """Produce a string representing the data in the matrix
+
+    Parameters
+    ----------
+    matr: np.ndarray :
+
+
+    Returns
+    -------
+
+    """
     assert isinstance(
         matr, (np.ndarray, complex, float)
     ), f"{type(matr)} is not ndarray or number"
 
     def process_number(num):
+        """
+
+        Parameters
+        ----------
+        num :
+
+
+        Returns
+        -------
+
+        """
         assert isinstance(
             num, (float, complex)
         ), f"{type(num)} {num} is not float or complex."
@@ -311,9 +369,21 @@ def matrix_to_wolfram(matr: np.ndarray):
 
 
 def next_name(dictionary: dict, s: int = 1, prefix: str = "") -> str:
-    """
-    Produces a new key for the `dictionary` with a
+    """Produces a new key for the `dictionary` with a
     `prefix`
+
+    Parameters
+    ----------
+    dictionary: dict :
+
+    s: int :
+         (Default value = 1)
+    prefix: str :
+         (Default value = "")
+
+    Returns
+    -------
+
     """
     name = f"{prefix}{s}"
     if name in dictionary:

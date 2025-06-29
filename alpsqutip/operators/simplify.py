@@ -31,20 +31,24 @@ from alpsqutip.settings import ALPSQUTIP_TOLERANCE
 def sum_operator_sequence(
     seq: Sequence[Operator], system: SystemDescriptor, **attrs
 ) -> Operator:
-    """
-    Convert a sequence of operators in its sume.
+    """Convert a sequence of operators in its sume.
 
     Parameters
     ----------
     seq : Sequence[Operator]
         A sequence of operators.
+    system : SystemDescriptor
 
-    system: SystemDescriptor
-        The default system, used when the sequence is empty.
+    seq: Sequence[Operator] :
+
+    system: SystemDescriptor :
+
+    **attrs :
+
+
     Returns
     -------
-    Operator
-        The sum of the operators of the sequence.
+
 
     """
     if not seq:
@@ -55,8 +59,7 @@ def sum_operator_sequence(
 
 
 def collect_nbody_terms(operator: Operator) -> dict:
-    """
-    Build a dictionary whose keys are subsystems and
+    """Build a dictionary whose keys are subsystems and
     the values are lists of operators acting exactly
     over the subsystem.
 
@@ -64,13 +67,13 @@ def collect_nbody_terms(operator: Operator) -> dict:
     ----------
     operator : Operator
         The operator to be decomposed.
+    operator: Operator :
+
 
     Returns
     -------
-    dict
-        A dictionary where each key corresponds to a block,
-        and the associated values are list of operators acting on that
-        block.
+
+
     """
     terms_by_block = {}
     scalar_term = 0.0
@@ -97,8 +100,7 @@ def collect_nbody_terms(operator: Operator) -> dict:
 
 
 def group_terms_by_blocks(operator: Operator, fn: Optional[Callable] = None):
-    """
-    Rewrite a sum of operators as a sum
+    """Rewrite a sum of operators as a sum
     of a ScalarOperator, a OneBodyOperator
     and terms acting on different blocks.
 
@@ -119,12 +121,14 @@ def group_terms_by_blocks(operator: Operator, fn: Optional[Callable] = None):
         The operator to be reduced.
     fn : Optional[Callable], optional
         A function to implement specific simplifications. The default is None.
+    operator: Operator :
+
+    fn: Optional[Callable] :
+         (Default value = None)
 
     Returns
     -------
-    Operator
-        A new operator equivalent to `operator`, but with the terms grouped
-        by blocks over which their acts.
+
 
     """
 
@@ -145,6 +149,19 @@ def group_terms_by_blocks(operator: Operator, fn: Optional[Callable] = None):
     one_body_terms = []
 
     def apply_simplification_fn(op_in: Operator, fn: Optional[Callable]):
+        """
+
+        Parameters
+        ----------
+        op_in: Operator :
+
+        fn: Optional[Callable] :
+
+
+        Returns
+        -------
+
+        """
         try:
             if isinstance(op_in, SumOperator):
                 op_in = simplify_qutip_sums(op_in)
@@ -199,19 +216,19 @@ def group_terms_by_blocks(operator: Operator, fn: Optional[Callable] = None):
 
 
 def simplify_qutip_sums(sum_operator: SumOperator) -> Operator:
-    """
-    Collect terms acting on the same block of sites,
+    """Collect terms acting on the same block of sites,
     and reduce it to a single qutip operator.
 
     Parameters
     ----------
     sum_operator : SumOperator
         The operator to be reduced.
+    sum_operator: SumOperator :
+
 
     Returns
     -------
-    Operator
-        The reduced operator.
+
 
     """
     if not isinstance(sum_operator, SumOperator):
@@ -278,8 +295,16 @@ def simplify_qutip_sums(sum_operator: SumOperator) -> Operator:
 
 
 def post_process_collections(collection: dict) -> dict:
-    """
-    Collect terms acting on blocks or subblocks
+    """Collect terms acting on blocks or subblocks
+
+    Parameters
+    ----------
+    collection: dict :
+
+
+    Returns
+    -------
+
     """
     new_collection = {}
     keys = sorted((c for c in collection if c is not None), key=lambda x: -len(x))
@@ -300,12 +325,33 @@ def post_process_collections(collection: dict) -> dict:
 
 
 def reduce_by_orthogonalization(operator_list):
-    """
-    From a list of operators whose sum spans another operator,
+    """From a list of operators whose sum spans another operator,
     produce a new list with linear independent terms
+
+    Parameters
+    ----------
+    operator_list :
+
+
+    Returns
+    -------
+
     """
 
     def scalar_product(op_1, op_2):
+        """
+
+        Parameters
+        ----------
+        op_1 :
+
+        op_2 :
+
+
+        Returns
+        -------
+
+        """
         return (op_1.dag() * op_2).tr()
 
     basis = orthogonalize_basis(operator_list, sp=scalar_product)
@@ -325,13 +371,42 @@ def rewrite_nbody_term_using_qutip(
     isherm: bool = None,
     isdiag: bool = None,
 ) -> Operator:
-    """
-    Do the decomposition work using qutip
+    """Do the decomposition work using qutip
+
+    Parameters
+    ----------
+    operator_list: list :
+
+    block: tuple :
+
+    system: SystemDescriptor :
+
+    isherm: bool :
+         (Default value = None)
+    isdiag: bool :
+         (Default value = None)
+
+    Returns
+    -------
+
     """
     block_sites = sorted(block)
     sites_identity = {}
 
     def op_or_identity(term, site):
+        """
+
+        Parameters
+        ----------
+        term :
+
+        site :
+
+
+        Returns
+        -------
+
+        """
         result = term.sites_op.get(site, None) or sites_identity.get(site, None)
         if result is None:
             result = system.sites[site]["operators"]["identity"]
@@ -371,15 +446,43 @@ def rewrite_nbody_term_using_orthogonal_decomposition(
     isherm: bool = None,
     isdiag: bool = None,
 ) -> Operator:
-    """
-    Do the decomposition work using qutip
+    """Do the decomposition work using qutip
+
+    Parameters
+    ----------
+    operator_list: list :
+
+    block: tuple :
+
+    system: SystemDescriptor :
+
+    isherm: bool :
+         (Default value = None)
+    isdiag: bool :
+         (Default value = None)
+
+    Returns
+    -------
+
     """
     # Build the Gram's matrix
     # TODO: exploit isherm
     basis = operator_list
 
     def sp(a, b):
-        """HS scalar product over block"""
+        """HS scalar product over block
+
+        Parameters
+        ----------
+        a :
+
+        b :
+
+
+        Returns
+        -------
+
+        """
         sites_op_a, sites_op_b = a.sites_op, b.sites_op
         result = 0
         for site in block:
@@ -412,11 +515,19 @@ def rewrite_nbody_term_using_orthogonal_decomposition(
 
 
 def simplify_sum_using_qutip(operator: Operator) -> Operator:
-    """
-    Decompose Operator as a sum of n-body terms,
+    """Decompose Operator as a sum of n-body terms,
     convert each term to a qutip operator,
     and decompose each operator again as a sum
     of n-body terms
+
+    Parameters
+    ----------
+    operator: Operator :
+
+
+    Returns
+    -------
+
     """
     operator = operator.flat()
     if not isinstance(operator, SumOperator):
@@ -453,10 +564,18 @@ def simplify_sum_using_qutip(operator: Operator) -> Operator:
 
 
 def simplify_sum_operator(operator):
-    """
-    Try a more aggressive simplification that self.simplify()
+    """Try a more aggressive simplification that self.simplify()
     by classifing the terms according to which subsystem acts,
     reducing the partial sums by orthogonalization.
+
+    Parameters
+    ----------
+    operator :
+
+
+    Returns
+    -------
+
     """
     simplified_op = operator.simplify().flat()
 
@@ -538,11 +657,19 @@ def simplify_sum_operator(operator):
 
 
 def simplify_sum_using_orthogonal_decomposition(operator: Operator) -> Operator:
-    """
-    Decompose Operator as a sum of n-body terms,
+    """Decompose Operator as a sum of n-body terms,
     convert each term to a qutip operator,
     and decompose each operator again as a sum
     of n-body terms
+
+    Parameters
+    ----------
+    operator: Operator :
+
+
+    Returns
+    -------
+
     """
     if not isinstance(operator, SumOperator):
         return operator

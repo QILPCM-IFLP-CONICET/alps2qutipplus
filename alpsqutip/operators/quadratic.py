@@ -39,10 +39,16 @@ from alpsqutip.settings import ALPSQUTIP_TOLERANCE
 
 
 class QuadraticFormOperator(Operator):
-    """
-    Represents a two-body operator of the form
+    """Represents a two-body operator of the form
     sum_alpha w_alpha * Q_alpha^2
     with Q_alpha a local operator or a One body operator.
+
+    Parameters
+    ----------
+
+    Returns
+    -------
+
     """
 
     system: SystemDescriptor
@@ -184,9 +190,7 @@ class QuadraticFormOperator(Operator):
         )
 
     def acts_over(self):
-        """
-        Set of sites over the state acts.
-        """
+        """Set of sites over the state acts."""
         result = frozenset()
         for term in self.basis:
             try:
@@ -204,6 +208,7 @@ class QuadraticFormOperator(Operator):
         return result
 
     def dag(self):
+        """ """
         linear_term = self.linear_term
         linear_term = None if linear_term is None else linear_term.dag()
         offset = self.offset
@@ -219,6 +224,7 @@ class QuadraticFormOperator(Operator):
         return result
 
     def flat(self):
+        """ """
         return self
 
     @property
@@ -237,6 +243,7 @@ class QuadraticFormOperator(Operator):
 
     @property
     def isherm(self):
+        """ """
         for term in (self.offset, self.linear_term):
             if term is None:
                 continue
@@ -250,6 +257,19 @@ class QuadraticFormOperator(Operator):
         return all(abs(np.imag(weight)) < ALPSQUTIP_TOLERANCE for weight in weights)
 
     def partial_trace(self, sites: Union[tuple, SystemDescriptor]):
+        """
+
+        Parameters
+        ----------
+        sites: Union[tuple :
+
+        SystemDescriptor] :
+
+
+        Returns
+        -------
+
+        """
 
         if not isinstance(sites, SystemDescriptor):
             sites = self.system.subsystem(sites)
@@ -289,9 +309,15 @@ class QuadraticFormOperator(Operator):
         ).simplify()
 
     def simplify(self):
-        """
-        Simplify the operator.
+        """Simplify the operator.
         Build a new representation with a smaller basis.
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+
         """
         if self._simplified:
             return self
@@ -302,10 +328,19 @@ class QuadraticFormOperator(Operator):
 
     def to_qutip(self, block: Optional[Tuple[str]] = None):
         """
-        return a qutip object acting over the sites listed in
-        `block`.
-        By default (`block=None`) returns a qutip object
-        acting over all the sites, in lexicographical order.
+
+        Parameters
+        ----------
+        block: Optional[Tuple[str]] :
+             (Default value = None)
+
+        Returns
+        -------
+        type
+            `block`.
+            By default (`block=None`) returns a qutip object
+            acting over all the sites, in lexicographical order.
+
         """
         sites = self.system.sites
         if block is None:
@@ -325,7 +360,17 @@ class QuadraticFormOperator(Operator):
         return result
 
     def to_sum_operator(self, simplify: bool = True) -> SumOperator:
-        """Convert to a linear combination of quadratic operators"""
+        """Convert to a linear combination of quadratic operators
+
+        Parameters
+        ----------
+        simplify: bool :
+             (Default value = True)
+
+        Returns
+        -------
+
+        """
         isherm = self.isherm
         isdiag = self.isdiagonal
         if all(b_op.isherm for b_op in self.basis):
@@ -357,10 +402,18 @@ class QuadraticFormOperator(Operator):
 
 
 def build_local_basis(terms_by_block):
-    """
-    Build a local basis of operators from
+    """Build a local basis of operators from
     a list of two-body operators on each
     pair of sites
+
+    Parameters
+    ----------
+    terms_by_block :
+
+
+    Returns
+    -------
+
     """
     basis_by_site = {}
     # First, collect the one-body factors
@@ -375,10 +428,18 @@ def build_local_basis(terms_by_block):
 
 
 def orthonormal_hs_local_basis(local_generators_dict: dict):
-    """
-    From a set of operators associated to each site,
+    """From a set of operators associated to each site,
     build an orthonormalized basis of hermitian operators
     regarding the HS scalar product on each site.
+
+    Parameters
+    ----------
+    local_generators_dict: dict :
+
+
+    Returns
+    -------
+
     """
     basis_dict = {}
     for site, generators in local_generators_dict.items():
@@ -406,11 +467,21 @@ def orthonormal_hs_local_basis(local_generators_dict: dict):
 
 
 def classify_terms(operator, sigma_ref):
-    """
-    Decompose `operator` as list of terms
+    """Decompose `operator` as list of terms
     associated to each pairs of sites,
     and offset terms
     operator = sum_{ij} sum_a q_ija +  sum_{b} offset_{b}.
+
+    Parameters
+    ----------
+    operator :
+
+    sigma_ref :
+
+
+    Returns
+    -------
+
     """
 
     local_sigmas = (
@@ -423,6 +494,17 @@ def classify_terms(operator, sigma_ref):
     )
 
     def decompose_two_body_product_operator(prod_op):
+        """
+
+        Parameters
+        ----------
+        prod_op :
+
+
+        Returns
+        -------
+
+        """
         prefactor = prod_op.prefactor
         system = prod_op.system
         sites_op = operator.sites_op
@@ -494,6 +576,19 @@ def classify_terms(operator, sigma_ref):
 
 
 def build_quadratic_form_matrix(terms_by_block, local_basis):
+    """
+
+    Parameters
+    ----------
+    terms_by_block :
+
+    local_basis :
+
+
+    Returns
+    -------
+
+    """
     sizes = {site: len(local_base) for site, local_base in local_basis.items()}
     sorted_sites = sorted(sizes)
     positions = {
@@ -533,8 +628,22 @@ def build_quadratic_form_from_operator(
     isherm=None,
     sigma_ref=None,
 ) -> QuadraticFormOperator:
-    """
-    Build a QuadraticFormOperator from `operator`
+    """Build a QuadraticFormOperator from `operator`
+
+    Parameters
+    ----------
+    operator: Operator :
+
+    simplify :
+         (Default value = True)
+    isherm :
+         (Default value = None)
+    sigma_ref :
+         (Default value = None)
+
+    Returns
+    -------
+
     """
     from alpsqutip.operators.states.basic import (
         ProductDensityOperator,
@@ -542,6 +651,17 @@ def build_quadratic_form_from_operator(
     from alpsqutip.operators.states.gibbs import GibbsProductDensityOperator
 
     def force_hermitic_t(t):
+        """
+
+        Parameters
+        ----------
+        t :
+
+
+        Returns
+        -------
+
+        """
         if t is None:
             return t
         if not t.isherm:
@@ -550,6 +670,17 @@ def build_quadratic_form_from_operator(
         return t
 
     def spectral_norm(ob_op):
+        """
+
+        Parameters
+        ----------
+        ob_op :
+
+
+        Returns
+        -------
+
+        """
         if isinstance(ob_op, ScalarOperator):
             return ob_op.prefactor
         if isinstance(ob_op, OneBodyOperator):
@@ -698,9 +829,19 @@ def build_quadratic_form_from_operator(
 
 
 def quadratic_form_expect(sq_op, state):
-    """
-    Compute the expectation value of op, taking advantage
+    """Compute the expectation value of op, taking advantage
     of its structure.
+
+    Parameters
+    ----------
+    sq_op :
+
+    state :
+
+
+    Returns
+    -------
+
     """
     sq_op = sq_op.to_sum_operator(False)
     return state.expect(sq_op)
@@ -709,9 +850,21 @@ def quadratic_form_expect(sq_op, state):
 def selfconsistent_meanfield_from_quadratic_form(
     quadratic_form: QuadraticFormOperator, max_it, logdict=None
 ):
-    """
-    Build a self-consistent mean field approximation
+    """Build a self-consistent mean field approximation
     to the gibbs state associated to the quadratic form.
+
+    Parameters
+    ----------
+    quadratic_form: QuadraticFormOperator :
+
+    max_it :
+
+    logdict :
+         (Default value = None)
+
+    Returns
+    -------
+
     """
     from alpsqutip.operators.states.gibbs import GibbsProductDensityOperator
 
@@ -758,9 +911,17 @@ def selfconsistent_meanfield_from_quadratic_form(
 
 
 def ensure_hermitician_basis(self: QuadraticFormOperator):
-    """
-    Ensure that the quadratic form is expanded using a
+    """Ensure that the quadratic form is expanded using a
     basis of hermitician operators.
+
+    Parameters
+    ----------
+    self: QuadraticFormOperator :
+
+
+    Returns
+    -------
+
     """
     basis = self.basis
     if all(b.isherm for b in basis):
@@ -812,8 +973,18 @@ def ensure_hermitician_basis(self: QuadraticFormOperator):
 
 
 def one_body_operator_hermitician_hs_sp(x_op: OneBodyOperator, y_op: OneBodyOperator):
-    """
-    Hilbert Schmidt scalar product optimized for OneBodyOperators
+    """Hilbert Schmidt scalar product optimized for OneBodyOperators
+
+    Parameters
+    ----------
+    x_op: OneBodyOperator :
+
+    y_op: OneBodyOperator :
+
+
+    Returns
+    -------
+
     """
     result = 0
     terms_x: Tuple[LocalOperator] = (
@@ -841,10 +1012,22 @@ def simplify_quadratic_form(
     hermitic: bool = True,
     scalar_product: Callable = one_body_operator_hermitician_hs_sp,
 ):
-    """
-    Takes a 2-body operator and returns lists weights, ops
+    """Takes a 2-body operator and returns lists weights, ops
     such that the original operator is
     sum(w * op**2 for w,op in zip(weights,ops))
+
+    Parameters
+    ----------
+    operator: QuadraticFormOperator :
+
+    hermitic: bool :
+         (Default value = True)
+    scalar_product: Callable :
+         (Default value = one_body_operator_hermitician_hs_sp)
+
+    Returns
+    -------
+
     """
     changed = False
     system = operator.system
@@ -852,6 +1035,17 @@ def simplify_quadratic_form(
         changed = True
 
     def simplify_other_terms(term):
+        """
+
+        Parameters
+        ----------
+        term :
+
+
+        Returns
+        -------
+
+        """
         nonlocal changed
         new_term = term
         if hermitic:

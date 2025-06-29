@@ -10,7 +10,7 @@ from numpy.linalg import LinAlgError, cholesky, inv
 from numpy.typing import NDArray
 from scipy.linalg import expm as linalg_expm
 
-from alpsqutip.operators import Operator, ScalarOperator
+from alpsqutip.operators.basic import Operator, ScalarOperator
 from alpsqutip.operators.functions import commutator
 from alpsqutip.scalarprod.build import fetch_HS_scalar_product
 from alpsqutip.scalarprod.gram import gram_matrix

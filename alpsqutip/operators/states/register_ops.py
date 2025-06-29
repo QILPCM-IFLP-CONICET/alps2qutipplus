@@ -78,6 +78,19 @@ SUM_TYPES = (SumOperator, OneBodyOperator)
     ]
 )
 def _(x_op: MixtureDensityOperator, y_op: DensityOperatorMixin):
+    """
+
+    Parameters
+    ----------
+    x_op: MixtureDensityOperator :
+
+    y_op: DensityOperatorMixin :
+
+
+    Returns
+    -------
+
+    """
     terms = x_op.terms + (y_op,)
     # If there is just one term, return it:
     if len(terms) == 1:
@@ -95,6 +108,19 @@ def _(x_op: MixtureDensityOperator, y_op: DensityOperatorMixin):
     [(op_type, MixtureDensityOperator) for op_type in BASIC_OPERATOR_TYPES]
 )
 def _(y_op: Operator, x_op: MixtureDensityOperator):
+    """
+
+    Parameters
+    ----------
+    y_op: Operator :
+
+    x_op: MixtureDensityOperator :
+
+
+    Returns
+    -------
+
+    """
     terms = tuple((y_op * term) * term.prefactor for term in x_op.terms)
     # If there is just one term, return it:
     if len(terms) == 1:
@@ -116,6 +142,19 @@ def _(y_op: Operator, x_op: MixtureDensityOperator):
     ]
 )
 def _(x_op, y_op):
+    """
+
+    Parameters
+    ----------
+    x_op :
+
+    y_op :
+
+
+    Returns
+    -------
+
+    """
     system = x_op.system * y_op.system
     return MixtureDensityOperator(
         (
@@ -137,6 +176,19 @@ def _(x_op, y_op):
     [(SumOperator, type_2) for type_2 in NON_PRODUCT_DENSITY_OPERATOR_BASIC_TYPES]
 )
 def _(x_op: Operator, y_op: DensityOperatorMixin):
+    """
+
+    Parameters
+    ----------
+    x_op: Operator :
+
+    y_op: DensityOperatorMixin :
+
+
+    Returns
+    -------
+
+    """
     y_op = y_op.to_qutip_operator()
     if isinstance(y_op, QutipDensityOperator):
         prefactor = 1
@@ -157,6 +209,19 @@ def _(x_op: Operator, y_op: DensityOperatorMixin):
     [(SumOperator, type_2) for type_2 in NON_PRODUCT_DENSITY_OPERATOR_BASIC_TYPES]
 )
 def _(x_op: Operator, y_op: DensityOperatorMixin):
+    """
+
+    Parameters
+    ----------
+    x_op: Operator :
+
+    y_op: DensityOperatorMixin :
+
+
+    Returns
+    -------
+
+    """
     y_op = y_op.to_qutip_operator()
     if isinstance(y_op, QutipDensityOperator):
         prefactor = 1
@@ -177,6 +242,19 @@ def _(x_op: Operator, y_op: DensityOperatorMixin):
     [(type_2, SumOperator) for type_2 in NON_PRODUCT_DENSITY_OPERATOR_BASIC_TYPES]
 )
 def _(y_op: DensityOperatorMixin, x_op: Operator):
+    """
+
+    Parameters
+    ----------
+    y_op: DensityOperatorMixin :
+
+    x_op: Operator :
+
+
+    Returns
+    -------
+
+    """
     y_op = y_op.to_qutip_operator()
     if isinstance(y_op, QutipDensityOperator):
         prefactor = 1
@@ -199,6 +277,19 @@ def _(y_op: DensityOperatorMixin, x_op: Operator):
     )
 )
 def _(x_op: Operator, y_op: DensityOperatorMixin):
+    """
+
+    Parameters
+    ----------
+    x_op: Operator :
+
+    y_op: DensityOperatorMixin :
+
+
+    Returns
+    -------
+
+    """
     y_op = ProductOperator(y_op.sites_op, 1, y_op.system)
     return x_op + y_op
 
@@ -207,6 +298,19 @@ def _(x_op: Operator, y_op: DensityOperatorMixin):
     [(type_1, ProductDensityOperator) for type_1 in BASIC_OPERATOR_TYPES]
 )
 def _(x_op: Operator, y_op: DensityOperatorMixin):
+    """
+
+    Parameters
+    ----------
+    x_op: Operator :
+
+    y_op: DensityOperatorMixin :
+
+
+    Returns
+    -------
+
+    """
     y_op = ProductOperator(y_op.sites_op, 1, y_op.system)
     return x_op * y_op
 
@@ -215,12 +319,38 @@ def _(x_op: Operator, y_op: DensityOperatorMixin):
     [(ProductDensityOperator, type_1) for type_1 in BASIC_OPERATOR_TYPES]
 )
 def _(y_op: DensityOperatorMixin, x_op: Operator):
+    """
+
+    Parameters
+    ----------
+    y_op: DensityOperatorMixin :
+
+    x_op: Operator :
+
+
+    Returns
+    -------
+
+    """
     y_op = ProductOperator(y_op.sites_op, 1, y_op.system)
     return y_op * x_op
 
 
 @Operator.register_mul_handler((ProductDensityOperator, ProductDensityOperator))
 def _(x_op: ProductDensityOperator, y_op: ProductDensityOperator):
+    """
+
+    Parameters
+    ----------
+    x_op: ProductDensityOperator :
+
+    y_op: ProductDensityOperator :
+
+
+    Returns
+    -------
+
+    """
     system = x_op.system * y_op.system if x_op.system else y_op.system
     sites_op = x_op.sites_op.copy()
     for site, factor in y_op.sites_op.items():
@@ -246,6 +376,19 @@ def _(x_op: ProductDensityOperator, y_op: ProductDensityOperator):
     )
 )
 def _(x_op: ProductDensityOperator, y_op: SumOperator):
+    """
+
+    Parameters
+    ----------
+    x_op: ProductDensityOperator :
+
+    y_op: SumOperator :
+
+
+    Returns
+    -------
+
+    """
     system = x_op.system * y_op.system if x_op.system else y_op.system
     return SumOperator(
         tuple(x_op * term for term in y_op.terms),
@@ -260,6 +403,19 @@ def _(x_op: ProductDensityOperator, y_op: SumOperator):
     )
 )
 def _(x_op: SumOperator, y_op: ProductDensityOperator):
+    """
+
+    Parameters
+    ----------
+    x_op: SumOperator :
+
+    y_op: ProductDensityOperator :
+
+
+    Returns
+    -------
+
+    """
     system = x_op.system * y_op.system if x_op.system else y_op.system
     terms = tuple(term * y_op for term in x_op.terms)
     return SumOperator(
@@ -283,6 +439,19 @@ def _(
     x_op: SumOperator,
     y_op: MixtureDensityOperator,
 ):
+    """
+
+    Parameters
+    ----------
+    x_op: SumOperator :
+
+    y_op: MixtureDensityOperator :
+
+
+    Returns
+    -------
+
+    """
     terms = []
     for term in y_op.terms:
         prefactor = term.prefactor
@@ -311,6 +480,19 @@ def _(
     )
 )
 def _(x_op: GibbsProductDensityOperator, y_op: ScalarOperator):
+    """
+
+    Parameters
+    ----------
+    x_op: GibbsProductDensityOperator :
+
+    y_op: ScalarOperator :
+
+
+    Returns
+    -------
+
+    """
     system = x_op.system.union(y_op.system)
     x_op = x_op.to_product_state()
     x_op = ProductOperator(x_op.sites_op, 1, system)
@@ -330,6 +512,19 @@ def _(x_op: GibbsProductDensityOperator, y_op: ScalarOperator):
     ]
 )
 def _(x_op: GibbsProductDensityOperator, y_op: Operator):
+    """
+
+    Parameters
+    ----------
+    x_op: GibbsProductDensityOperator :
+
+    y_op: Operator :
+
+
+    Returns
+    -------
+
+    """
     system = x_op.system.union(y_op.system)
     x_op = x_op.to_product_state()
     x_op = ProductOperator(x_op.sites_op, 1, system)
@@ -344,6 +539,19 @@ def _(x_op: GibbsProductDensityOperator, y_op: Operator):
 )
 @Operator.register_mul_handler((SumOperator, GibbsProductDensityOperator))
 def _(y_op: Operator, x_op: GibbsProductDensityOperator):
+    """
+
+    Parameters
+    ----------
+    y_op: Operator :
+
+    x_op: GibbsProductDensityOperator :
+
+
+    Returns
+    -------
+
+    """
     system = x_op.system.union(y_op.system)
     x_op = x_op.to_product_state()
     x_op = ProductOperator(x_op.sites_op, 1, system)
@@ -354,6 +562,19 @@ def _(y_op: Operator, x_op: GibbsProductDensityOperator):
     (GibbsProductDensityOperator, GibbsProductDensityOperator)
 )
 def _(x_op: GibbsProductDensityOperator, y_op: GibbsProductDensityOperator):
+    """
+
+    Parameters
+    ----------
+    x_op: GibbsProductDensityOperator :
+
+    y_op: GibbsProductDensityOperator :
+
+
+    Returns
+    -------
+
+    """
     return x_op.to_product_state() * y_op.to_product_state()
 
 
@@ -362,6 +583,19 @@ def _(x_op: GibbsProductDensityOperator, y_op: GibbsProductDensityOperator):
 @Operator.register_mul_handler((GibbsProductDensityOperator, LocalOperator))
 @Operator.register_mul_handler((GibbsProductDensityOperator, ProductOperator))
 def _(x_op: GibbsProductDensityOperator, y_op: Operator):
+    """
+
+    Parameters
+    ----------
+    x_op: GibbsProductDensityOperator :
+
+    y_op: Operator :
+
+
+    Returns
+    -------
+
+    """
     return x_op.to_product_state() * y_op
 
 
@@ -369,6 +603,19 @@ def _(x_op: GibbsProductDensityOperator, y_op: Operator):
 @Operator.register_mul_handler((LocalOperator, GibbsProductDensityOperator))
 @Operator.register_mul_handler((ProductOperator, GibbsProductDensityOperator))
 def _(x_op: Operator, y_op: GibbsProductDensityOperator):
+    """
+
+    Parameters
+    ----------
+    x_op: Operator :
+
+    y_op: GibbsProductDensityOperator :
+
+
+    Returns
+    -------
+
+    """
     y_prod = y_op.to_product_state()
     return x_op * y_prod
 
@@ -380,6 +627,19 @@ def _(x_op: Operator, y_op: GibbsProductDensityOperator):
     )
 )
 def _(x_op: ProductOperator, y_op: ScalarOperator):
+    """
+
+    Parameters
+    ----------
+    x_op: ProductOperator :
+
+    y_op: ScalarOperator :
+
+
+    Returns
+    -------
+
+    """
     site_op = x_op.sites_op.copy()
     prefactor = x_op.prefactor
     system = x_op.system or y_op.system

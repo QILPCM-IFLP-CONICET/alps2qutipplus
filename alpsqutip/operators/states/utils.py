@@ -213,11 +213,13 @@ def safe_exp_and_normalize(operator):
     Compute the decomposition of exp(operator) as rho*exp(f)
     with f = Tr[exp(operator)], for operator a Qutip operator.
 
-    operator: Operator | Qobj
+    Parameters:
 
-    result: Tuple[Operator|Qobj, float]
-         (exp(operator)/f , f)
+        operator: Operator | Qobj
 
+    Result:
+        Tuple[Operator|Qobj, float]
+            (exp(operator)/f , f)
     """
 
     if isinstance(operator, ScalarOperator):

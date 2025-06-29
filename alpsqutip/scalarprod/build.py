@@ -8,7 +8,7 @@ from typing import Callable
 import numpy as np
 from numpy import real
 
-from alpsqutip.operators import Operator
+from alpsqutip.operators.basic import Operator
 from alpsqutip.operators.functions import anticommutator
 from alpsqutip.operators.states import DensityOperatorMixin
 

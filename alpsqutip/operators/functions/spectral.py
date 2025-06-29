@@ -26,7 +26,27 @@ def eigenvalues(
     tol: float = 0.0,
     maxiter: int = 100000,
 ) -> ndarray:
-    """Compute the eigenvalues of operator"""
+    """Compute the eigenvalues of operator
+
+    Parameters
+    ----------
+    operator: Operator :
+
+    sparse: bool :
+         (Default value = False)
+    sort: str :
+         (Default value = "low")
+    eigvals: int :
+         (Default value = 0)
+    tol: float :
+         (Default value = 0.0)
+    maxiter: int :
+         (Default value = 100000)
+
+    Returns
+    -------
+
+    """
 
     qutip_op = operator.to_qutip() if isinstance(operator, Operator) else operator
     if eigvals > 0 and qutip_op.data.shape[0] < eigvals:
@@ -37,8 +57,16 @@ def eigenvalues(
 
 
 def spectral_norm(operator: Operator) -> float:
-    """
-    Compute the spectral norm of the operator `op`
+    """Compute the spectral norm of the operator `op`
+
+    Parameters
+    ----------
+    operator: Operator :
+
+
+    Returns
+    -------
+
     """
 
     if isinstance(operator, ScalarOperator):
@@ -66,7 +94,17 @@ def spectral_norm(operator: Operator) -> float:
 
 
 def log_op(operator: Operator) -> Operator:
-    """The logarithm of an operator"""
+    """The logarithm of an operator
+
+    Parameters
+    ----------
+    operator: Operator :
+
+
+    Returns
+    -------
+
+    """
 
     if hasattr(operator, "logm"):
         return operator.logm()
@@ -74,7 +112,19 @@ def log_op(operator: Operator) -> Operator:
 
 
 def relative_entropy(rho: Operator, sigma: Operator) -> float:
-    """Compute the relative entropy"""
+    """Compute the relative entropy
+
+    Parameters
+    ----------
+    rho: Operator :
+
+    sigma: Operator :
+
+
+    Returns
+    -------
+
+    """
 
     log_rho = log_op(rho)
     log_sigma = log_op(sigma)
