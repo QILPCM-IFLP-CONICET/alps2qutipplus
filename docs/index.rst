@@ -19,27 +19,7 @@ A Python toolbox to generate quantum models from ALPS XML files, build operator 
    running
    bugs
    quickstart
-   guide/guide
-
-.. toctree::
-   :maxdepth: 2
-   :caption: User Guide
-
-   
-   user/models
-   user/systems
-   user/evolution
-   user/states
-   user/examples
-
-
-   apidoc/apidoc.rst
-
-   
-.. toctree::
-   :maxdepth: 2
-   :caption: API Reference
-   _autosummary/alpsqutip.rst
+   guide/guide   
    apidoc/index
 
 

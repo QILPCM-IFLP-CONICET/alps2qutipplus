@@ -1,11 +1,18 @@
 API Reference
 =============
 
-.. toctree::
-   :maxdepth: 1
 
-   alpsmodels
-   alpsqutip
-   alpsqutip_evolution
-   alpsqutip_operators
-   alpsqutip_states
+
+.. autosummary::
+   :toctree: generated
+	     
+   alpsqutip.alpsmodels
+   alpsqutip.model
+   alpsqutip.geometry
+   alpsqutip.operators
+   alpsqutip.operators.states
+   alpsqutip.evolution
+   alpsqutip.scalar_prod
+   alpsqutip.qutip_tools
+ 
+
