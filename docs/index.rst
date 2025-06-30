@@ -16,11 +16,11 @@ A Python toolbox to generate quantum models from ALPS XML files, build operator 
 	    
    what-is-alps2qutippp
    installing
-   running
-   bugs
    quickstart
-   guide/guide   
+   guide/guide
+   user/index
    apidoc/index
+   bugs
 
 
 Indices and tables

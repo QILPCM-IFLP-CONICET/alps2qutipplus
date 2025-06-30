@@ -17,6 +17,7 @@ from alpsqutip.operators.basic import (
     Operator,
     ProductOperator,
     ScalarOperator,
+    empty_op,
 )
 from alpsqutip.operators.qutip import QutipOperator
 from alpsqutip.operators.states import DensityOperatorMixin
@@ -259,13 +260,14 @@ def simplify_qutip_sums(sum_operator: SumOperator) -> Operator:
             sum_qutip_op = sum(
                 term.to_qutip_operator().to_qutip(block_tuple) for term in p_terms
             )
-            qutip_terms.setdefault(block, []).append(
-                QutipOperator(
-                    sum_qutip_op,
-                    names={site: idx for idx, site in enumerate(block_tuple)},
-                    system=system,
+            if not empty_op(sum_qutip_op):
+                qutip_terms.setdefault(block, []).append(
+                    QutipOperator(
+                        sum_qutip_op,
+                        names={site: idx for idx, site in enumerate(block_tuple)},
+                        system=system,
+                    )
                 )
-            )
             continue
         # Otherwise, just add as terms
         terms.extend(p_terms)
@@ -278,13 +280,14 @@ def simplify_qutip_sums(sum_operator: SumOperator) -> Operator:
             continue
         changed = True
         new_qterm = sum(q_term.to_qutip(block_tuple) for q_term in q_terms)
-        terms.append(
-            QutipOperator(
-                new_qterm,
-                names={site: pos for pos, site in enumerate(block_tuple)},
-                system=system,
+        if not empty_op(new_qterm):
+            terms.append(
+                QutipOperator(
+                    new_qterm,
+                    names={site: pos for pos, site in enumerate(block_tuple)},
+                    system=system,
+                )
             )
-        )
     strip_terms = tuple((term for term in terms if not term.is_zero))
     if len(strip_terms) != len(terms):
         changed = True

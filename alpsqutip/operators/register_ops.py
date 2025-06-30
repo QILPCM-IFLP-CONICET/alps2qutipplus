@@ -799,9 +799,9 @@ def _(
     -------
 
     """
-    system = x_op.system * y_op.system if x_op.system else y_op.system
+    system = x_op.system.union(y_op.system)
 
-    terms_it = (y_op * term for term in x_op.terms)
+    terms_it = (term * y_op for term in x_op.terms)
     terms = tuple(term for term in terms_it if bool(term))
     if len(terms) == 0:
         return ScalarOperator(0, system)
@@ -837,8 +837,7 @@ def _(y_op: LocalOperator, x_op: SumOperator):
     -------
 
     """
-    system = x_op.system * y_op.system if x_op.system else y_op.system
-
+    system = x_op.system.union(y_op.system)
     terms_it = (y_op * term for term in x_op.terms)
     terms = tuple(term for term in terms_it if bool(term))
     if len(terms) == 0:

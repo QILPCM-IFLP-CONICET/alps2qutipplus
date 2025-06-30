@@ -193,7 +193,7 @@ class QutipOperator(Operator):
     @property
     def is_zero(self) -> bool:
         """Check if the matrix is zero"""
-        return empty_op(self.operator)
+        return not (self.prefactor) or empty_op(self.operator)
 
     def logm(self):
         """ """

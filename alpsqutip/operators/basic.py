@@ -1223,6 +1223,7 @@ def empty_op(op: Union[Number, Qobj, Operator]) -> bool:
 
     if hasattr(op, "operator"):
         return empty_op(op.operator)
+
     if any(empty_op(factor) for factor in getattr(op, "sites_op", {}).values()):
         return True
     return False

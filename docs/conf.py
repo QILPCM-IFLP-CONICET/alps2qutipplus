@@ -55,3 +55,5 @@ napoleon_numpy_docstring = True
 todo_include_todos = True
 
 autosummary_generate = True
+autodoc_member_order = "bysource"
+add_module_names = False
