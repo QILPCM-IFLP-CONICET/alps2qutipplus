@@ -8,7 +8,7 @@ This chapter contains automatically generated API documentation, including a
 complete list of Alps2QuTiP's public classes and functions.
 
 .. toctree::
-   :maxdepth: 3
+   :maxdepth: 2
 
    alpsqutip
-   _autosummary/alpsqutip.alpsqutip.rst
+

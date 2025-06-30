@@ -1,28 +1,46 @@
+ALPS2QuTip+ Documentation
+=========================
+
 .. figure:: figures/logo.png
    :align: center
    :width: 7in
 
-.. alps2qutipplus documentation master file, created by
-   sphinx-quickstart
 
-Welcome to alps2qutipplus's documentation!
-==========================================
 
-This documentation contains the the automatically generated API documentation
-for the Alps2QuTiP project.
+A Python toolbox to generate quantum models from ALPS XML files, build operator representations, and simulate quantum dynamics.
 
 
 .. toctree::
+   :maxdepth: 1
+   :caption: Get Started
+	    
+   what-is-alps2qutippp
+   installing
+   running
+   bugs
+   quickstart
+   guide/guide
+
+.. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: User Guide
+
+   
+   user/models
+   user/systems
+   user/evolution
+   user/states
+   user/examples
 
 
-   what-is-alps2qutippp.rst
-   installing.rst
-   running.rst
-   bugs.rst
-   guide/guide.rst
    apidoc/apidoc.rst
+
+   
+.. toctree::
+   :maxdepth: 2
+   :caption: API Reference
+   _autosummary/alpsqutip.rst
+   apidoc/index
 
 
 Indices and tables
