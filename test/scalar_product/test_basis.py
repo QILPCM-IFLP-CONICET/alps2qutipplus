@@ -1,4 +1,11 @@
-from test.helper import HAMILTONIAN, SX_A, SX_TOTAL, SY_TOTAL, check_operator_equality
+from test.helper import (
+    HAMILTONIAN,
+    SX_A,
+    SX_TOTAL,
+    SY_TOTAL,
+    SZ_TOTAL,
+    check_operator_equality,
+)
 
 import numpy as np
 
@@ -149,3 +156,42 @@ def test_hierarchical_operator_basis():
     assert (
         norm_delta_phi < error
     ), f"|Delta K|={norm_delta_phi} > {error}=estimated error"
+
+
+def test_add_basis():
+
+    k_0 = K0_REFERENCE
+    h = HAMILTONIAN_REFERENCE
+    sp = REFERENCE_SP
+    test_operator = SX_TOTAL + SY_TOTAL
+    full_norm = sp(test_operator, test_operator)
+
+    generic_basis = OperatorBasis(tuple(BASIS_REFERENCE[:4]), h, sp)
+    proj_op = generic_basis.project_onto(test_operator)
+    prj_1_norm = sp(proj_op, proj_op)
+    assert prj_1_norm < full_norm
+
+    hierarchical_basis = HierarchicalOperatorBasis(k_0, h, 4, sp)
+
+    proj_op = hierarchical_basis.project_onto(test_operator)
+    prj_2_norm = sp(proj_op, proj_op)
+    assert prj_2_norm == prj_1_norm
+
+    basis_extended1 = hierarchical_basis + (
+        SX_TOTAL,
+        SY_TOTAL,
+        SZ_TOTAL,
+    )
+
+    proj_op = basis_extended1.project_onto(test_operator)
+    prj_ext1_norm = sp(proj_op, proj_op)
+    assert full_norm == prj_ext1_norm, f"{full_norm} != {prj_ext1_norm}"
+
+    basis_extended2 = (
+        SX_TOTAL,
+        SY_TOTAL,
+        SZ_TOTAL,
+    ) + hierarchical_basis
+    proj_op = basis_extended2.project_onto(test_operator)
+    prj_ext2_norm = sp(proj_op, proj_op)
+    assert full_norm == prj_ext2_norm, f"{full_norm} != {prj_ext2_norm}"
