@@ -137,8 +137,6 @@ You can compute eigenvalues, exponentiate, or take the trace of operators:
 .. code-block:: python
 
     print("Energies:", Htotal.eigenenergies())      # Spectrum
-    print("Exp(H)=\n",Htotal.expm())               # Exponential
-    print("The Partition function is:", (-Htotal).expm().tr())
 
 Output::
    Energies: array([-3.00000000e+00, -3.00000000e+00, -2.00000000e+00, -2.00000000e+00,
@@ -146,10 +144,21 @@ Output::
         5.77179330e-18,  5.66309413e-16,  1.00000000e+00,  1.00000000e+00,
         2.00000000e+00,  2.00000000e+00,  3.00000000e+00,  5.00000000e+00])
 
+.. code-block:: python
+
+    print("Exp(H)=\n",Htotal.expm())               # Exponential
+
+
+Output::
    Exp(H)=
 .. math::
    \left(\begin{array}{cc}0.250 & 0 & 0 & 0\\0 & -0.250 & 0.500 & 0\\0 & 0.500 & -0.250 & 0\\0 & 0 & 0 & 0.250\end{array}\right)_{1[0],1[1]} + \left(\begin{array}{cc}0.250 & 0 & 0 & 0\\0 & -0.250 & 0.500 & 0\\0 & 0.500 & -0.250 & 0\\0 & 0 & 0 & 0.250\end{array}\right)_{1[1],1[2]} + \left(\begin{array}{cc}0.250 & 0 & 0 & 0\\0 & -0.250 & 0.500 & 0\\0 & 0.500 & -0.250 & 0\\0 & 0 & 0 & 0.250\end{array}\right)_{1[2],1[3]} + \left(\begin{array}{cc}0.250 & 0 & 0 & 0\\0 & -0.250 & 0.500 & 0\\0 & 0.500 & -0.250 & 0\\0 & 0 & 0 & 0.250\end{array}\right)_{1[0],1[3]} + \left(\begin{array}{cc}1 & 0\\0 & -1\end{array}\right)_{1[0]} + \left(\begin{array}{cc}1 & 0\\0 & -1\end{array}\right)_{1[1]} + \left(\begin{array}{cc}1 & 0\\0 & -1\end{array}\right)_{1[2]} + \left(\begin{array}{cc}1 & 0\\0 & -1\end{array}\right)_{1[3]}
 
+
+.. code-block:: python
+
+   print("The partition function is ", (-Htotal).expm().tr(),"~", sum([np.exp(-en) for en in Htotal.eigenenergies()]))
+   
 Output::
    The partition function is  71.83776026426847 ~ 71.83776026426845
     
@@ -217,16 +226,24 @@ Operators can be converted to qutip objects and used in qutip solvers:
     plt.ylabel(r"$\langle sx_1+sx_2\rangle$")
     plt.show()
 
+
+.. image:: figures/quick_start/fig_3.png
+   :alt: Output
+   :align: center
+   :width: 400px
+
+
 Larger Systems
 --------------
 
-As long as you avoid explicit diagonalization for very large systems, you can define and manipulate larger quantum systems using the same methods.
+As long as explicit diagonalization or operations requiring the matrix representation of large objects are avoided, it is possible to define and manipulate larger quantum systems using the same methods.
 
 .. code-block:: python
 
     large_system = build_system(100)  # Adjust parameters for larger systems as needed
-    H = system_large.global_operator("Hamiltonian")
     sz=system_large.global_operator("Sz")
+    H = system_large.global_operator("Hamiltonian") + sz
+
     sx0_loc=system_large.site_operator("Sx@1[0]")
     comm = (H*sx0_loc-sx0_loc*H).simplify()
     comm
@@ -234,4 +251,4 @@ As long as you avoid explicit diagonalization for very large systems, you can de
 
 .. math::
 
-   \left(\begin{array}{cc}0.250 & 0 & 0 & 0\\0 & -0.250 & 0.500 & 0\\0 & 0.500 & -0.250 & 0\\0 & 0 & 0 & 0.250\end{array}\right)_{1[0],1[1]} + \left(\begin{array}{cc}0.250 & 0 & 0 & 0\\0 & -0.250 & 0.500 & 0\\0 & 0.500 & -0.250 & 0\\0 & 0 & 0 & 0.250\end{array}\right)_{1[1],1[2]} + \left(\begin{array}{cc}0.250 & 0 & 0 & 0\\0 & -0.250 & 0.500 & 0\\0 & 0.500 & -0.250 & 0\\0 & 0 & 0 & 0.250\end{array}\right)_{1[2],1[3]} + \left(\begin{array}{cc}0.250 & 0 & 0 & 0\\0 & -0.250 & 0.500 & 0\\0 & 0.500 & -0.250 & 0\\0 & 0 & 0 & 0.250\end{array}\right)_{1[0],1[3]} + \left(\begin{array}{cc}1 & 0\\0 & -1\end{array}\right)_{1[0]} + \left(\begin{array}{cc}1 & 0\\0 & -1\end{array}\right)_{1[1]} + \left(\begin{array}{cc}1 & 0\\0 & -1\end{array}\right)_{1[2]} + \left(\begin{array}{cc}1 & 0\\0 & -1\end{array}\right)_{1[3]}
+   \left(\begin{array}{cc}0 & -0.250 & 0.250 & 0\\0.250 & 0 & 0 & -0.250\\-0.250 & 0 & 0 & 0.250\\0 & 0.250 & -0.250 & 0\end{array}\right)_{1[0],1[1]} + \left(\begin{array}{cc}0 & -0.250 & 0.250 & 0\\0.250 & 0 & 0 & -0.250\\-0.250 & 0 & 0 & 0.250\\0 & 0.250 & -0.250 & 0\end{array}\right)_{1[0],1[99]} + \left(\begin{array}{cc}0 & -0.500\\0.500 & 0\end{array}\right)_{1[0]}

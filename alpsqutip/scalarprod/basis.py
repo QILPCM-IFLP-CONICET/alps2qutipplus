@@ -3,7 +3,7 @@ Basis of Operator metric sub-spaces
 """
 
 import logging
-from typing import Callable, Optional, Tuple
+from typing import Callable, Iterable, Optional, Tuple
 
 import numpy as np
 from numpy.linalg import LinAlgError, cholesky, inv
@@ -44,7 +44,7 @@ class OperatorBasis:
     gram: NDArray
     gram_inv: NDArray
     errors: np.ndarray
-    gen: np.ndarray
+    gen_matrix: np.ndarray
 
     def __init__(
         self,
@@ -52,6 +52,7 @@ class OperatorBasis:
         generator: Optional[Operator] = None,
         sp: Optional[Callable] = None,
         n_body_projection: Callable = lambda x: x,
+        precomputed_tensors: Optional[dict] = None,
     ):
 
         if generator is not None and generator.isherm:
@@ -68,15 +69,21 @@ class OperatorBasis:
 
         assert all(op_b.isherm for op_b in operators)
         self.operator_basis = operators
-        self.build_tensors()
+
+        if precomputed_tensors is not None:
+            # Directly inject precomputed tensors (no recomputation)
+            self.gram = precomputed_tensors["gram"]
+            self.gram_inv = precomputed_tensors["gram_inv"]
+            self.errors = precomputed_tensors["errors"]
+            self.gen_matrix = precomputed_tensors["gen_matrix"]
+        else:
+            self.build_tensors()
 
     def __add__(self, other_basis):
-        if isinstance(other_basis, OperatorBasis):
-            other_basis = other_basis.operators
-        elif isinstance(other_basis, Operator):
-            other_basis = (other_basis,)
+        return append_basis(self, other_basis)
 
-        return OperatorBasis(self.operator_basis + other_basis, self.generator, self.sp)
+    def __radd__(self, other_basis):
+        return prepend_basis(self, other_basis)
 
     def build_tensors(
         self, generator: Optional[Operator] = None, sp: Optional[Callable] = None
@@ -381,3 +388,43 @@ class HierarchicalOperatorBasis(OperatorBasis):
 
         self.errors = errors
         self.gen_matrix = self.gram_inv @ hij
+
+
+def append_basis(basis_1: OperatorBasis, basis_2: OperatorBasis | Iterable[Operator]):
+    """
+    Build a new basis with the elements of basis_1 and the
+    elements of basis_2, given preference to the elements in
+    basis_1.
+    """
+    # TODO: reuse the already build `basis_1.gram`,
+    # `basis_1.gram_inv`, `basis_1.gen_matrix`, and `basis_1.errors`
+    # to avoid recompute scalar products and projections.
+    sp = basis_1.sp
+    operators = basis_1.operators
+    generator = basis_1.generator
+
+    if isinstance(basis_2, OperatorBasis):
+        operators = operators + basis_2.operators
+    else:
+        operators = operators + basis_2
+    return OperatorBasis(operators, generator, sp)
+
+
+def prepend_basis(basis_1: OperatorBasis, basis_2: OperatorBasis | Iterable[Operator]):
+    """
+    Build a new basis with the elements of basis_1 and the
+    elements of basis_2, given preference to the elements in
+    basis_2.
+    """
+    # TODO: reuse the already build `basis_1.gram`,
+    # `basis_1.gram_inv`, `basis_1.gen_matrix`, and `basis_1.errors`
+    # to avoid recompute scalar products and projections.
+    sp = basis_1.sp
+    operators = basis_1.operators
+    generator = basis_1.generator
+
+    if isinstance(basis_2, OperatorBasis):
+        operators = basis_2.operators + operators
+    else:
+        operators = basis_2 + operators
+    return OperatorBasis(operators, generator, sp)
