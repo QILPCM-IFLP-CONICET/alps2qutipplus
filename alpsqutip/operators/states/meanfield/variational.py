@@ -6,7 +6,7 @@ Build variational approximations to a Gibbsian state.
 """
 
 import logging
-from typing import Callable, Optional, Tuple
+from typing import Callable, Optional, Tuple, cast
 
 import numpy as np
 from numpy.random import random_sample
@@ -17,16 +17,14 @@ from alpsqutip.operators.quadratic import (
     QuadraticFormOperator,
     build_quadratic_form_from_operator,
 )
-from alpsqutip.operators.states import DensityOperatorMixin
+from alpsqutip.operators.states import ProductDensityOperator
 from alpsqutip.operators.states.gibbs import GibbsProductDensityOperator
 from alpsqutip.settings import ALPSQUTIP_TOLERANCE
 
 from .projections import project_to_n_body_operator
 
 
-def compute_rel_entropy(
-    state: GibbsProductDensityOperator, ham: Operator
-) -> np.float64:
+def compute_rel_entropy(state: GibbsProductDensityOperator, ham: Operator) -> float:
     """
     Compute the relative entropy relative to the gibbs state exp(-ham)
     from `state`.
@@ -43,14 +41,15 @@ def compute_rel_entropy(
     float64
     The relative entropy S(sigma|exp(-ham))
     """
-    return np.real(state.expect(ham + state.logm()))
+    result: float | complex = cast(float | complex, state.expect(ham + state.logm()))
+    return np.real(result)
 
 
 def mf_quadratic_form_exponential(
     qf_op: QuadraticFormOperator,
     num_fields: int = 1,
     method: Optional[str] = None,
-    callback_optimizer: Callable = None,
+    callback_optimizer: Optional[Callable] = None,
     ham: Optional[Operator] = None,
 ) -> GibbsProductDensityOperator:
     """
@@ -92,20 +91,20 @@ def mf_quadratic_form_exponential(
         sigma_k = GibbsProductDensityOperator(k)
         return sigma_k
 
-    def test_state_re(coeffs: np.ndarray) -> np.float64:
+    def test_state_re(coeffs: np.ndarray) -> float:
         """
         Target function. Computes the relative entropy
         relative to the gibbs state exp(-ham)
         """
-        test_state = build_test_state(coeffs)
-        return compute_rel_entropy(test_state, ham)
+        test_state: GibbsProductDensityOperator = build_test_state(coeffs)
+        return compute_rel_entropy(test_state, hamiltonian)
 
     # Trim negative terms and keep at least num_fields of the remaining
     # terms, in a way that exp(qf_op')~ exp(qf_op)
 
     qf_op = reduced_quadratic_form_operator(-qf_op, num_fields)
-    if ham is None:
-        ham = -qf_op.as_sum_of_products()
+
+    hamiltonian: Operator = ham or -qf_op.as_sum_of_products()
 
     # Linear term
     k0 = qf_op.linear_term
@@ -184,7 +183,7 @@ def self_consistent_mf(
     ham: Operator,
     sigma_ref: Optional[GibbsProductDensityOperator] = None,
     max_steps: int = 10,
-    callback: Callable = None,
+    callback: Optional[Callable] = None,
 ) -> Tuple[GibbsProductDensityOperator, float]:
     """
     Starting from `sigma_ref` compute an approximation of
@@ -238,7 +237,10 @@ def self_consistent_mf(
 
 
 def variational_quadratic_mfa(
-    ham: Operator, numfields: int = 1, sigma_ref: DensityOperatorMixin = None, **kwargs
+    ham: Operator,
+    numfields: int = 1,
+    sigma_ref: Optional[ProductDensityOperator] = None,
+    **kwargs,
 ) -> GibbsProductDensityOperator:
     r"""
     Find the Mean field approximation for the exponential
@@ -299,37 +301,37 @@ def variational_quadratic_mfa(
     callback_self_consistent_step: Callable = kwargs.get(
         "callback_self_consistent_step", None
     )
-
+    sigma_0: GibbsProductDensityOperator = cast(GibbsProductDensityOperator, sigma_ref)
     current_rel_entropy = None
     if isinstance(ham, OneBodyOperator):
         return GibbsProductDensityOperator(ham)
 
     for _ in range(its):
         # We start by projecting the generator `ham` to the two-body sector
-        # relative to `sigma_ref`:
+        # relative to `sigma_0`:
 
-        ham_proj = project_to_n_body_operator(ham, nmax=2, sigma=sigma_ref)
+        ham_proj = project_to_n_body_operator(ham, nmax=2, sigma=sigma_0)
         if isinstance(ham_proj, OneBodyOperator):
-            sigma_ref = GibbsProductDensityOperator(ham_proj)
+            sigma_0 = GibbsProductDensityOperator(ham_proj)
         else:
             # Now, write the projected operator as a QuadraticFormOperator
             # ham_proj = k_0 + sum_a w_a Q_a^2
             # with |Q_a|_{infty}=1 and
             # w_1 <= w_2 <=... <=w_l < 0 <= w_{k+1} <= ... w_n
-            qf_op = build_quadratic_form_from_operator(
-                ham_proj, isherm=True, sigma_ref=sigma_ref
+            qf_op: QuadraticFormOperator = build_quadratic_form_from_operator(
+                ham_proj, isherm=True, sigma_ref=sigma_0
             )
-            sigma_ref = mf_quadratic_form_exponential(
+            sigma_0 = mf_quadratic_form_exponential(
                 qf_op, numfields, method, callback_optimizer, ham
             )
 
         if current_rel_entropy is None:
-            current_rel_entropy = compute_rel_entropy(sigma_ref, ham)
+            current_rel_entropy = compute_rel_entropy(sigma_0, ham)
 
         # Improve the solution by a self-consistent round
-        sigma_ref, rel_s = self_consistent_mf(
+        sigma_0, rel_s = self_consistent_mf(
             ham,
-            sigma_ref,
+            sigma_0,
             max_steps=max_self_consistent_steps,
             callback=callback_self_consistent_step,
         )
@@ -340,4 +342,4 @@ def variational_quadratic_mfa(
             break
         current_rel_entropy = rel_s
 
-    return sigma_ref
+    return sigma_0

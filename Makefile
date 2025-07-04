@@ -15,10 +15,20 @@ DOCTEST_OPTIONS ?=
 PYTEST_WORKERS ?=
 
 
+SPHINXOPTS    =
+SPHINXBUILD   = sphinx-build
+SOURCEDIR     = docs
+BUILDDIR      = docs/_build
+
+
+
+
 .PHONY: \
     all \
     check_pre_commit \
     develop \
+    docs\
+    docs-clean\
     install \
     pytest \
     conventions \
@@ -49,3 +59,11 @@ cprofile:
 codespell:
 	codespell -L parms,fro,coo,indx,ket test
 	codespell -L parms,fro,coo,indx,ket alpsqutip
+
+
+
+docs:
+	$(SPHINXBUILD) -b html $(SPHINXOPTS) $(SOURCEDIR) $(BUILDDIR)/html
+
+docs-clean:
+	rm -rf $(BUILDDIR)

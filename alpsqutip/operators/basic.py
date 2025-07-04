@@ -248,7 +248,7 @@ class Operator:
         result = f"${tex}_" + "{" + ",".join(acts_over) + "}$"
         return result
 
-    def acts_over(self) -> Optional[set]:
+    def acts_over(self) -> Optional[frozenset]:
         """
         Return the list of sites over which the operator acts nontrivially.
         If this cannot be determined, return None.
@@ -324,7 +324,7 @@ class Operator:
 
         return norm(self.to_qutip(), ord)
 
-    def partial_trace(self, sites: Union[tuple, SystemDescriptor]):
+    def partial_trace(self, sites: Union[frozenset, SystemDescriptor]):
         """Partial trace over sites not listed in `sites`"""
         raise NotImplementedError
 
@@ -400,7 +400,7 @@ class LocalOperator(Operator):
     def __repr__(self):
         return f"Local Operator on site {self.site}:" f"\n {repr(self.operator.full())}"
 
-    def acts_over(self):
+    def acts_over(self) -> Optional[frozenset]:
         return frozenset((self.site,))
 
     def dag(self):
@@ -609,7 +609,7 @@ class ProductOperator(Operator):
                 factors_latex.append(f"{prefactor} *" + tex + "_{" + site + "}")
         return "$" + "\\otimes".join(factors_latex) + "$"
 
-    def acts_over(self):
+    def acts_over(self) -> Optional[frozenset]:
         return frozenset(site for site in self.sites_op)
 
     def dag(self):
@@ -864,7 +864,7 @@ class ScalarOperator(ProductOperator):
             + "}$"
         )
 
-    def acts_over(self):
+    def acts_over(self) -> Optional[frozenset]:
         return frozenset()
 
     def dag(self):

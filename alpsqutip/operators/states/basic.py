@@ -4,7 +4,7 @@ Density operator classes.
 
 import logging
 from numbers import Number
-from typing import Iterable, Optional, Tuple, Union
+from typing import Iterable, Optional, Tuple, Union, cast
 
 import numpy as np
 from qutip import (  # type: ignore[import-untyped]
@@ -73,6 +73,7 @@ class DensityOperatorMixin:
     ```
     """
 
+    prefactor: complex
     system: SystemDescriptor
 
     def __add__(self, operand):
@@ -120,7 +121,7 @@ class DensityOperatorMixin:
         return operand - (-self)
 
     def dag(self) -> Operator:
-        return self
+        return cast(Operator, self)
 
     def eigenstates(self) -> list:
         if isinstance(self, Operator):
@@ -292,7 +293,7 @@ class ProductDensityOperator(DensityOperatorMixin, ProductOperator):
             sites_obs = obs.sites_op
             local_states = self.sites_op
             dimensions = self.system.dimensions
-            result = obs.prefactor
+            result: Number = cast(Number, obs.prefactor)
 
             for site, obs_op in sites_obs.items():
                 if result == 0:
@@ -349,7 +350,7 @@ class ProductDensityOperator(DensityOperatorMixin, ProductOperator):
         local_states = {site: sites_op[site] for site in sites}
 
         return ProductDensityOperator(
-            local_states, self.prefactor, subsystem, normalize=False
+            local_states, np.real(self.prefactor), subsystem, normalize=False
         )
 
     def to_qutip(self, block: Optional[Tuple[str]] = None):

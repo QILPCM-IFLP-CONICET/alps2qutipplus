@@ -1,6 +1,8 @@
 """
+
 Routines to compute scalar products of operators and related functions,
 like orthogonalize sets of operators.
+
 """
 
 from alpsqutip.scalarprod.basis import HierarchicalOperatorBasis, OperatorBasis

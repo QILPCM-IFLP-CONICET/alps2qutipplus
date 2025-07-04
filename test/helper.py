@@ -33,7 +33,7 @@ np.set_printoptions(
     edgeitems=30, linewidth=100000, formatter=dict(float=lambda x: "%.3g" % x)
 )
 
-CHAIN_SIZE = 4
+CHAIN_SIZE = int(os.environ.get("CHAIN_SIZE", 4))
 
 SYSTEM: SystemDescriptor = build_spin_chain(CHAIN_SIZE)
 SITES: tuple = tuple(s for s in SYSTEM.sites.keys())
