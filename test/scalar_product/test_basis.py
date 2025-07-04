@@ -26,6 +26,63 @@ for i in range(5):
     BASIS_REFERENCE.append(commutator(BASIS_REFERENCE[-1], HAMILTONIAN_REFERENCE * 1j))
 
 
+def check_basis_equivalence(basis1, basis2):
+    """
+    check if both basis are equivalent
+    """
+    add_basis = basis1 + basis2
+    print(
+        f"The combined basis size is {len(add_basis.operator_basis)}, while the original basis has sizes {len(basis1.operator_basis)} and {len(basis2.operator_basis)}."
+    )
+    return (
+        len(add_basis.operator_basis)
+        == len(basis1.operator_basis)
+        == len(basis2.operator_basis)
+    )
+
+
+def check_gen_matrix(basis):
+    """
+    Check that the gen_matrix attribute
+    has the right values
+    """
+    operators = basis.operator_basis
+    sp = basis.sp
+    n = len(operators)
+    generator = basis.generator
+
+    hij = np.zeros(
+        (
+            n,
+            n,
+        )
+    )
+    comm_norms = np.empty((n,), dtype=hij.dtype)
+    for j, op1 in enumerate(operators):
+        comm = commutator(op1, generator)
+        comm_norms[j] = sp(comm, comm)
+        for i, op2 in enumerate(operators):
+            hij[i, j] = sp(op2, comm)
+
+    assert np.allclose(
+        basis.gram_inv @ basis.gram, np.eye(n)
+    ), "gram_inv must be the inverse of gram."
+
+    genij = basis.gram_inv @ hij
+    assert np.allclose(
+        basis.gen_matrix.round(8), genij.round(8)
+    ), f"\n{basis.gen_matrix.round(8)}\n!=\n{hij.round(8)}"
+
+    basis_errors_sq = basis.errors**2
+    computed_errors_sq = comm_norms - np.array(
+        [genij[:, j] @ hij[:, j] for j in range(n)]
+    )
+
+    assert np.allclose(
+        basis_errors_sq, computed_errors_sq
+    ), f"\n{basis_errors_sq.round(8)}\n!=\n{computed_errors_sq.round(8)}"
+
+
 def compare_basis(b1, b2):
     """
     Compare the tensors of both basis
@@ -37,7 +94,6 @@ def compare_basis(b1, b2):
         idx += 1
         print("first basis:\n", op1)
         print("second basis:\n", op2)
-
         assert check_operator_equality(op1, op2)
 
     assert np.allclose(b1.gram, b2.gram), f"{b1.gram}!={b2.gram}"
@@ -166,32 +222,61 @@ def test_add_basis():
     test_operator = SX_TOTAL + SY_TOTAL
     full_norm = sp(test_operator, test_operator)
 
-    generic_basis = OperatorBasis(tuple(BASIS_REFERENCE[:4]), h, sp)
+    generic_basis = OperatorBasis(tuple(BASIS_REFERENCE[:3]), h, sp)
+    print("generic basis has ", len(generic_basis.operator_basis), "elements.")
+    print("check gen generic_basis")
+    check_gen_matrix(generic_basis)
     proj_op = generic_basis.project_onto(test_operator)
     prj_1_norm = sp(proj_op, proj_op)
     assert prj_1_norm < full_norm
 
     hierarchical_basis = HierarchicalOperatorBasis(k_0, h, 4, sp)
+    print(
+        "hierarchical basis has ", len(hierarchical_basis.operator_basis), "elements."
+    )
+    print("check gen hierarchical_basis")
+    check_gen_matrix(hierarchical_basis)
 
     proj_op = hierarchical_basis.project_onto(test_operator)
     prj_2_norm = sp(proj_op, proj_op)
     assert prj_2_norm == prj_1_norm
 
+    ### Extending from right
+
+    print("extending the basis from the right")
     basis_extended1 = hierarchical_basis + (
         SX_TOTAL,
         SY_TOTAL,
         SZ_TOTAL,
     )
+    print("Right extended basis has ", len(basis_extended1.operator_basis), "elements.")
+    assert not check_basis_equivalence(
+        basis_extended1, hierarchical_basis
+    ), "the extended basis should not be equivalent to the original"
+
+    print("check gen basis extended1")
+    check_gen_matrix(basis_extended1)
 
     proj_op = basis_extended1.project_onto(test_operator)
+
     prj_ext1_norm = sp(proj_op, proj_op)
     assert full_norm == prj_ext1_norm, f"{full_norm} != {prj_ext1_norm}"
 
+    ## Extending from left
+
+    print("extending the basis from the left.")
     basis_extended2 = (
         SX_TOTAL,
         SY_TOTAL,
         SZ_TOTAL,
     ) + hierarchical_basis
+    print("left extended basis has ", len(basis_extended2.operator_basis), "elements.")
+    assert not check_basis_equivalence(basis_extended2, hierarchical_basis)
+    print("check gen basis extended2")
+    check_gen_matrix(basis_extended2)
     proj_op = basis_extended2.project_onto(test_operator)
     prj_ext2_norm = sp(proj_op, proj_op)
     assert full_norm == prj_ext2_norm, f"{full_norm} != {prj_ext2_norm}"
+    assert check_basis_equivalence(
+        basis_extended1, basis_extended2
+    ), "both basis must be equivalent."
