@@ -479,7 +479,12 @@ def append_basis(basis_1: OperatorBasis, basis_2: OperatorBasis | Iterable[Opera
         # Should not be singular, because we ensure that gram is not
         # singular...
         shur = g22 - g21 @ g11_inv @ g12
-        shur_inv = np.linalg.inv(shur)
+
+        try:
+            shur_inv = np.linalg.inv(shur)
+        except np.linalg.LinAlgError as e:
+            raise RuntimeError("Gram matrix is singular after merging bases") from e
+
         # Build the inverse
         top_left = g11_inv + g11_inv @ g12 @ shur_inv @ g21 @ g11_inv
         top_right = -g11_inv @ g12 @ shur_inv
