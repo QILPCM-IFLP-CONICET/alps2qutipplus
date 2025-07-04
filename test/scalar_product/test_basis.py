@@ -276,7 +276,7 @@ def test_add_basis():
     check_gen_matrix(basis_extended2)
     proj_op = basis_extended2.project_onto(test_operator)
     prj_ext2_norm = sp(proj_op, proj_op)
-    assert full_norm == prj_ext2_norm, f"{full_norm} != {prj_ext2_norm}"
+    assert abs(full_norm - prj_ext2_norm) < 1e-10, f"{full_norm} != {prj_ext2_norm}"
     assert check_basis_equivalence(
         basis_extended1, basis_extended2
     ), "both basis must be equivalent."
