@@ -25,13 +25,18 @@ from alpsqutip.qutip_tools.tools import decompose_qutip_operator, scalar_value
 
 
 class QutipOperator(Operator):
-    """
-    Represents a Qutip operator that acts over a block
+    """Represents a Qutip operator that acts over a block
     of sites of a system.
 
     If two QutipOperator are combined in an arithmetic
     operation, the result is QutipOperator acting on
     the union of both blocks.
+
+    Parameters
+    ----------
+
+    Returns
+    -------
 
     """
 
@@ -99,17 +104,25 @@ class QutipOperator(Operator):
         )
 
     def __repr__(self) -> str:
-        return f"qutip interface operator for {self.prefactor} x  \n" + repr(
-            self.operator
+        return (
+            f"qutip interface operator over sites {self.site_names} for {self.prefactor} x  \n"
+            + repr(self.operator)
         )
 
     def acts_over(self) -> set:
+        """ """
         return frozenset(self.site_names.keys())
 
     def as_sum_of_products(self):
-        """
-        Decompose the operator as a
+        """Decompose the operator as a
         sum of product operators
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+
         """
         from alpsqutip.operators.arithmetic import SumOperator
 
@@ -133,6 +146,7 @@ class QutipOperator(Operator):
         return SumOperator(terms, self.system, isherm=isherm)
 
     def dag(self):
+        """ """
         prefactor = self.prefactor
         operator = self.operator
         if isinstance(prefactor, complex):
@@ -148,9 +162,11 @@ class QutipOperator(Operator):
         )
 
     def eigenenergies(self):
+        """ """
         return self.operator.eigenenergies() * self.prefactor
 
     def eigenstates(self):
+        """ """
         evals, evecs = self.operator.eigenstates()
         return evals * self.prefactor, evecs
 
@@ -166,6 +182,7 @@ class QutipOperator(Operator):
 
     @property
     def isherm(self) -> bool:
+        """ """
         return self.operator.isherm and imag(self.prefactor) == 0.0
 
     @property
@@ -176,9 +193,10 @@ class QutipOperator(Operator):
     @property
     def is_zero(self) -> bool:
         """Check if the matrix is zero"""
-        return empty_op(self.operator)
+        return not (self.prefactor) or empty_op(self.operator)
 
     def logm(self):
+        """ """
         operator = self.operator
         evals, evecs = operator.eigenstates()
         evals = evals * self.prefactor
@@ -191,6 +209,19 @@ class QutipOperator(Operator):
         return QutipOperator(log_op, self.system, self.site_names)
 
     def partial_trace(self, sites: Union[frozenset, SystemDescriptor]):
+        """
+
+        Parameters
+        ----------
+        sites: Union[frozenset :
+
+        SystemDescriptor] :
+
+
+        Returns
+        -------
+
+        """
         if isinstance(sites, SystemDescriptor):
             subsystem = sites
             sites = frozenset(site for site in subsystem.sites)
@@ -270,7 +301,17 @@ class QutipOperator(Operator):
         return LocalOperator(site, operator, self.system)
 
     def tidyup(self, atol=None):
-        """Removes small elements from the quantum object."""
+        """Removes small elements from the quantum object.
+
+        Parameters
+        ----------
+        atol :
+             (Default value = None)
+
+        Returns
+        -------
+
+        """
         return QutipOperator(
             self.operator.tidyup(atol),
             system=self.system,
@@ -280,13 +321,22 @@ class QutipOperator(Operator):
 
     def to_qutip(self, block: Optional[Tuple[str]] = None):
         """
-        Return a qutip operator representing the action over
-        sites in block.
-        By default (`block`=`None`), returns an operator
-        acting over the full system, with sites sorted in
-        lexicographical order.
-        If `block`=`(,)` (the empty tuple), returns
-        `self.operator`.
+
+        Parameters
+        ----------
+        block: Optional[Tuple[str]] :
+             (Default value = None)
+
+        Returns
+        -------
+        type
+            sites in block.
+            By default (`block`=`None`), returns an operator
+            acting over the full system, with sites sorted in
+            lexicographical order.
+            If `block`=`(,)` (the empty tuple), returns
+            `self.operator`.
+
         """
         site_names_dict = self.site_names
         site_names = sorted(site_names_dict, key=lambda x: site_names_dict[x])
@@ -331,6 +381,7 @@ class QutipOperator(Operator):
         return operator_qutip.permute(shuffle)
 
     def tr(self):
+        """ """
         prefactor = self.prefactor
         if prefactor == 0:
             return prefactor

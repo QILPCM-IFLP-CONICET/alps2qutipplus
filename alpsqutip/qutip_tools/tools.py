@@ -285,6 +285,16 @@ else:
         )
 
 
+def data_has_nan(data) -> bool:
+    """
+    Check if data has `nan` entries
+    """
+    for i, j, val in data_element_iterator(data):
+        if not (val == val):
+            return True
+    return False
+
+
 def data_is_scalar(data) -> bool:
     """
     Check if data is a multiple of the identity matrix.
@@ -295,6 +305,10 @@ def data_is_scalar(data) -> bool:
 def is_scalar_op(op: Qobj) -> bool:
     """Check if op is a multiple of the identity operator"""
     return data_is_scalar(op.data)
+
+
+def isnan_qutip(op: Qobj) -> bool:
+    return data_has_nan(op.data)
 
 
 def norm(
@@ -405,14 +419,14 @@ def reshape_qutip_data(data, dims, bs=1) -> ndarray:
 
 def schmidt_dec_first_rest_qutip_operator(
     operator: Qobj, tol: float = 1e-10
-) -> List[Tuple]:
+) -> Tuple[List[Qobj], ...]:
     """
     Decompose a qutip operator acting over H_1 (x) H_2 (x) H_3 (x)
     as a sum of terms of the form Q_{k} (x) Rest_{k}
     """
     dims = operator.dims[0]
     if len(dims) < 2:
-        return [(operator,)]
+        return ([operator],)
     data = operator.data
     dim_1 = dims[0]
     dim_2 = int(data.shape[0] / dim_1)
@@ -436,14 +450,14 @@ def schmidt_dec_first_rest_qutip_operator(
 
 def schmidt_dec_firsts_last_qutip_operator(
     operator: Qobj, tol: float = 1e-10
-) -> List[Tuple]:
+) -> Tuple[List[Qobj], ...]:
     """
     Decompose a qutip operator acting over H_1 (x) H_2 (x) H_3 (x)
     as a sum of terms of the form Q_{k} (x) Rest_{k}
     """
     dims = operator.dims[0]
     if len(dims) < 2:
-        return [(operator,)]
+        return ([operator],)
     data = operator.data
     dim_2 = dims[-1]
     dim_1 = int(data.shape[0] / dim_2)

@@ -13,7 +13,7 @@ from alpsqutip.settings import LATTICE_LIB_FILE
 from alpsqutip.utils import eval_expr, find_ref, next_name
 
 
-def list_geometries_in_alps_xml(filename=LATTICE_LIB_FILE) -> Tuple[str]:
+def list_geometries_in_alps_xml(filename=LATTICE_LIB_FILE) -> Tuple[str, ...]:
     """
     List all the graph names in a lattice.xml ALPS file
     """

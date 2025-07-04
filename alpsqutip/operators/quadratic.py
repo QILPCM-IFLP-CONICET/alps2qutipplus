@@ -541,7 +541,7 @@ def build_quadratic_form_from_operator(
     simplify=True,
     isherm=None,
     sigma_ref=None,
-) -> Operator:
+) -> QuadraticFormOperator:
     """
     Build a QuadraticFormOperator from `operator`
     """

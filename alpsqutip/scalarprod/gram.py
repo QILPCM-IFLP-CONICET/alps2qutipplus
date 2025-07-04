@@ -109,12 +109,15 @@ def gram_matrix_serial(basis, sp: Callable):
     where `sp` is the scalar product function and `op1, op2` are operators from
     the basis.
 
-    Parameters:
+    Parameters
+    ----------
+
         basis: A list of basis operators.
         sp: A callable that defines a scalar product function between two
         operators.
 
-    Returns:
+    Return
+    ------
         A symmetric NumPy array representing the Gram matrix, with entries
         rounded to 14 decimal places.
     """
@@ -125,6 +128,7 @@ def gram_matrix_serial(basis, sp: Callable):
         for j, op2 in enumerate(basis):
             if j < i:
                 continue  # Use symmetry: Gij = Gji.
+
             entry = np.real(sp(op1, op2))
             if i == j:
                 result[i, i] = entry  # Diagonal elements.

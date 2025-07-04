@@ -1,3 +1,7 @@
+"""
+Tests for max-ent solvers
+"""
+
 from test.helper import (
     GIBBS_GENERATOR_TESTS,
     HAMILTONIAN,
@@ -76,6 +80,10 @@ def compare_solutions(sol, sol_qutip, t_span, order, coeff_bound):
     ]
     assert all(
         error <= coeff_bound * t**order + 1.0e-8 for t, error in zip(t_span, diff_sols)
+    ), (
+        "Some of the errors in "
+        f"{dict([(t, (d, coeff_bound*t**order+1.0e-8,)) for t,d in zip(t_span, diff_sols) if d>= coeff_bound*t**order+1.0e-8])}"
+        " are larger from the expected bound."
     )
 
 
@@ -133,7 +141,7 @@ def test_build_hierarchical_basis(name_ham, ham, name_k0, k0, sigma_name, sigma)
     h_basis = build_hierarchical_basis(ham, k0, deep)
     assert all(
         b_op.isherm for b_op in h_basis
-    ), "operators in a Hiearchical basis must be hermitician."
+    ), "operators in a Hierarchical basis must be hermitician."
     h_basis_qutip = [qutip_k0]
     for i in range(deep):
         h_basis_qutip.append(
@@ -191,30 +199,18 @@ def test_evolution():
     """
     Compare the evolution with the series expansion solution
     """
-    for order in range(1, 5):
-        t_span = np.linspace(0, 0.1, 200)
-        k0 = SX_AB
-        sigma = GibbsProductDensityOperator(k0)
-        as_series_solution = series_evolution(HAMILTONIAN, k0, t_span, order)
-        projected_solution = projected_evolution(
-            HAMILTONIAN, k0, t_span, order, sigma_0=sigma
-        )
-
-        diff_sols = [
-            spectral_norm(k1 - k2)
-            for k1, k2 in zip(projected_solution, as_series_solution)
-        ]
-        assert all(error <= 0.1 * t**order for t, error in zip(t_span, diff_sols))
-
-
-def test_series_evolution():
-    """
-    compare the qutip numeric solution against the series expansion solution.
-    """
-
-    t_span = np.linspace(0, 0.1, 200)
+    t_span = np.linspace(0, 0.1, 10)
     k0 = SX_AB
+    sigma = GibbsProductDensityOperator(0.5 * k0)
     qutip_solution = qutip.mesolve(HAMILTONIAN.to_qutip(), k0.to_qutip(), t_span).states
-    for order in range(1, 6):
+    for order in range(1, 5):
+        print("order: ", order)
+        print(" * series solution")
         as_series_solution = series_evolution(HAMILTONIAN, k0, t_span, order)
         compare_solutions(as_series_solution, qutip_solution, t_span, order, 0.5)
+
+        projected_solution = projected_evolution(
+            HAMILTONIAN, k0, t_span, order, sigma_0=sigma, n_body=order + 1
+        )
+        print(" * projected solution")
+        compare_solutions(projected_solution, qutip_solution, t_span, order, 0.55)

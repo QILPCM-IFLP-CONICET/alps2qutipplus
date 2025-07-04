@@ -10,8 +10,47 @@ from numpy import real
 
 from alpsqutip.operators import Operator
 from alpsqutip.operators.functions import anticommutator
+from alpsqutip.operators.states import DensityOperatorMixin
 
 #  ### Functions that build the scalar products ###
+
+
+class CovariantScalarProductFunction(Callable):
+    """
+    A callable object that computes the Covariance scalar
+    product of two operators, relative to a given
+    reference state sigma.
+    """
+
+    def __init__(self, state):
+
+        self.sigma = state
+
+    def __call__(self, op1, op2):
+        sigma = self.sigma
+        if op1 is op2:
+            op1 = op1.simplify()
+            op1_herm = op1.isherm
+            if op1_herm:
+                return abs(sigma.expect(op1 * op1))
+            return abs(0.5 * sigma.expect(anticommutator(op1.dag(), op1).simplify()))
+
+        op1 = op1.simplify()
+        op1_herm = op1.isherm
+        op2 = op2.simplify()
+        op2_herm = op2.isherm
+
+        if op1_herm:
+            if op2_herm:
+                o1o2 = (op1 * op2).simplify()
+                return real(sigma.expect(o1o2))
+            op1_dag = op1
+        else:
+            op1_dag = op1.dag()
+        if op1_dag is op2:
+            return sigma.expect((op1_dag * op2).simplify())
+        else:
+            return 0.5 * sigma.expect(anticommutator(op1_dag, op2).simplify())
 
 
 def fetch_kubo_scalar_product(sigma: Operator, threshold=0) -> Callable:
@@ -72,7 +111,7 @@ def fetch_kubo_int_scalar_product(sigma: Operator) -> Callable:
     return return_func
 
 
-def fetch_covar_scalar_product(sigma: Operator) -> Callable:
+def fetch_covar_scalar_product(sigma: DensityOperatorMixin) -> Callable:
     """
     Returns a scalar product function based on the covariance of a density
     operator.
@@ -90,24 +129,7 @@ def fetch_covar_scalar_product(sigma: Operator) -> Callable:
         A function that takes two operators (op1, op2) and computes their
         covariance-based scalar product.
     """
-
-    def sp_(op1: Operator, op2: Operator):
-        """Correlation scalar product between
-        two operators"""
-        op1_herm = op1.isherm
-        op2_herm = op2.isherm
-        if op1_herm:
-            if op2_herm:
-                return real(sigma.expect(op1 * op2))
-            op1_dag = op1
-        else:
-            op1_dag = op1.dag()
-        if op1_dag is op2:
-            return sigma.expect((op1_dag * op2).simplify())
-        else:
-            return 0.5 * sigma.expect(anticommutator(op1_dag, op2))
-
-    return sp_
+    return CovariantScalarProductFunction(sigma)
 
 
 def fetch_HS_scalar_product() -> Callable:

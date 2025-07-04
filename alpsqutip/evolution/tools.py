@@ -7,11 +7,12 @@ from __future__ import annotations
 from typing import List
 
 import numpy as np
+from numpy.typing import NDArray
 
 # function used to safely and robustly map K-states to states
 
 
-def slice_times(tlist: np.array, tcuts: List[float]) -> List[np.ndarray]:
+def slice_times(tlist: NDArray, tcuts: List[float]) -> List[NDArray]:
     """
     Divides a time list (`tlist`) into slices based on a sequence of cutoff
     times (`tcuts`).
@@ -48,7 +49,7 @@ def slice_times(tlist: np.array, tcuts: List[float]) -> List[np.ndarray]:
     return sliced_times
 
 
-def m_th_partial_sum(phi: np.ndarray, m: int) -> float:
+def m_th_partial_sum(phi: NDArray, m: int) -> float:
     """
     Computes the $m$-th partial sum of the squared magnitudes of the last `m`
     coefficients of `phi`.

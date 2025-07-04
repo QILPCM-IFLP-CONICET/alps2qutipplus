@@ -7,6 +7,7 @@ from __future__ import annotations
 from typing import Callable, List, Tuple
 
 import numpy as np
+from numpy.typing import NDArray
 
 from alpsqutip.operators import Operator
 from alpsqutip.operators.functions import commutator
@@ -63,9 +64,7 @@ def build_hierarchical_basis(
     return basis
 
 
-def fn_hij_tensor(
-    basis: List[Operator], sp: Callable, generator: Operator
-) -> np.ndarray:
+def fn_hij_tensor(basis: List[Operator], sp: Callable, generator: Operator) -> NDArray:
     """
     Computes the Hij-tensor, a local matrix representation of the Hamiltonian
     onto the given basis.
@@ -102,7 +101,7 @@ def fn_hij_tensor(
 
 def fn_hij_tensor_with_errors(
     basis: List[Operator], sp: Callable, generator: Operator
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> Tuple[NDArray, NDArray]:
     """
     Computes the Hij-tensor, a local matrix representation of the Hamiltonian
     onto the given basis, and the norm of the orthogonal projector.
@@ -145,14 +144,16 @@ def fn_hij_tensor_with_errors(
     proj_comm_norms_sq = (sum(col**2) for col in local_h_ij.transpose())
     comm_full_norms_sq = (sp(comm_op, comm_op) for comm_op in comm_h_ops)
 
-    errors_w = [
-        (max(full_sq - proj_sq, 0.0)) ** 0.5
-        for full_sq, proj_sq in zip(comm_full_norms_sq, proj_comm_norms_sq)
-    ]
+    errors_w = np.array(
+        [
+            (max(full_sq - proj_sq, 0.0)) ** 0.5
+            for full_sq, proj_sq in zip(comm_full_norms_sq, proj_comm_norms_sq)
+        ]
+    )
     return local_h_ij, errors_w
 
 
-def k_state_from_phi_basis(phi: np.array, basis: List[Operator]) -> Operator:
+def k_state_from_phi_basis(phi: NDArray, basis: List[Operator]) -> Operator:
     """
     Constructs the operator K from a given set of coefficients and
     basis operators.

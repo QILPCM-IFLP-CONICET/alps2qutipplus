@@ -4,7 +4,7 @@ Density operator classes.
 
 import logging
 from numbers import Number
-from typing import Iterable, Optional, Tuple, Union
+from typing import Iterable, Optional, Tuple, Union, cast
 
 import numpy as np
 from qutip import (  # type: ignore[import-untyped]
@@ -20,6 +20,7 @@ from alpsqutip.operators.basic import (
     ProductOperator,
     ScalarOperator,
 )
+from alpsqutip.operators.quadratic import QuadraticFormOperator
 
 
 class DensityOperatorMixin:
@@ -72,6 +73,7 @@ class DensityOperatorMixin:
     ```
     """
 
+    prefactor: complex
     system: SystemDescriptor
 
     def __add__(self, operand):
@@ -93,7 +95,11 @@ class DensityOperatorMixin:
                 tuple((self, operand)), self.system.union(operand.system)
             )
 
-        return self.to_qutip_operator() + operand
+        return operand - (-self)
+
+    def __neg__(self):
+        logging.warning("Negate a DensityOperator leads to a regular operator.")
+        return -self.to_qutip_operator()
 
     def __radd__(self, operand):
         from alpsqutip.operators.states.arithmetic import MixtureDensityOperator
@@ -112,8 +118,10 @@ class DensityOperatorMixin:
             return MixtureDensityOperator(
                 tuple((operand, self)), self.system.union(operand.system)
             )
+        return operand - (-self)
 
-        return self.to_qutip_operator() + operand
+    def dag(self) -> Operator:
+        return cast(Operator, self)
 
     def eigenstates(self) -> list:
         if isinstance(self, Operator):
@@ -124,8 +132,6 @@ class DensityOperatorMixin:
         self, obs_objs: Union[Operator, Iterable]
     ) -> Union[np.ndarray, dict, Number]:
         """Compute the expectation value of an observable"""
-        from alpsqutip.operators.quadratic import QuadraticFormOperator
-
         # TODO: expode that expectation values of operators just requires the
         # state where the operators acts.
 
@@ -150,11 +156,12 @@ class DensityOperatorMixin:
             if isinstance(obs, QuadraticFormOperator):
                 obs = obs.to_sum_operator()
 
+            obs = obs.simplify()
             if isinstance(obs, SumOperator):
                 return sum(do_evaluate_expect(term) for term in obs.terms)
 
             acts_over = obs.acts_over()
-            if len(acts_over) == 0:
+            if acts_over is not None and len(acts_over) == 0:
                 if hasattr(obs, "prefactor"):
                     return obs.prefactor
 
@@ -180,6 +187,10 @@ class DensityOperatorMixin:
     @property
     def isherm(self):
         return True
+
+    def simplify(self):
+        # DensityOperator's are considered "simplified".
+        return self
 
     def to_qutip_operator(self):
         from alpsqutip.operators.states import QutipDensityOperator
@@ -253,6 +264,10 @@ class ProductDensityOperator(DensityOperatorMixin, ProductOperator):
             return ProductOperator(self.sites_op, 1, self.system) * a
         return ProductOperator(self.sites_op, 1, self.system) * a
 
+    def __neg__(self):
+        logging.warning("Negate a DensityOperator leads to a regular operator.")
+        return ProductOperator(self.sites_op, -1, self.system)
+
     def __rmul__(self, a):
         if isinstance(a, (float, np.float64)):
             if a >= 0:
@@ -274,14 +289,11 @@ class ProductDensityOperator(DensityOperatorMixin, ProductOperator):
                 return (local_states[site] * operator).tr()
             return operator.tr() / self.system.dimensions[site]
 
-        if isinstance(obs, SumOperator):
-            return sum(self.expect(term) for term in obs.terms)
-
         if isinstance(obs, ProductOperator):
             sites_obs = obs.sites_op
             local_states = self.sites_op
             dimensions = self.system.dimensions
-            result = obs.prefactor
+            result: Number = cast(Number, obs.prefactor)
 
             for site, obs_op in sites_obs.items():
                 if result == 0:
@@ -329,7 +341,7 @@ class ProductDensityOperator(DensityOperatorMixin, ProductOperator):
         local_states = {site: sites_op[site] for site in sites}
 
         return ProductDensityOperator(
-            local_states, self.prefactor, subsystem, normalize=False
+            local_states, np.real(self.prefactor), subsystem, normalize=False
         )
 
     def to_qutip(self, block: Optional[Tuple[str]] = None):

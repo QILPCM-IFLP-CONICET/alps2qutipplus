@@ -3,10 +3,10 @@ Utility functions for alpsqutip.operators.states
 
 """
 
-from typing import Dict
+from typing import Dict, List, cast
 
 import numpy as np
-from qutip import tensor as qutip_tensor
+from qutip import Qobj, tensor as qutip_tensor
 
 from alpsqutip.operators.arithmetic import SumOperator
 from alpsqutip.operators.basic import (
@@ -38,6 +38,7 @@ def k_by_site_from_operator(k: Operator) -> Dict[str, Operator]:
         TypeError: If the operator type is not supported.
         ValueError: If `QutipOperator` acts on multiple sites.
     """
+    offset: float | complex
     if isinstance(k, ScalarOperator):
         system = k.system
         site = next(iter(system.dimensions))
@@ -57,7 +58,7 @@ def k_by_site_from_operator(k: Operator) -> Dict[str, Operator]:
             system = k.system
             site = next(iter(system.dimensions))
             return {site: prefactor * system.site_identity(site)}
-        if prefactor == 1:
+        if prefactor == 1.0:
             return {site: op for site, op in sites_op.items()}
         return {site: op * prefactor for site, op in sites_op.items()}
     if isinstance(k, SumOperator):
@@ -131,20 +132,25 @@ def safe_exp_and_normalize_localop(operator: LocalOperator):
 
 
 def safe_exp_and_normalize_sumop(operator: SumOperator):
+    logz: float
     operator = operator.simplify()
     if not isinstance(operator, SumOperator):
         return safe_exp_and_normalize(operator)
     terms = operator.terms
-    acts_over_terms = [term.acts_over() for term in terms]
-    if any(len(acts_over) > 1 for acts_over in acts_over_terms):
+    acts_over_terms_or_none = [term.acts_over() for term in terms]
+    if any(
+        acts_over is None or len(acts_over) > 1 for acts_over in acts_over_terms_or_none
+    ):
         return safe_exp_and_normalize_qutip_operator(operator.to_qutip_operator())
 
+    acts_over_terms: List[frozenset] = cast(List[frozenset], acts_over_terms_or_none)
+
     system = operator.system
-    local_generators = dict()
+    local_generators: Dict[str, Qobj] = dict()
     logz = 0
     for acts_over, term in zip(acts_over_terms, terms):
         if len(acts_over) == 0:
-            logz += term.prefactor
+            logz += np.real(term.prefactor)
             continue
         site = next(iter(acts_over))
         op_qutip = term.to_qutip((site,))

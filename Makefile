@@ -15,10 +15,20 @@ DOCTEST_OPTIONS ?=
 PYTEST_WORKERS ?=
 
 
+SPHINXOPTS    =
+SPHINXBUILD   = sphinx-build
+SOURCEDIR     = docs
+BUILDDIR      = docs/_build
+
+
+
+
 .PHONY: \
     all \
     check_pre_commit \
     develop \
+    docs\
+    docs-clean\
     install \
     pytest \
     conventions \
@@ -43,3 +53,17 @@ install:
 pytest:
 	ALPSQUTIP_ALLTESTS=1 $(PYTHON) -m pytest $(PYTEST_OPTIONS) $(PYTEST_WORKERS) test
 
+cprofile:
+	ALPSQUTIP_ALLTESTS=1 $(PYTHON) -m cProfile -o output.stats -m pytest $(PYTEST_OPTIONS) $(PYTEST_WORKERS) test
+
+codespell:
+	codespell -L parms,fro,coo,indx,ket test
+	codespell -L parms,fro,coo,indx,ket alpsqutip
+
+
+
+docs:
+	$(SPHINXBUILD) -b html $(SPHINXOPTS) $(SOURCEDIR) $(BUILDDIR)/html
+
+docs-clean:
+	rm -rf $(BUILDDIR)

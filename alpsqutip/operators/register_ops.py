@@ -36,6 +36,19 @@ SUM_TYPES = (SumOperator, OneBodyOperator)
     ]
 )
 def _standar_sum_operator(op1: Operator, op2: Operator):
+    """
+
+    Parameters
+    ----------
+    op1: Operator :
+
+    op2: Operator :
+
+
+    Returns
+    -------
+
+    """
     system = op1.system.union(op2.system)
     return SumOperator(tuple((op1, op2)), system)
 
@@ -47,6 +60,19 @@ def _standar_sum_operator(op1: Operator, op2: Operator):
     )
 )
 def _(x_op: ScalarOperator, y_op: ScalarOperator):
+    """
+
+    Parameters
+    ----------
+    x_op: ScalarOperator :
+
+    y_op: ScalarOperator :
+
+
+    Returns
+    -------
+
+    """
     return ScalarOperator(x_op.prefactor + y_op.prefactor, x_op.system or y_op.system)
 
 
@@ -57,11 +83,37 @@ def _(x_op: ScalarOperator, y_op: ScalarOperator):
     )
 )
 def _(x_op: ScalarOperator, y_op: ScalarOperator):
+    """
+
+    Parameters
+    ----------
+    x_op: ScalarOperator :
+
+    y_op: ScalarOperator :
+
+
+    Returns
+    -------
+
+    """
     return ScalarOperator(x_op.prefactor * y_op.prefactor, x_op.system or y_op.system)
 
 
 @Operator.register_add_handler([(ScalarOperator, t) for t in NUMERIC_TYPES])
 def _(x_op: ScalarOperator, y_value: Number):
+    """
+
+    Parameters
+    ----------
+    x_op: ScalarOperator :
+
+    y_value: Number :
+
+
+    Returns
+    -------
+
+    """
     return ScalarOperator(x_op.prefactor + y_value, x_op.system)
 
 
@@ -69,6 +121,19 @@ def _(x_op: ScalarOperator, y_value: Number):
     [(ScalarOperator, num_type) for num_type in NUMERIC_TYPES]
 )
 def _(x_op: ScalarOperator, y_value: Number):
+    """
+
+    Parameters
+    ----------
+    x_op: ScalarOperator :
+
+    y_value: Number :
+
+
+    Returns
+    -------
+
+    """
     return ScalarOperator(x_op.prefactor * y_value, x_op.system)
 
 
@@ -76,6 +141,19 @@ def _(x_op: ScalarOperator, y_value: Number):
     [(num_type, ScalarOperator) for num_type in NUMERIC_TYPES]
 )
 def _(y_value: Number, x_op: ScalarOperator):
+    """
+
+    Parameters
+    ----------
+    y_value: Number :
+
+    x_op: ScalarOperator :
+
+
+    Returns
+    -------
+
+    """
     return ScalarOperator(x_op.prefactor * y_value, x_op.system)
 
 
@@ -96,6 +174,19 @@ def _(y_value: Number, x_op: ScalarOperator):
     ]
 )
 def _(x_op: LocalOperator, y_val: Number):
+    """
+
+    Parameters
+    ----------
+    x_op: LocalOperator :
+
+    y_val: Number :
+
+
+    Returns
+    -------
+
+    """
     return LocalOperator(x_op.site, x_op.operator + y_val, x_op.system)
 
 
@@ -106,6 +197,19 @@ def _(x_op: LocalOperator, y_val: Number):
     )
 )
 def _(x_op: LocalOperator, y_op: ScalarOperator):
+    """
+
+    Parameters
+    ----------
+    x_op: LocalOperator :
+
+    y_op: ScalarOperator :
+
+
+    Returns
+    -------
+
+    """
     system = x_op.system.union(y_op.system)
     return LocalOperator(x_op.site, x_op.operator + y_op.prefactor, system)
 
@@ -117,6 +221,19 @@ def _(x_op: LocalOperator, y_op: ScalarOperator):
     )
 )
 def _(x_op: LocalOperator, y_op: LocalOperator):
+    """
+
+    Parameters
+    ----------
+    x_op: LocalOperator :
+
+    y_op: LocalOperator :
+
+
+    Returns
+    -------
+
+    """
     system = x_op.system.union(y_op.system)
     if x_op.site == y_op.site:
         return LocalOperator(x_op.site, x_op.operator + y_op.operator, system)
@@ -134,6 +251,19 @@ def _(x_op: LocalOperator, y_op: LocalOperator):
     ]
 )
 def _(x_op: LocalOperator, y_val: Number):
+    """
+
+    Parameters
+    ----------
+    x_op: LocalOperator :
+
+    y_val: Number :
+
+
+    Returns
+    -------
+
+    """
     return LocalOperator(x_op.site, x_op.operator * y_val, x_op.system)
 
 
@@ -147,6 +277,19 @@ def _(x_op: LocalOperator, y_val: Number):
     ]
 )
 def _(y_val: Number, x_op: LocalOperator):
+    """
+
+    Parameters
+    ----------
+    y_val: Number :
+
+    x_op: LocalOperator :
+
+
+    Returns
+    -------
+
+    """
     return LocalOperator(x_op.site, x_op.operator * y_val, x_op.system)
 
 
@@ -157,6 +300,19 @@ def _(y_val: Number, x_op: LocalOperator):
     )
 )
 def _(x_op: LocalOperator, y_op: ScalarOperator):
+    """
+
+    Parameters
+    ----------
+    x_op: LocalOperator :
+
+    y_op: ScalarOperator :
+
+
+    Returns
+    -------
+
+    """
     return LocalOperator(
         x_op.site, x_op.operator * y_op.prefactor, x_op.system or y_op.system
     )
@@ -169,6 +325,19 @@ def _(x_op: LocalOperator, y_op: ScalarOperator):
     )
 )
 def _(y_op: ScalarOperator, x_op: LocalOperator):
+    """
+
+    Parameters
+    ----------
+    y_op: ScalarOperator :
+
+    x_op: LocalOperator :
+
+
+    Returns
+    -------
+
+    """
     return LocalOperator(
         x_op.site, x_op.operator * y_op.prefactor, x_op.system or y_op.system
     )
@@ -181,6 +350,19 @@ def _(y_op: ScalarOperator, x_op: LocalOperator):
     )
 )
 def _(x_op: LocalOperator, y_op: LocalOperator):
+    """
+
+    Parameters
+    ----------
+    x_op: LocalOperator :
+
+    y_op: LocalOperator :
+
+
+    Returns
+    -------
+
+    """
     site_x = x_op.site
     site_y = y_op.site
     system = x_op.system or y_op.system
@@ -210,7 +392,20 @@ def _(x_op: LocalOperator, y_op: LocalOperator):
     )
 )
 def _(x_op: ProductOperator, y_op: ProductOperator):
-    system = x_op.system * y_op.system if x_op.system else y_op.system
+    """
+
+    Parameters
+    ----------
+    x_op: ProductOperator :
+
+    y_op: ProductOperator :
+
+
+    Returns
+    -------
+
+    """
+    system = x_op.system.union(y_op.system)
     site_op = x_op.sites_op.copy()
     site_op_y = y_op.sites_op
     for site, op_local in site_op_y.items():
@@ -234,6 +429,19 @@ def _(x_op: ProductOperator, y_op: ProductOperator):
     ]
 )
 def _(x_op: ProductOperator, y_value: Number):
+    """
+
+    Parameters
+    ----------
+    x_op: ProductOperator :
+
+    y_value: Number :
+
+
+    Returns
+    -------
+
+    """
     if y_value:
         prefactor = x_op.prefactor * y_value
         return ProductOperator(x_op.sites_op, prefactor, x_op.system)
@@ -250,6 +458,19 @@ def _(x_op: ProductOperator, y_value: Number):
     ]
 )
 def _(y_value: Number, x_op: ProductOperator):
+    """
+
+    Parameters
+    ----------
+    y_value: Number :
+
+    x_op: ProductOperator :
+
+
+    Returns
+    -------
+
+    """
     if y_value:
         prefactor = x_op.prefactor * y_value
         return ProductOperator(x_op.sites_op, prefactor, x_op.system)
@@ -263,6 +484,19 @@ def _(y_value: Number, x_op: ProductOperator):
     )
 )
 def _(x_op: ProductOperator, y_op: ScalarOperator):
+    """
+
+    Parameters
+    ----------
+    x_op: ProductOperator :
+
+    y_op: ScalarOperator :
+
+
+    Returns
+    -------
+
+    """
     prefactor = y_op.prefactor
     if prefactor:
         prefactor = x_op.prefactor * prefactor
@@ -280,6 +514,19 @@ def _(
     y_op: ScalarOperator,
     x_op: ProductOperator,
 ):
+    """
+
+    Parameters
+    ----------
+    y_op: ScalarOperator :
+
+    x_op: ProductOperator :
+
+
+    Returns
+    -------
+
+    """
     prefactor = y_op.prefactor
     if prefactor:
         prefactor = x_op.prefactor * prefactor
@@ -294,6 +541,19 @@ def _(
     )
 )
 def _(x_op: ProductOperator, y_op: LocalOperator):
+    """
+
+    Parameters
+    ----------
+    x_op: ProductOperator :
+
+    y_op: LocalOperator :
+
+
+    Returns
+    -------
+
+    """
     site = y_op.site
     op_local = y_op.operator
     system = x_op.system * y_op.system if x_op.system else y_op.system
@@ -316,6 +576,19 @@ def _(x_op: ProductOperator, y_op: LocalOperator):
     )
 )
 def _(y_op: LocalOperator, x_op: ProductOperator):
+    """
+
+    Parameters
+    ----------
+    y_op: LocalOperator :
+
+    x_op: ProductOperator :
+
+
+    Returns
+    -------
+
+    """
     site = y_op.site
     op_local = y_op.operator
     system = x_op.system * y_op.system if x_op.system else y_op.system
@@ -349,6 +622,19 @@ def _(y_op: LocalOperator, x_op: ProductOperator):
     ]
 )
 def _(x_op: SumOperator, y_value: Number):
+    """
+
+    Parameters
+    ----------
+    x_op: SumOperator :
+
+    y_value: Number :
+
+
+    Returns
+    -------
+
+    """
     return x_op + ScalarOperator(y_value, x_op.system)
 
 
@@ -362,6 +648,19 @@ def _(x_op: SumOperator, y_value: Number):
     ]
 )
 def _(x_op: SumOperator, y_value: Number):
+    """
+
+    Parameters
+    ----------
+    x_op: SumOperator :
+
+    y_value: Number :
+
+
+    Returns
+    -------
+
+    """
     if y_value == 0:
         return ScalarOperator(0, x_op.system)
 
@@ -380,6 +679,19 @@ def _(x_op: SumOperator, y_value: Number):
     ]
 )
 def _(y_value: Number, x_op: SumOperator):
+    """
+
+    Parameters
+    ----------
+    y_value: Number :
+
+    x_op: SumOperator :
+
+
+    Returns
+    -------
+
+    """
     if y_value == 0:
         return ScalarOperator(0, x_op.system)
 
@@ -398,6 +710,19 @@ def _(y_value: Number, x_op: SumOperator):
     )
 )
 def _(x_op: SumOperator, y_op: ScalarOperator):
+    """
+
+    Parameters
+    ----------
+    x_op: SumOperator :
+
+    y_op: ScalarOperator :
+
+
+    Returns
+    -------
+
+    """
     system = x_op.system or y_op.system
     y_value = y_op.prefactor
     if y_value == 0:
@@ -417,6 +742,19 @@ def _(x_op: SumOperator, y_op: ScalarOperator):
     )
 )
 def _(y_op: ScalarOperator, x_op: SumOperator):
+    """
+
+    Parameters
+    ----------
+    y_op: ScalarOperator :
+
+    x_op: SumOperator :
+
+
+    Returns
+    -------
+
+    """
     system = x_op.system or y_op.system
     y_value = y_op.prefactor
     if y_value == 0:
@@ -448,9 +786,22 @@ def _(
     x_op: SumOperator,
     y_op: LocalOperator,
 ):
-    system = x_op.system * y_op.system if x_op.system else y_op.system
+    """
 
-    terms_it = (y_op * term for term in x_op.terms)
+    Parameters
+    ----------
+    x_op: SumOperator :
+
+    y_op: LocalOperator :
+
+
+    Returns
+    -------
+
+    """
+    system = x_op.system.union(y_op.system)
+
+    terms_it = (term * y_op for term in x_op.terms)
     terms = tuple(term for term in terms_it if bool(term))
     if len(terms) == 0:
         return ScalarOperator(0, system)
@@ -473,8 +824,20 @@ def _(
     ]
 )
 def _(y_op: LocalOperator, x_op: SumOperator):
-    system = x_op.system * y_op.system if x_op.system else y_op.system
+    """
 
+    Parameters
+    ----------
+    y_op: LocalOperator :
+
+    x_op: SumOperator :
+
+
+    Returns
+    -------
+
+    """
+    system = x_op.system.union(y_op.system)
     terms_it = (y_op * term for term in x_op.terms)
     terms = tuple(term for term in terms_it if bool(term))
     if len(terms) == 0:
@@ -506,6 +869,19 @@ def _(y_op: LocalOperator, x_op: SumOperator):
     ]
 )
 def _(x_op: SumOperator, y_op: Operator):
+    """
+
+    Parameters
+    ----------
+    x_op: SumOperator :
+
+    y_op: Operator :
+
+
+    Returns
+    -------
+
+    """
     system = x_op.system or y_op.system
     terms = x_op.terms + (y_op,)
     if len(terms) == 1:
@@ -522,7 +898,20 @@ def _(x_op: SumOperator, y_op: Operator):
     )
 )
 def _(x_op: SumOperator, y_op: SumOperator):
-    system = x_op.system or y_op.system
+    """
+
+    Parameters
+    ----------
+    x_op: SumOperator :
+
+    y_op: SumOperator :
+
+
+    Returns
+    -------
+
+    """
+    system = x_op.system.union(y_op.system)
     terms = x_op.terms + y_op.terms
     isherm = x_op._isherm and y_op._isherm
     if len(terms) == 0:
@@ -538,7 +927,21 @@ def _(x_op: SumOperator, y_op: SumOperator):
     )
 )
 def _(x_op: SumOperator, y_op: SumOperator):
-    system = x_op.system * y_op.system if x_op.system else y_op.system
+    """
+
+    Parameters
+    ----------
+    x_op: SumOperator :
+
+    y_op: SumOperator :
+
+
+    Returns
+    -------
+
+    """
+    system = x_op.system.union(y_op.system)
+
     terms = tuple(
         factor_x * factor_y for factor_x in x_op.terms for factor_y in y_op.terms
     )
@@ -567,6 +970,19 @@ def _(x_op: SumOperator, y_op: SumOperator):
     ]
 )
 def _(x_op: SumOperator, y_op: Operator):
+    """
+
+    Parameters
+    ----------
+    x_op: SumOperator :
+
+    y_op: Operator :
+
+
+    Returns
+    -------
+
+    """
     system = x_op.system * y_op.system if x_op.system else y_op.system
     terms = tuple(factor_x * y_op for factor_x in x_op.terms)
     if len(terms) == 0:
@@ -588,6 +1004,19 @@ def _(x_op: SumOperator, y_op: Operator):
     ]
 )
 def _(y_op: Operator, x_op: SumOperator):
+    """
+
+    Parameters
+    ----------
+    y_op: Operator :
+
+    x_op: SumOperator :
+
+
+    Returns
+    -------
+
+    """
     system = x_op.system.union(y_op.system)
     terms = tuple(y_op * factor_x for factor_x in x_op.terms)
     if len(terms) == 0:
@@ -611,6 +1040,19 @@ def _(y_op: Operator, x_op: SumOperator):
     )
 )
 def _(x_op: OneBodyOperator, y_op: OneBodyOperator):
+    """
+
+    Parameters
+    ----------
+    x_op: OneBodyOperator :
+
+    y_op: OneBodyOperator :
+
+
+    Returns
+    -------
+
+    """
     system = x_op.system or y_op.system
     terms = x_op.terms + y_op.terms
     if len(terms) == 0:
@@ -630,6 +1072,19 @@ def _(x_op: OneBodyOperator, y_op: OneBodyOperator):
     ]
 )
 def _(x_op: OneBodyOperator, y_value: Number):
+    """
+
+    Parameters
+    ----------
+    x_op: OneBodyOperator :
+
+    y_value: Number :
+
+
+    Returns
+    -------
+
+    """
     system = x_op.system
     y_op = ScalarOperator(y_value, system)
     terms = x_op.terms + (y_op,)
@@ -645,6 +1100,19 @@ def _(x_op: OneBodyOperator, y_value: Number):
     )
 )
 def _(x_op: OneBodyOperator, y_op: ScalarOperator):
+    """
+
+    Parameters
+    ----------
+    x_op: OneBodyOperator :
+
+    y_op: ScalarOperator :
+
+
+    Returns
+    -------
+
+    """
     system = x_op.system.union(y_op.system)
     terms = x_op.terms + (y_op,)
     if len(terms) == 1:
@@ -660,6 +1128,19 @@ def _(x_op: OneBodyOperator, y_op: ScalarOperator):
     )
 )
 def _(x_op: OneBodyOperator, y_op: LocalOperator):
+    """
+
+    Parameters
+    ----------
+    x_op: OneBodyOperator :
+
+    y_op: LocalOperator :
+
+
+    Returns
+    -------
+
+    """
     system = x_op.system * y_op.system if x_op.system else y_op.system
     terms = x_op.terms + (y_op,)
     if len(terms) == 1:
@@ -677,6 +1158,19 @@ def _(x_op: OneBodyOperator, y_op: LocalOperator):
     ]
 )
 def _(x_op: OneBodyOperator, y_value: Number):
+    """
+
+    Parameters
+    ----------
+    x_op: OneBodyOperator :
+
+    y_value: Number :
+
+
+    Returns
+    -------
+
+    """
     system = x_op.system
     terms = tuple(term * y_value for term in x_op.terms)
     if len(terms) == 1:
@@ -694,6 +1188,19 @@ def _(x_op: OneBodyOperator, y_value: Number):
     ]
 )
 def _(y_value: Number, x_op: OneBodyOperator):
+    """
+
+    Parameters
+    ----------
+    y_value: Number :
+
+    x_op: OneBodyOperator :
+
+
+    Returns
+    -------
+
+    """
     system = x_op.system
     terms = tuple(term * y_value for term in x_op.terms)
     if len(terms) == 1:
@@ -708,6 +1215,19 @@ def _(y_value: Number, x_op: OneBodyOperator):
     )
 )
 def _(x_op: OneBodyOperator, y_op: ScalarOperator):
+    """
+
+    Parameters
+    ----------
+    x_op: OneBodyOperator :
+
+    y_op: ScalarOperator :
+
+
+    Returns
+    -------
+
+    """
     system = x_op.system
     y_value = y_op.prefactor
     terms = tuple(term * y_value for term in x_op.terms)
@@ -723,6 +1243,19 @@ def _(x_op: OneBodyOperator, y_op: ScalarOperator):
     )
 )
 def _(y_op: ScalarOperator, x_op: OneBodyOperator):
+    """
+
+    Parameters
+    ----------
+    y_op: ScalarOperator :
+
+    x_op: OneBodyOperator :
+
+
+    Returns
+    -------
+
+    """
     system = x_op.system
     y_value = y_op.prefactor
     terms = tuple(term * y_value for term in x_op.terms)
@@ -745,6 +1278,19 @@ def _(y_op: ScalarOperator, x_op: OneBodyOperator):
     )
 )
 def _(x_op: ScalarOperator, y_op: LocalOperator):
+    """
+
+    Parameters
+    ----------
+    x_op: ScalarOperator :
+
+    y_op: LocalOperator :
+
+
+    Returns
+    -------
+
+    """
     if x_op.prefactor == 0:
         return y_op
 
@@ -770,6 +1316,19 @@ def _(x_op: ScalarOperator, y_op: LocalOperator):
     ]
 )
 def _(x_op: ProductOperator, y_value: Number):
+    """
+
+    Parameters
+    ----------
+    x_op: ProductOperator :
+
+    y_value: Number :
+
+
+    Returns
+    -------
+
+    """
     site_op = x_op.sites_op.copy()
     prefactor = x_op.prefactor
     system = x_op.system
@@ -805,6 +1364,19 @@ def _(x_op: ProductOperator, y_value: Number):
     ]
 )
 def _(x_op: ProductOperator, y_op: ProductOperator):
+    """
+
+    Parameters
+    ----------
+    x_op: ProductOperator :
+
+    y_op: ProductOperator :
+
+
+    Returns
+    -------
+
+    """
     system = x_op.system or y_op.system
     site_op_x = x_op.sites_op
     site_op_y = y_op.sites_op
@@ -826,6 +1398,19 @@ def _(x_op: ProductOperator, y_op: ProductOperator):
     )
 )
 def _(x_op: ProductOperator, y_op: LocalOperator):
+    """
+
+    Parameters
+    ----------
+    x_op: ProductOperator :
+
+    y_op: LocalOperator :
+
+
+    Returns
+    -------
+
+    """
     system = x_op.system or y_op.system
     site_op_x = x_op.sites_op
     if len(site_op_x) > 1:
@@ -859,7 +1444,20 @@ def _(x_op: ProductOperator, y_op: LocalOperator):
     ]
 )
 def _(x_op: QutipOperator, y_op: Operator):
-    system = x_op.system or y_op.system
+    """
+
+    Parameters
+    ----------
+    x_op: QutipOperator :
+
+    y_op: Operator :
+
+
+    Returns
+    -------
+
+    """
+    system = x_op.system.union(y_op.system)
     return SumOperator(
         (
             x_op,
@@ -882,14 +1480,36 @@ def _(x_op: QutipOperator, y_op: Operator):
     )
 )
 def sum_qutip_operator_plus_operator(x_op: QutipOperator, y_op: QutipOperator):
-    """Sum two qutip operators"""
+    """Sum two qutip operators
+
+    Parameters
+    ----------
+    x_op: QutipOperator :
+
+    y_op: QutipOperator :
+
+
+    Returns
+    -------
+
+    """
 
     system = x_op.system.union(y_op.system)
     x_site_names = x_op.site_names
     y_site_names = y_op.site_names
     if x_site_names == y_site_names:
+        x_op_qutip = x_op.operator
+        y_op_qutip = y_op.operator
+        if x_op_qutip is y_op_qutip:
+            return QutipOperator(
+                x_op_qutip,
+                system,
+                names=x_site_names,
+                prefactor=(x_op.prefactor + y_op.prefactor),
+            )
+
         return QutipOperator(
-            x_op.operator * x_op.prefactor + y_op.operator * y_op.prefactor,
+            x_op_qutip * x_op.prefactor + y_op_qutip * y_op.prefactor,
             system,
             names=x_site_names,
             prefactor=1,
@@ -918,18 +1538,32 @@ def sum_qutip_operator_plus_operator(x_op: QutipOperator, y_op: QutipOperator):
 
 
 @Operator.register_add_handler(
-    (
-        ScalarOperator,
-        QutipOperator,
-    )
+    [
+        (
+            num_type,
+            QutipOperator,
+        )
+        for num_type in NUMERIC_TYPES
+    ]
 )
-def sum_scalarop_with_qutipop(x_op: ScalarOperator, y_op: QutipOperator):
-    """Sum a Scalar operator to a Qutip Operator"""
-    system = y_op.system or x_op.system
+def _(y_val: Number, x_op: QutipOperator):
+    """product of a number and a QutipOperator.
+
+    Parameters
+    ----------
+    y_val: Number :
+
+    x_op: QutipOperator :
+
+
+    Returns
+    -------
+
+    """
     return QutipOperator(
-        y_op.operator * y_op.prefactor + x_op.prefactor,
-        system=system,
-        names=y_op.site_names,
+        x_op.operator * x_op.prefactor + y_val,
+        x_op.system,
+        names=x_op.site_names,
         prefactor=1,
     )
 
@@ -944,11 +1578,26 @@ def sum_scalarop_with_qutipop(x_op: ScalarOperator, y_op: QutipOperator):
     ]
 )
 def sum_qutip_operator_plus_number(x_op: QutipOperator, y_val: Union[Number, Qobj]):
-    """Sum an operator and a number  or a Qobj"""
+    """Sum an operator and a number  or a Qobj
+
+    Parameters
+    ----------
+    x_op: QutipOperator :
+
+    y_val: Union[Number :
+
+    Qobj] :
+
+
+    Returns
+    -------
+
+    """
     return QutipOperator(
         x_op.operator * x_op.prefactor + y_val,
         x_op.system,
         names=x_op.site_names,
+        prefactor=1,
     )
 
 
@@ -962,7 +1611,21 @@ def sum_qutip_operator_plus_number(x_op: QutipOperator, y_val: Union[Number, Qob
     ]
 )
 def sum_qutip_operator_mul_number(x_op: QutipOperator, y_val: Union[Number, Qobj]):
-    """Sum an operator and a number  or a Qobj"""
+    """Sum an operator and a number  or a Qobj
+
+    Parameters
+    ----------
+    x_op: QutipOperator :
+
+    y_val: Union[Number :
+
+    Qobj] :
+
+
+    Returns
+    -------
+
+    """
     return QutipOperator(
         x_op.operator,
         x_op.system,
@@ -981,7 +1644,19 @@ def sum_qutip_operator_mul_number(x_op: QutipOperator, y_val: Union[Number, Qobj
     ]
 )
 def sum_qutip_operator_mul_number_back(y_val: Number, x_op: QutipOperator):
-    """Sum an operator and a number  or a Qobj"""
+    """Sum an operator and a number  or a Qobj
+
+    Parameters
+    ----------
+    y_val: Number :
+
+    x_op: QutipOperator :
+
+
+    Returns
+    -------
+
+    """
     return QutipOperator(
         x_op.operator,
         x_op.system,
@@ -1000,7 +1675,19 @@ def sum_qutip_operator_mul_number_back(y_val: Number, x_op: QutipOperator):
     ]
 )
 def _(x_op: Operator, y_qutip_op: QutipOperator):
-    """Sum an operator and a number  or a Qobj"""
+    """Sum an operator and a number  or a Qobj
+
+    Parameters
+    ----------
+    x_op: Operator :
+
+    y_qutip_op: QutipOperator :
+
+
+    Returns
+    -------
+
+    """
     return x_op.to_qutip_operator() + y_qutip_op
 
 
@@ -1021,7 +1708,19 @@ def _(
     x_op: Operator,
     y_qutip_op: QutipOperator,
 ):
-    """Multiply an operator and a number  or a Qobj"""
+    """Multiply an operator and a number  or a Qobj
+
+    Parameters
+    ----------
+    x_op: Operator :
+
+    y_qutip_op: QutipOperator :
+
+
+    Returns
+    -------
+
+    """
     return x_op.to_qutip_operator() * y_qutip_op
 
 
@@ -1038,9 +1737,21 @@ def _(
         )
     ]
 )
-def _(x_op: Operator, y_qutip_op: QutipOperator):
-    """Multiply an operator and a number  or a Qobj"""
-    return x_op * y_qutip_op.to_qutip_operator()
+def _(x_qutip_op: QutipOperator, y_op: Operator):
+    """Multiply an operator and a number  or a Qobj
+
+    Parameters
+    ----------
+    x_qutip_op: QutipOperator :
+
+    y_op: Operator :
+
+
+    Returns
+    -------
+
+    """
+    return x_qutip_op * y_op.to_qutip_operator()
 
 
 @Operator.register_mul_handler(
@@ -1050,8 +1761,20 @@ def _(x_op: Operator, y_qutip_op: QutipOperator):
     )
 )
 def mul_qutip_operator_qutip_operator(x_op: QutipOperator, y_op: QutipOperator):
-    """Product of two qutip operators"""
-    system = x_op.system * y_op.system if x_op.system else y_op.system
+    """Product of two qutip operators
+
+    Parameters
+    ----------
+    x_op: QutipOperator :
+
+    y_op: QutipOperator :
+
+
+    Returns
+    -------
+
+    """
+    system = x_op.system.union(y_op.system)
     x_names = x_op.site_names
     y_names = y_op.site_names
     if x_names == y_names:
@@ -1080,7 +1803,19 @@ def mul_qutip_operator_qutip_operator(x_op: QutipOperator, y_op: QutipOperator):
     )
 )
 def mul_scalarop_with_qutipop(x_op: ScalarOperator, y_op: QutipOperator):
-    """Sum a Scalar operator to a Qutip Operator"""
+    """Sum a Scalar operator to a Qutip Operator
+
+    Parameters
+    ----------
+    x_op: ScalarOperator :
+
+    y_op: QutipOperator :
+
+
+    Returns
+    -------
+
+    """
     system = x_op.system * y_op.system if x_op.system else y_op.system
     return QutipOperator(
         y_op.operator,
@@ -1097,32 +1832,25 @@ def mul_scalarop_with_qutipop(x_op: ScalarOperator, y_op: QutipOperator):
     )
 )
 def mul_qutipop_with_scalarop(y_op: QutipOperator, x_op: ScalarOperator):
-    """Sum a Scalar operator to a Qutip Operator"""
+    """Sum a Scalar operator to a Qutip Operator
+
+    Parameters
+    ----------
+    y_op: QutipOperator :
+
+    x_op: ScalarOperator :
+
+
+    Returns
+    -------
+
+    """
     system = x_op.system * y_op.system if x_op.system else y_op.system
     return QutipOperator(
         y_op.operator,
         names=y_op.site_names,
         prefactor=x_op.prefactor * y_op.prefactor,
         system=system,
-    )
-
-
-@Operator.register_add_handler(
-    [
-        (
-            num_type,
-            QutipOperator,
-        )
-        for num_type in NUMERIC_TYPES
-    ]
-)
-def mul_number_and_qutipoperator(y_val: Number, x_op: QutipOperator):
-    """product of a number and a QutipOperator."""
-    return QutipOperator(
-        x_op.operator,
-        x_op.system,
-        names=x_op.site_names,
-        prefactor=x_op.prefactor * y_val,
     )
 
 
@@ -1143,6 +1871,19 @@ def mul_number_and_qutipoperator(y_val: Number, x_op: QutipOperator):
     ]
 )
 def _(qf_operator: QuadraticFormOperator, op_other: Operator):
+    """
+
+    Parameters
+    ----------
+    qf_operator: QuadraticFormOperator :
+
+    op_other: Operator :
+
+
+    Returns
+    -------
+
+    """
     linear_term = qf_operator.linear_term
     if linear_term is None:
         if isinstance(op_other, NUMERIC_TYPES):
@@ -1164,6 +1905,19 @@ def _(qf_operator: QuadraticFormOperator, op_other: Operator):
     [(QuadraticFormOperator, op_type) for op_type in (ProductOperator, QutipOperator)]
 )
 def _(qf_operator: QuadraticFormOperator, op_other: Operator):
+    """
+
+    Parameters
+    ----------
+    qf_operator: QuadraticFormOperator :
+
+    op_other: Operator :
+
+
+    Returns
+    -------
+
+    """
     offset = qf_operator.offset
     if offset is None:
         offset = op_other
@@ -1193,6 +1947,19 @@ def _(qf_operator: QuadraticFormOperator, op_other: Operator):
     ]
 )
 def _(value: Number, qf_operator: QuadraticFormOperator):
+    """
+
+    Parameters
+    ----------
+    value: Number :
+
+    qf_operator: QuadraticFormOperator :
+
+
+    Returns
+    -------
+
+    """
     linear_term = qf_operator.linear_term
     offset = qf_operator.offset
     if linear_term is not None:
@@ -1214,6 +1981,19 @@ def _(value: Number, qf_operator: QuadraticFormOperator):
     ]
 )
 def _(qf_operator: QuadraticFormOperator, value: Number):
+    """
+
+    Parameters
+    ----------
+    qf_operator: QuadraticFormOperator :
+
+    value: Number :
+
+
+    Returns
+    -------
+
+    """
     linear_term = qf_operator.linear_term
     offset = qf_operator.offset
     if linear_term is not None:
@@ -1239,6 +2019,19 @@ def _(qf_operator: QuadraticFormOperator, value: Number):
     )
 )
 def _(qf_operator: QuadraticFormOperator, sc_operator: ScalarOperator):
+    """
+
+    Parameters
+    ----------
+    qf_operator: QuadraticFormOperator :
+
+    sc_operator: ScalarOperator :
+
+
+    Returns
+    -------
+
+    """
     system = qf_operator.system.union(sc_operator.system)
     linear_term = qf_operator.linear_term
     offset = qf_operator.offset
@@ -1263,6 +2056,19 @@ def _(qf_operator: QuadraticFormOperator, sc_operator: ScalarOperator):
     )
 )
 def _(sc_operator: ScalarOperator, qf_operator: QuadraticFormOperator):
+    """
+
+    Parameters
+    ----------
+    sc_operator: ScalarOperator :
+
+    qf_operator: QuadraticFormOperator :
+
+
+    Returns
+    -------
+
+    """
     system = qf_operator.system.union(sc_operator.system)
     linear_term = qf_operator.linear_term
     offset = qf_operator.offset
@@ -1294,6 +2100,19 @@ def _(sc_operator: ScalarOperator, qf_operator: QuadraticFormOperator):
     ]
 )
 def _(op1: Operator, op2: QuadraticFormOperator):
+    """
+
+    Parameters
+    ----------
+    op1: Operator :
+
+    op2: QuadraticFormOperator :
+
+
+    Returns
+    -------
+
+    """
     return op1 * op2.to_sum_operator()
 
 
@@ -1314,4 +2133,17 @@ def _(op1: Operator, op2: QuadraticFormOperator):
     ]
 )
 def _(op_1: QuadraticFormOperator, op_2: Operator):
+    """
+
+    Parameters
+    ----------
+    op_1: QuadraticFormOperator :
+
+    op_2: Operator :
+
+
+    Returns
+    -------
+
+    """
     return op_1.to_sum_operator() * op_2
