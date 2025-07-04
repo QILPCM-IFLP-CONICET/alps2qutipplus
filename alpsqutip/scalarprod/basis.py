@@ -196,7 +196,7 @@ class OperatorBasis:
         Returns
         -------
         NDArray
-            the coeffients of the expansion.
+            the coefficients of the expansion.
 
         """
         sp = self.sp
