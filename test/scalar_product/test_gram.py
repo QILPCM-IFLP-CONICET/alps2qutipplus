@@ -37,8 +37,8 @@ if os.environ.get("BENCHMARKS", 0):
         }.items()
         for deep in (
             2,
-            6,
-            8,
+            3,
+            4,
         )
         for sp_name, sp_ in SCALAR_PRODUCTS.items()
     }
