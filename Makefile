@@ -25,6 +25,9 @@ BUILDDIR      = docs/_build
 
 .PHONY: \
     all \
+    benchmark \
+    benchmark-clean\
+    benchmark-show \
     check_pre_commit \
     develop \
     docs\
@@ -32,6 +35,7 @@ BUILDDIR      = docs/_build
     install \
     pytest \
     conventions \
+
 
 all: develop check_pre_commit
 	$(PIP) install -e .[dev]
@@ -67,3 +71,14 @@ docs:
 
 docs-clean:
 	rm -rf $(BUILDDIR)
+
+
+
+benchmark:
+	BENCHMARKS=1 CHAIN_SIZE=6 pytest --benchmark-enable --benchmark-save=gram_bench --benchmark-columns=min test/scalar_product/test_gram.py  
+
+benchmark-clean:
+	rm -R .benchmarks
+
+benchmark-show:
+	pytest-benchmark compare --columns min --group-by fullname   000 001 002
