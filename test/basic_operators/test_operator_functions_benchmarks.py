@@ -1,6 +1,7 @@
 """
 Tests and benchmarks for `gram_matrix`.
 """
+
 import os
 from test.helper import HAMILTONIAN, SX_A, SX_TOTAL, SZ_TOTAL
 
@@ -8,7 +9,10 @@ import pytest
 
 from alpsqutip.operators.functions import commutator
 
-@pytest.mark.skipif(not os.environ.get("BENCHMARKS", 0), reason="only run for benchmarks.")
+
+@pytest.mark.skipif(
+    not os.environ.get("BENCHMARKS", 0), reason="only run for benchmarks."
+)
 @pytest.mark.parametrize(
     [
         "case",
