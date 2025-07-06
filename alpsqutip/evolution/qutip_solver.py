@@ -112,7 +112,7 @@ def qutip_me_solve(
         H = H.to_qutip()
 
     result = qutip.mesolve(
-        H.to_qutip(),
+        H,
         rho0.to_qutip(),
         tlist,
         c_ops=c_ops,
@@ -120,4 +120,9 @@ def qutip_me_solve(
         options=options,
         args=args,
     )
+    if isinstance(e_ops, (tuple,list)):
+        return result.expect
+    if isinstance(e_ops, (dict)):
+        return {key:val for key,val in zip(e_ops.keys(), result.expect)}
+
     return [QutipOperator(state, system=rho0.system) for state in result.states]

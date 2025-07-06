@@ -151,7 +151,8 @@ OPERATOR_TYPE_CASES = {
     "scalar, complex": ScalarOperator(1.0 + 3j, SYSTEM),
     "local operator, hermitician": SX_A,  # LocalOperator
     "local operator, non hermitician": SX_A + SY_A * 1j,
-    "One body, hermitician": SZ_TOTAL,
+    "One body, diagonal": SZ_TOTAL,
+    "One body, hermitician": SX_TOTAL,
     "One body, non hermitician": SX_TOTAL + SY_TOTAL * 1j,
     "three body, hermitician": (SX_A * SY_B * SZ_C),
     "three body, non hermitician": ((SMINUS_A * SMINUS_B + SY_A * SY_B) * SZ_TOTAL),
