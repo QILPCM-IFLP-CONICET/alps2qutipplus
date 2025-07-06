@@ -1,23 +1,26 @@
 """
 Solve a truncated hierarchy of Heisenberg equations for a set of observables.
 """
+
+from typing import Any
+
 import numpy as np
-from typing import Any, Dict,List, Optional
 from numpy.typing import ArrayLike
 
 from alpsqutip.operators import Operator
-from alpsqutip.scalarprod.build import fetch_covar_scalar_product
 from alpsqutip.scalarprod.basis import HierarchicalOperatorBasis
+from alpsqutip.scalarprod.build import fetch_covar_scalar_product
+
 
 def heisenberg_solve(
-        H: Operator,
-        rho0: Operator,
-        tlist: ArrayLike,
-        e_ops: list[Operator] | dict[Any, Operator],
-        *,
-        deep:int=2,
-        args: dict[str, Any] = None,
-        options: dict[str, Any] = None,
+    H: Operator,
+    rho0: Operator,
+    tlist: ArrayLike,
+    e_ops: list[Operator] | dict[Any, Operator],
+    *,
+    deep: int = 2,
+    args: dict[str, Any] = None,
+    options: dict[str, Any] = None,
 ) -> list[Operator] | dict[Any, Operator]:
     """
     Compute the expectation values of the operators listed in e_ops
@@ -35,17 +38,11 @@ def heisenberg_solve(
     fields_0 = np.array([basis.coefficient_expansion(op) for op in seeds]).T
     result = []
     for t in tlist:
-        phis = basis_expectation_values@ basis.evolve(t, fields_0)[0]
+        phis = basis_expectation_values @ basis.evolve(t, fields_0)[0]
         result.append(phis)
 
     result_np = np.array(result).T
 
     if isinstance(e_ops, dict):
-        return {key:val for key, val in zip(e_ops.keys(), result_np)}
+        return {key: val for key, val in zip(e_ops.keys(), result_np)}
     return result_np
-        
-
-
-    
-    
-        

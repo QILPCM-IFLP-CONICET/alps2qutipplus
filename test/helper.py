@@ -268,7 +268,7 @@ def check_equality(lhs, rhs, tolerance=1e-10):
         return True
 
     if isinstance(lhs, dict) and isinstance(rhs, dict):
-        assert len(lhs) == rhs
+        assert len(lhs) == len(rhs)
         assert all(key in rhs for key in lhs)
         assert all(check_equality(lhs[key], rhs[key], tolerance) for key in lhs)
         return True
