@@ -3,11 +3,13 @@ from test.helper import (
     SX_A,
     SX_TOTAL,
     SY_TOTAL,
+    SYSTEM,
     SZ_TOTAL,
     check_operator_equality,
 )
 
 import numpy as np
+from numpy.linalg import inv
 
 from alpsqutip.operators.functions import commutator
 from alpsqutip.operators.states.gibbs import GibbsProductDensityOperator
@@ -39,6 +41,21 @@ def check_basis_equivalence(basis1, basis2):
         == len(basis1.operator_basis)
         == len(basis2.operator_basis)
     )
+
+
+def check_basis_consistency(basis):
+    basis_size = len(basis.operator_basis)
+    assert len(basis.gram) == basis_size
+    assert len(basis.gram_inv) == basis_size
+    assert len(basis.errors) == basis_size
+    assert len(basis.gen_matrix) == basis_size
+
+    assert np.allclose(inv(basis.gram), basis.gram_inv)
+    if basis.generator is not None:
+        check_gen_matrix(basis)
+    else:
+        assert all(coeff == 0 for coeff in basis.errors)
+        assert all(coeff == 0 for row in basis.gen_matrix for coeff in row)
 
 
 def check_gen_matrix(basis):
@@ -171,7 +188,7 @@ def test_hierarchical_operator_basis():
     h = HAMILTONIAN_REFERENCE
     sp = REFERENCE_SP
     generic_basis = OperatorBasis(tuple(BASIS_REFERENCE[:4]), h, sp)
-    basis = HierarchicalOperatorBasis(k_0, h, 4, sp)
+    basis = HierarchicalOperatorBasis(k_0, h, 3, sp)
     compare_basis(basis, generic_basis)
 
     # Check that the projection is consistent:
@@ -225,17 +242,17 @@ def test_add_basis():
     generic_basis = OperatorBasis(tuple(BASIS_REFERENCE[:3]), h, sp)
     print("generic basis has ", len(generic_basis.operator_basis), "elements.")
     print("check gen generic_basis")
-    check_gen_matrix(generic_basis)
+    check_basis_consistency(generic_basis)
     proj_op = generic_basis.project_onto(test_operator)
     prj_1_norm = sp(proj_op, proj_op)
     assert prj_1_norm < full_norm
 
-    hierarchical_basis = HierarchicalOperatorBasis(k_0, h, 4, sp)
+    hierarchical_basis = HierarchicalOperatorBasis(k_0, h, 3, sp)
     print(
         "hierarchical basis has ", len(hierarchical_basis.operator_basis), "elements."
     )
     print("check gen hierarchical_basis")
-    check_gen_matrix(hierarchical_basis)
+    check_basis_consistency(hierarchical_basis)
 
     proj_op = hierarchical_basis.project_onto(test_operator)
     prj_2_norm = sp(proj_op, proj_op)
@@ -255,7 +272,7 @@ def test_add_basis():
     ), "the extended basis should not be equivalent to the original"
 
     print("check gen basis extended1")
-    check_gen_matrix(basis_extended1)
+    check_basis_consistency(basis_extended1)
 
     proj_op = basis_extended1.project_onto(test_operator)
 
@@ -273,10 +290,49 @@ def test_add_basis():
     print("left extended basis has ", len(basis_extended2.operator_basis), "elements.")
     assert not check_basis_equivalence(basis_extended2, hierarchical_basis)
     print("check gen basis extended2")
-    check_gen_matrix(basis_extended2)
+    check_basis_consistency(basis_extended2)
     proj_op = basis_extended2.project_onto(test_operator)
     prj_ext2_norm = sp(proj_op, proj_op)
     assert abs(full_norm - prj_ext2_norm) < 1e-10, f"{full_norm} != {prj_ext2_norm}"
     assert check_basis_equivalence(
         basis_extended1, basis_extended2
     ), "both basis must be equivalent."
+
+
+def test_hierarchical_basis_closed_algebra():
+    # A Hierarchical basis with a generator that commutes with the seed:
+    basis = HierarchicalOperatorBasis(HAMILTONIAN, HAMILTONIAN, 3, REFERENCE_SP)
+    assert (
+        len(basis.operator_basis) == 1
+    ), "Generator commutes with the seed. Deep 0 expected."
+
+    # A hierarchical basis with zero deep:
+    basis = HierarchicalOperatorBasis(SX_TOTAL, SZ_TOTAL, 0, REFERENCE_SP)
+    assert (
+        len(basis.operator_basis) == 1
+    ), "If deep is zero, the basis must contain just the seed."
+
+    # A closed algebra with different deeps
+    basis_a = HierarchicalOperatorBasis(SX_TOTAL, SZ_TOTAL, 1, REFERENCE_SP)
+    basis_b = HierarchicalOperatorBasis(SX_TOTAL, SZ_TOTAL, 3, REFERENCE_SP)
+    assert check_basis_equivalence(basis_a, basis_b), "closed algebras saturates deep."
+    assert len(basis_b.operator_basis) == 2, f"{basis_b.operator_basis} should be 2."
+    check_operator_equality(SY_TOTAL, basis_a.project_onto(SY_TOTAL))
+
+
+def test_extend_basis():
+    local_sx = [SYSTEM.site_operator("Sx", site) for site in SYSTEM.sites]
+    basis1 = sum(
+        HierarchicalOperatorBasis(op, HAMILTONIAN, 2, REFERENCE_SP) for op in local_sx
+    )
+    check_basis_consistency(basis1)
+
+    test_elem = commutator(HAMILTONIAN, local_sx[0] + local_sx[2]) * 1j
+
+    print("test_elem", test_elem.isherm, "\n", test_elem)
+    print("test_elem", [t.isherm for t in test_elem.terms])
+
+    assert test_elem.isherm
+    assert check_operator_equality(test_elem, basis1.project_onto(test_elem))
+    basis2 = basis1 + (test_elem,)
+    assert check_basis_equivalence(basis1, basis2)

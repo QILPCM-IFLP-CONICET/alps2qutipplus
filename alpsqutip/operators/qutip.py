@@ -183,7 +183,14 @@ class QutipOperator(Operator):
     @property
     def isherm(self) -> bool:
         """ """
-        return self.operator.isherm and imag(self.prefactor) == 0.0
+        isherm = self.operator.isherm
+        if imag(self.prefactor) == 0.0:
+            return isherm
+        # herm operator with complex prefactor
+        elif isherm:
+            return False
+        # should this be cached?
+        return (self.operator * self.prefactor).isherm
 
     @property
     def isdiagonal(self) -> bool:
