@@ -25,9 +25,7 @@ SCALAR_PRODUCTS = {
     key: fetch_covar_scalar_product(TEST_CASES_STATES[key])
     for key in REFERENCE_STATE_NAMES
 }
-
 SCALAR_PRODUCTS["HS scalar product"] = lambda x, y: np.real((x * y).tr())
-
 
 if os.environ.get("BENCHMARKS", 0):
     HIERARCHICAL_BASIS_CASES = {
