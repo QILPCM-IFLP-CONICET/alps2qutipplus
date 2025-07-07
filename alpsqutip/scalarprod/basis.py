@@ -302,18 +302,17 @@ class HierarchicalOperatorBasis(OperatorBasis):
         self.build_tensors()
 
     def __add__(self, other):
-        logging.warning(
-            "Adding a HierarchicalBasis to another basis "
-            "requires an explicit conversion."
-        )
         return OperatorBasis(self.operator_basis, self.generator, self.sp) + other
 
     def _build_basis(self, seed, deep, projection_function=None):
+
         elements = [seed.simplify()]
+        dimension = deep + 1
         sp = self.sp
         generator = self.generator
-        errors = np.zeros((deep,))
-        for i in range(deep):
+        errors = np.zeros((dimension,))
+
+        for i in range(dimension):
             new_elem = commutator(elements[-1], generator).simplify()
             comm_norm = np.abs(sp(new_elem, new_elem))
             if np.abs(comm_norm) < 1e-12:
@@ -323,18 +322,20 @@ class HierarchicalOperatorBasis(OperatorBasis):
                         f"""{len(elements)}"""
                     )
                 )
-                deep = len(elements)
-                elements.append(ScalarOperator(0, new_elem.system))
-                errors = errors[:deep]
+                dimension = len(elements)
+                deep = dimension - 1
+                elements.append(ScalarOperator(0, seed.system))
+                errors = errors[:dimension]
                 break
             errors[i] = comm_norm
             new_elem = projection_function(new_elem)
             elements.append(new_elem)
 
-        self.operator_basis = tuple(elements[:deep])
+        self.operator_basis = tuple(elements[:dimension])
+
         gram = gram_matrix(elements, sp)
-        self._hij = gram[:deep, 1:]
-        self.gram = gram[:deep, :deep]
+        self._hij = gram[:dimension, 1:]
+        self.gram = gram[:dimension, :dimension]
         self.errors = errors
 
     def build_tensors(
@@ -360,6 +361,12 @@ class HierarchicalOperatorBasis(OperatorBasis):
 
         # Loop to ensure that all the elements
         # in the basis are linearly independent.
+
+        if not self.operator_basis:
+            self.errors = np.arrow([])
+            self.gram = self.gram_inv = self.gen_matrix = self._hij = np.arrow([])
+            return
+
         while self.operator_basis:
             try:
                 gram = self.gram
@@ -435,15 +442,12 @@ def append_basis(basis_1: OperatorBasis, basis_2: OperatorBasis | Iterable[Opera
     # --- Gram matrix blocks ---
     g11 = basis_1.gram  # (n1, n1)
     g11_inv = basis_1.gram_inv
+    n2 = len(ops2)
 
     if same_sp:
         g22 = basis_2_gram
     else:
-        n2 = len(ops2)
-        g22 = np.empty((n2, n2), dtype=g11.dtype)
-        for i_idx, o2a in enumerate(ops2):
-            for j_idx, o2b in enumerate(ops2):
-                g22[i_idx, j_idx] = sp(o2a, o2b)
+        g22 = gram_matrix(ops2, sp)
 
     def merge_gram(
         g11, g11_inv, g22
@@ -456,22 +460,30 @@ def append_basis(basis_1: OperatorBasis, basis_2: OperatorBasis | Iterable[Opera
         n_1 = len(g11)
         n_2 = len(g22)
         n_total = n_1 + n_2
-        g12 = np.empty(
-            (
-                n_1,
-                n_2,
-            ),
-            dtype=g11.dtype,
-        )
-        for i_idx, o1 in enumerate(ops1):
-            for j_idx, o2 in enumerate(ops2):
-                g12[i_idx, j_idx] = sp(o1, o2)
+        if hasattr(sp, "compute_cross_gram_matrix"):
+            g12 = sp.compute_cross_gram_matrix(ops1, ops2)
+        else:
+            g12 = np.empty(
+                (
+                    n_1,
+                    n_2,
+                ),
+                dtype=g11.dtype,
+            )
+            for i_idx, o1 in enumerate(ops1):
+                for j_idx, o2 in enumerate(ops2):
+                    g12[i_idx, j_idx] = np.real(sp(o1, o2))
+
         g21 = g12.T
         gram_full = np.block([[g11, g12], [g21, g22]])
 
         # If gram is singular, reduce it and remove the
         # linearly dependent elements.
         li_indices = find_linearly_independent_rows(gram_full)
+        li_1_indices = tuple(i for i in li_indices if i < n_1)
+        if len(li_1_indices) != n_1:
+            raise ValueError("It looks like basis_1 were singular.")
+
         if len(li_indices) != n_total:
             n_total = len(li_indices)
             if n_total == n_1:
@@ -501,7 +513,17 @@ def append_basis(basis_1: OperatorBasis, basis_2: OperatorBasis | Iterable[Opera
 
         return gram_full, gram_full_inv, g11, g22, li_indices
 
-    gram, gram_inv, g11, g22, li_indices = merge_gram(g11, g11_inv, g22)
+    try:
+        gram, gram_inv, g11, g22, li_indices = merge_gram(g11, g11_inv, g22)
+    except ValueError:
+        logging.warning(
+            (
+                "basis_1 looks singular when combined with basis_2. "
+                "Trying with full reconstruction"
+            )
+        )
+        return OperatorBasis(operators, generator, sp)
+
     n1, n2, n = len(g11), len(g22), len(gram)
     if n == n1:
         return basis_1
@@ -586,6 +608,8 @@ def append_basis(basis_1: OperatorBasis, basis_2: OperatorBasis | Iterable[Opera
         )
         for j_idx, op_j in enumerate(b_1):
             comm = commutator(op_j, generator)
+            # TODO: check if we gain something using
+            # compute_cross_gram_matrix
             if not reuse:
                 error_sq[j_idx] = sp(comm, comm)
                 for i_idx, op_i in enumerate(b_1):
@@ -621,9 +645,12 @@ def append_basis(basis_1: OperatorBasis, basis_2: OperatorBasis | Iterable[Opera
     hij = np.block([[hij11, hij12], [hij21, hij22]])
     genij = gram_inv @ hij
     errors = (
-        np.block([error_1_sq, error_2_sq])
-        - np.array([genij[:, i] @ hij[:, i] for i in range(n)])
-    ) ** 0.5
+        abs(
+            np.block([error_1_sq, error_2_sq])
+            - np.array([genij[:, i] @ hij[:, i] for i in range(n)])
+        )
+        ** 0.5
+    )
 
     return OperatorBasis(
         operators,
