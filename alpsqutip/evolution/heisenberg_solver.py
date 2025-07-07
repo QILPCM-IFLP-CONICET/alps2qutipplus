@@ -21,7 +21,7 @@ def heisenberg_solve(
     deep: int = 2,
     args: dict[str, Any] = None,
     options: dict[str, Any] = None,
-        sp: Optional[Callable]=None,
+    sp: Optional[Callable] = None,
 ) -> list[Operator] | dict[Any, Operator]:
     """
     Compute the expectation values of the operators listed in e_ops

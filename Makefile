@@ -75,7 +75,9 @@ docs-clean:
 
 
 benchmark:
-	BENCHMARKS=1 CHAIN_SIZE=6 pytest --benchmark-enable --benchmark-save=gram_bench --benchmark-columns=min test/scalar_product/test_gram.py  
+	BENCHMARKS=1 CHAIN_SIZE=20 pytest --benchmark-enable --benchmark-save=gram_bench --benchmark-columns=min test/scalar_product/test_gram.py
+	BENCHMARKS=1 CHAIN_SIZE=20 pytest --benchmark-enable --benchmark-save=gram_bench --benchmark-columns=min test/basic_operators/test_operator_functions_benchmarks.py
+
 
 benchmark-clean:
 	rm -R .benchmarks

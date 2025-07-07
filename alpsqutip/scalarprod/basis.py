@@ -442,15 +442,12 @@ def append_basis(basis_1: OperatorBasis, basis_2: OperatorBasis | Iterable[Opera
     # --- Gram matrix blocks ---
     g11 = basis_1.gram  # (n1, n1)
     g11_inv = basis_1.gram_inv
+    n2 = len(ops2)
 
     if same_sp:
         g22 = basis_2_gram
     else:
-        n2 = len(ops2)
-        g22 = np.empty((n2, n2), dtype=g11.dtype)
-        for i_idx, o2a in enumerate(ops2):
-            for j_idx, o2b in enumerate(ops2):
-                g22[i_idx, j_idx] = sp(o2a, o2b)
+        g22 = gram_matrix(ops2, sp)
 
     def merge_gram(
         g11, g11_inv, g22
@@ -463,16 +460,20 @@ def append_basis(basis_1: OperatorBasis, basis_2: OperatorBasis | Iterable[Opera
         n_1 = len(g11)
         n_2 = len(g22)
         n_total = n_1 + n_2
-        g12 = np.empty(
-            (
-                n_1,
-                n_2,
-            ),
-            dtype=g11.dtype,
-        )
-        for i_idx, o1 in enumerate(ops1):
-            for j_idx, o2 in enumerate(ops2):
-                g12[i_idx, j_idx] = np.real(sp(o1, o2))
+        if hasattr(sp, "compute_cross_gram_matrix"):
+            g12 = sp.compute_cross_gram_matrix(ops1, ops2)
+        else:
+            g12 = np.empty(
+                (
+                    n_1,
+                    n_2,
+                ),
+                dtype=g11.dtype,
+            )
+            for i_idx, o1 in enumerate(ops1):
+                for j_idx, o2 in enumerate(ops2):
+                    g12[i_idx, j_idx] = np.real(sp(o1, o2))
+
         g21 = g12.T
         gram_full = np.block([[g11, g12], [g21, g22]])
 
@@ -607,6 +608,8 @@ def append_basis(basis_1: OperatorBasis, basis_2: OperatorBasis | Iterable[Opera
         )
         for j_idx, op_j in enumerate(b_1):
             comm = commutator(op_j, generator)
+            # TODO: check if we gain something using
+            # compute_cross_gram_matrix
             if not reuse:
                 error_sq[j_idx] = sp(comm, comm)
                 for i_idx, op_i in enumerate(b_1):

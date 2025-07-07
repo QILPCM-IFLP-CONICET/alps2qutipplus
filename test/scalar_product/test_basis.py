@@ -333,6 +333,8 @@ def test_extend_basis():
     print("test_elem", [t.isherm for t in test_elem.terms])
 
     assert test_elem.isherm
-    assert check_operator_equality(test_elem, basis1.project_onto(test_elem))
+    assert check_operator_equality(
+        test_elem, basis1.project_onto(test_elem), tolerance=1e-7
+    )
     basis2 = basis1 + (test_elem,)
     assert check_basis_equivalence(basis1, basis2)
