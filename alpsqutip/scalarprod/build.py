@@ -53,7 +53,6 @@ class CovariantScalarProductFunction(Callable):
         else:
             return 0.5 * sigma.expect(anticommutator(op1_dag, op2).simplify())
 
-
     def compute_cross_gram_matrix(
         self, basis_1: Tuple[Operator, ...], basis_2: Tuple[Operator, ...]
     ) -> NDArray:
