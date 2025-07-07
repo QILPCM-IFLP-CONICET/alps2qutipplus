@@ -51,6 +51,7 @@ ACTS_OVER_RESULTS = {
     "scalar, complex": set(),
     "local operator, hermitician": {"1[0]"},
     "local operator, non hermitician": {"1[0]"},
+    "One body, diagonal": FULL_CHAIN,
     "One body, hermitician": FULL_CHAIN,
     "One body, non hermitician": FULL_CHAIN,
     "three body, hermitician": {"1[0]", "1[1]", "1[2]"},
