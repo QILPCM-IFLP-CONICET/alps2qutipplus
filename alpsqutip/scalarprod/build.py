@@ -7,6 +7,7 @@ from typing import Callable, Tuple
 
 import numpy as np
 from numpy import real
+from numpy.typing import NDArray
 
 from alpsqutip.operators import Operator
 from alpsqutip.operators.functions import anticommutator
@@ -52,10 +53,44 @@ class CovariantScalarProductFunction(Callable):
         else:
             return 0.5 * sigma.expect(anticommutator(op1_dag, op2).simplify())
 
-    def compute_gram_matrix(self, basis: Tuple[Operator]):
+
+    def compute_cross_gram_matrix(
+        self, basis_1: Tuple[Operator, ...], basis_2: Tuple[Operator, ...]
+    ) -> NDArray:
+        """
+        Compute the cross gram matrix for basis basis_1 and basis_2.
+        Operators are assumed to be hermitician.
+        """
+        basis_1_size = len(basis_1)
+        basis_2_size = len(basis_2)
+        operators_dict = {}
+        for i in range(basis_1_size):
+            for j in range(basis_2_size):
+                operators_dict[
+                    (
+                        i,
+                        j,
+                    )
+                ] = (basis_1[i] * basis_2[j]).simplify()
+
+        coeffs_dict = self.sigma.expect(operators_dict)
+        cross_gram_matrix = np.zeros(
+            (
+                basis_1_size,
+                basis_2_size,
+            ),
+            dtype=float,
+        )
+        for pos, val in coeffs_dict.items():
+            i, j = pos
+            cross_gram_matrix[i, j] = np.real(val)
+        return cross_gram_matrix
+
+    def compute_gram_matrix(self, basis: Tuple[Operator, ...]) -> NDArray:
         """
         Compute the gram matrix associated to the hermitician operators
-        speficied in `basis`.
+        specified in `basis`.
+
         """
         basis_size = len(basis)
         operators_dict = {}
