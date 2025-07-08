@@ -5,13 +5,13 @@ Functions used to run MaxEnt simulations.
 from __future__ import annotations
 
 import logging
-from typing import List
+from typing import Any, Dict, List, Optional
 
 from alpsqutip.operators import Operator
 from alpsqutip.operators.states import GibbsProductDensityOperator
 from alpsqutip.operators.states.meanfield import (
-    project_meanfield,
     project_to_n_body_operator,
+    self_consistent_project_meanfield,
 )
 from alpsqutip.scalarprod import HierarchicalOperatorBasis, fetch_covar_scalar_product
 
@@ -19,7 +19,13 @@ from alpsqutip.scalarprod import HierarchicalOperatorBasis, fetch_covar_scalar_p
 
 
 def projected_evolution(
-    ham, k0, t_span, order, sigma_0, n_body: int = -1
+    ham,
+    k0,
+    t_span,
+    order,
+    sigma_0,
+    n_body: int = -1,
+    e_ops: Optional[List[Operator] | Dict[Any, Operator]] = None,
 ) -> List[Operator]:
     """
     Compute the solution of the MaxEnt projected Schrödinger equation
@@ -47,6 +53,9 @@ def projected_evolution(
         if non-negative, build a solution projected on
         the subspace of n_body operators.
 
+    e_ops: List[Operator] | Dict[Any, Operator], optional
+        List or Dict of operators to be included in the basis.
+
     Returns
     -------
     List[Operator]:
@@ -64,13 +73,24 @@ def projected_evolution(
             op_b, nmax=n_body, sigma=sigma_0
         ),
     )
+    if isinstance(e_ops, dict):
+        basis = basis + tuple(e_ops.values())
+    elif isinstance(e_ops, (tuple, list)):
+        basis = basis + tuple(e_ops)
 
     phi_0 = basis.coefficient_expansion(k0)
     return [basis.operator_from_coefficients(basis.evolve(t, phi_0)[0]) for t in t_span]
 
 
 def adaptative_projected_evolution(
-    ham, k0, t_span, order, sigma_0, n_body: int = -1, tol=1e-3
+    ham,
+    k0,
+    t_span,
+    order,
+    sigma_0,
+    n_body: int = -1,
+    tol=1e-3,
+    e_ops: Optional[List[Operator] | Dict[Any, Operator]] = None,
 ) -> List[Operator]:
     """
     Compute the solution of the MaxEnt projected Schrödinger equation
@@ -103,6 +123,9 @@ def adaptative_projected_evolution(
     tol: the maximum induced distance between the projected solution
          and the exact solution.
 
+    e_ops: List[Operator] | Dict[Any, Operator], optional
+        List or Dict of operators to be included in the basis.
+
     Returns
     -------
     List[Operator]:
@@ -111,26 +134,36 @@ def adaptative_projected_evolution(
     """
 
     def update_basis(k, sigma):
-        k_ref_new, sigma = project_meanfield(
-            k, sigma, proj_function=project_to_n_body_operator
+        k_ref_new, sigma = self_consistent_project_meanfield(
+            k, sigma, proj_func=project_to_n_body_operator
         )
+        sigma = sigma.to_product_state()
         return (
-            HierarchicalOperatorBasis(
-                k,
+            (k,)
+            + HierarchicalOperatorBasis(
+                k_ref_new,
                 ham,
                 order,
                 fetch_covar_scalar_product(sigma),
                 n_body_projection=lambda op_b: project_to_n_body_operator(
                     op_b, nmax=n_body, sigma=sigma
                 ),
-            ),
+            )
+            + e_ops_basis,
             sigma,
         )
+
+    if isinstance(e_ops, dict):
+        e_ops_basis = tuple(e_ops.values())
+    elif isinstance(e_ops, (tuple, list)):
+        e_ops_basis = tuple(e_ops)
+    else:
+        e_ops_basis = tuple()
 
     t_max = t_span[-1]
     max_error_speed = tol / t_max
 
-    basis = update_basis(k0, sigma_0)
+    basis, sigma_0 = update_basis(k0, sigma_0)
     phi_0 = basis.coefficient_expansion(k0)
     result = [k0]
 

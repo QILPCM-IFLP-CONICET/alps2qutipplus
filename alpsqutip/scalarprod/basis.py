@@ -367,23 +367,22 @@ class HierarchicalOperatorBasis(OperatorBasis):
             self.gram = self.gram_inv = self.gen_matrix = self._hij = np.arrow([])
             return
 
-        while self.operator_basis:
-            try:
-                gram = self.gram
-                l_gram = cholesky(gram)
-                break
-            except LinAlgError:
-                logging.warning(
-                    (
-                        "using a non-independent set of operators. "
-                        "Reduce it to a linearly independent set..."
-                    )
+        try:
+            gram = self.gram
+            l_gram = cholesky(gram)
+        except LinAlgError:
+            logging.warning(
+                (
+                    "using a non-independent set of operators. "
+                    "Reduce it to a linearly independent set..."
                 )
-            # Remove the last element and try again
-            self.operator_basis = self.operator_basis[:-1]
-            self.gram = gram[:-1, :-1]
-            self._hij = self._hij[:-1, :-1]
-            self.errors = self.errors[:-1]
+            )
+            li_rows = find_linearly_independent_rows(gram)
+            self.operator_basis = tuple(self.operator_basis[k] for k in li_rows)
+            gram = self.gram = gram[li_rows, :][:, li_rows]
+            self._hij = self._hij[li_rows, :][:, li_rows]
+            self.errors = self.errors[li_rows,]
+            l_gram = cholesky(gram)
 
         hij = self._hij
         errors = self.errors
@@ -481,13 +480,13 @@ def append_basis(basis_1: OperatorBasis, basis_2: OperatorBasis | Iterable[Opera
         # linearly dependent elements.
         li_indices = find_linearly_independent_rows(gram_full)
         li_1_indices = tuple(i for i in li_indices if i < n_1)
-        if len(li_1_indices) != n_1:
-            raise ValueError("It looks like basis_1 were singular.")
+        assert len(li_1_indices) == n_1, "It looks like basis_1 were singular."
 
         if len(li_indices) != n_total:
             n_total = len(li_indices)
             if n_total == n_1:
-                return g11, g11_inv, g11, g11, li_indices
+                return g11, g11_inv, g11, g22, li_indices
+
         n_2 = n_total - n_1
         gram_full = gram_full[li_indices, :][:, li_indices]
         g12 = gram_full[:n_1, n_1:]
@@ -513,16 +512,12 @@ def append_basis(basis_1: OperatorBasis, basis_2: OperatorBasis | Iterable[Opera
 
         return gram_full, gram_full_inv, g11, g22, li_indices
 
-    try:
-        gram, gram_inv, g11, g22, li_indices = merge_gram(g11, g11_inv, g22)
-    except ValueError:
-        logging.warning(
-            (
-                "basis_1 looks singular when combined with basis_2. "
-                "Trying with full reconstruction"
-            )
-        )
-        return OperatorBasis(operators, generator, sp)
+    gram, gram_inv, g11, g22, li_indices = merge_gram(g11, g11_inv, g22)
+
+    # If all the elements in basis_2 are linear combinations
+    # of elements in basis_1, return basis_1
+    if gram is g11:
+        return basis_1
 
     n1, n2, n = len(g11), len(g22), len(gram)
     if n == n1:
@@ -568,22 +563,24 @@ def append_basis(basis_1: OperatorBasis, basis_2: OperatorBasis | Iterable[Opera
     ) -> Tuple[NDArray, NDArray, Tuple[Operator, ...]]:
         """Prepare the diagonal blocks"""
         if reuse:
-            if n_block != len(gram_block):
+            if n_block != len(ops):
                 rows_li = tuple(rows_it)
                 ops = tuple(ops[idx] for idx in rows_li)
                 gen_block = cast(NDArray, gen_block)[rows_li, :][:, rows_li]
+                errors = errors[rows_li,]
 
             hij_block = gram_block @ gen_block
-            error_sq = cast(NDArray, errors) ** 2 + np.array(
+            parallel_sq = np.array(
                 [
                     cast(NDArray, gen_block)[:, idx] @ hij_block[:, idx]
                     for idx in range(n_block)
                 ]
             )
+            error_sq = cast(NDArray, errors) ** 2 + parallel_sq
             return hij_block, error_sq, ops
 
         # If not reuse, just remove the ld operators from ops and return empty blocks.
-        if n_block != len(gram_block):
+        if n_block != len(ops):
             ops = tuple(ops[idx] for idx in rows_it)
         return (
             np.empty(
@@ -639,6 +636,7 @@ def append_basis(basis_1: OperatorBasis, basis_2: OperatorBasis | Iterable[Opera
         reuse_h22,
         (idx - n1 for idx in li_indices if idx >= n1),
     )
+
     hij21 = fill_h_blocks(ops1, ops2, hij11, error_1_sq, reuse_h11)
     hij12 = fill_h_blocks(ops2, ops1, hij22, error_2_sq, reuse_h22)
 
@@ -679,25 +677,3 @@ def prepend_basis(
 
     # Append basis_1 to basis_2
     return append_basis(basis_2, basis_1)
-
-
-def prepend_basis_old(
-    basis_1: OperatorBasis, basis_2: OperatorBasis | Iterable[Operator]
-):
-    """
-    Build a new basis with the elements of basis_1 and the
-    elements of basis_2, given preference to the elements in
-    basis_2.
-    """
-    # TODO: reuse the already build `basis_1.gram`,
-    # `basis_1.gram_inv`, `basis_1.gen_matrix`, and `basis_1.errors`
-    # to avoid recompute scalar products and projections.
-    sp = basis_1.sp
-    operators = basis_1.operator_basis
-    generator = basis_1.generator
-
-    if isinstance(basis_2, OperatorBasis):
-        operators = basis_2.operator_basis + operators
-    else:
-        operators = tuple(basis_2) + operators
-    return OperatorBasis(operators, generator, sp)
