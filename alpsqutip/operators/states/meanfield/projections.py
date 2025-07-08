@@ -128,6 +128,10 @@ def project_operator_to_m_body(
 
     full_operator = full_operator.simplify()
     system = full_operator.system
+
+    if hasattr(sigma_0, "as_product_state"):
+        sigma_0 = sigma_0.as_product_state()
+
     if isinstance(full_operator, SumOperator):
         terms = tuple(
             (
@@ -205,6 +209,9 @@ def project_qutip_operator_to_m_body(
     assert sigma_0 is None or hasattr(sigma_0, "expect"), f"{type(sigma_0)} is invalid."
     if sigma_0 is None:
         sigma_0 = ProductDensityOperator({}, system=system)
+    elif hasattr(sigma_0, "as_product_state"):
+        sigma_0 = sigma_0.as_product_state()
+
     assert sigma_0 is None or hasattr(sigma_0, "expect"), f"{type(sigma_0)} is invalid."
     if m_max == 0:
         exp_val = sigma_0.expect(full_operator)
@@ -435,6 +442,9 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
     system = operator.system
     if sigma is None:
         sigma = ProductDensityOperator({}, system=system)
+    elif hasattr(sigma, "as_product_state"):
+        sigma = sigma.as_product_state()
+
     # Handle the trivial case
     if nmax == 0:
         return ScalarOperator(sigma.expect(operator), system)

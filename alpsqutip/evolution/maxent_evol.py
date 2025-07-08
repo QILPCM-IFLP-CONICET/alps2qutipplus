@@ -10,8 +10,8 @@ from typing import Any, Dict, List, Optional
 from alpsqutip.operators import Operator
 from alpsqutip.operators.states import GibbsProductDensityOperator
 from alpsqutip.operators.states.meanfield import (
-    project_meanfield,
     project_to_n_body_operator,
+    self_consistent_project_meanfield,
 )
 from alpsqutip.scalarprod import HierarchicalOperatorBasis, fetch_covar_scalar_product
 
@@ -134,12 +134,14 @@ def adaptative_projected_evolution(
     """
 
     def update_basis(k, sigma):
-        k_ref_new, sigma = project_meanfield(
-            k, sigma, proj_function=project_to_n_body_operator
+        k_ref_new, sigma = self_consistent_project_meanfield(
+            k, sigma, proj_func=project_to_n_body_operator
         )
-        return (k_ref_new,) + (
-            HierarchicalOperatorBasis(
-                k,
+        sigma = sigma.to_product_state()
+        return (
+            (k,)
+            + HierarchicalOperatorBasis(
+                k_ref_new,
                 ham,
                 order,
                 fetch_covar_scalar_product(sigma),
@@ -161,7 +163,7 @@ def adaptative_projected_evolution(
     t_max = t_span[-1]
     max_error_speed = tol / t_max
 
-    basis = update_basis(k0, sigma_0)
+    basis, sigma_0 = update_basis(k0, sigma_0)
     phi_0 = basis.coefficient_expansion(k0)
     result = [k0]
 

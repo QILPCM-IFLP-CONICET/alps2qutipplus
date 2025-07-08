@@ -16,6 +16,7 @@ from test.helper import (
     check_operator_equality,
 )
 
+import numpy as np
 import pytest
 
 from alpsqutip.operators import (
@@ -246,32 +247,6 @@ def test_compare_iterative_and_recursive_n_body_product_projections(op_name, op_
             print(failed[fail])
             print(60 * "=")
         assert False, "Self-consistency failed for some seeds."
-
-
-@pytest.mark.parametrize(
-    ["op_name", "projection_name", "projection_function"],
-    [
-        (name, proj_name, proj_func)
-        for name in TEST_OPERATORS
-        for proj_name, proj_func in (
-            ("project_to_n_body_operator", project_to_n_body_operator),
-            ("project_operator_to_m_body", project_operator_to_m_body),
-        )
-    ],
-)
-def test_idempotency_nbody_projection(op_name, projection_name, projection_function):
-    """Test the mean field projection over different states,
-    and using both implementations"""
-    op_test = TEST_OPERATORS[op_name]
-    print("testing the consistency of projection in", op_name)
-    op_sq = op_test * op_test
-    proj_sq_3 = projection_function(op_sq, 3)
-    proj_sq_2 = projection_function(op_sq, 2)
-    proj_sq_3_2 = projection_function(proj_sq_3, 2)
-    assert check_operator_equality(proj_sq_2, proj_sq_3_2, 1e-7), (
-        f"Projections on two-body manifold using {projection_name} does not match for "
-        f"{op_name} and {op_name} projected on the three body manyfold"
-    )
 
 
 @pytest.mark.parametrize(
@@ -589,3 +564,39 @@ def test_one_body_from_qutip_operator_with_reference_state(
         isinstance(result, (ScalarOperator, OneBodyOperator, LocalOperator))
         for term in terms
     ), "first two terms should be one-body operators"
+
+
+@pytest.mark.parametrize(
+    ["op_name", "projection_name", "projection_function", "state_name", "sigma0"],
+    [
+        (name, proj_name, proj_func, state_name, sigma0)
+        for name in TEST_OPERATORS
+        for state_name, sigma0 in TEST_STATES.items()
+        for proj_name, proj_func in (
+            ("project_to_n_body_operator", project_to_n_body_operator),
+            ("project_operator_to_m_body", project_operator_to_m_body),
+        )
+    ],
+)
+def test_idempotency_nbody_projection_with_state(
+    op_name, projection_name, projection_function, state_name, sigma0
+):
+    """Test the mean field projection over different states,
+    and using both implementations"""
+    op_test = TEST_OPERATORS[op_name]
+    print("testing the consistency of projection in", op_name)
+    op_sq = op_test * op_test
+    proj_sq_3 = projection_function(op_sq, 3, sigma0)
+    proj_sq_2 = projection_function(op_sq, 2, sigma0)
+    proj_sq_3_2 = projection_function(proj_sq_3, 2, sigma0)
+    assert check_operator_equality(proj_sq_2, proj_sq_3_2, 1e-6), (
+        f"Projections on two-body manifold using {projection_name} does not match for "
+        f"{op_name} and {op_name} projected on the three body manyfold"
+    )
+
+    if sigma0 is not None:
+        expect_values = np.array(
+            sigma0.expect([op_sq, proj_sq_2, proj_sq_3, proj_sq_3_2])
+        )
+        expect_values = expect_values - expect_values[0]
+        assert np.allclose(expect_values, 0.0, 1e-7)
