@@ -1,53 +1,62 @@
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from copy import deepcopy
+from functools import partial
+from itertools import combinations_with_replacement, product
+
 import numpy as np
 import qutip as qutip
 import scipy.linalg as linalg
 
-### Parallelization functions employed using multithreading 
-
-from itertools import product, combinations_with_replacement
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
-from functools import partial
-
-### locally defined functions and operator classes
-
-from .optimized_projections import opt_project_to_n_body_operator
-from .operators.simplify import simplify_sum_operator
-
 from alpsqutip.operators.arithmetic import (
-    ScalarOperator,
     LocalOperator,
     OneBodyOperator,
     Operator,
     ProductOperator,
+    QutipOperator,
     ScalarOperator,
     SumOperator,
-    QutipOperator
 )
 
-### Workers functions at a ,,low"-level implementation, to be used in the 
+from .operators.simplify import simplify_sum_operator
+from .optimized_projections import opt_project_to_n_body_operator
+
+### Parallelization functions employed using multithreading
+
+
+### locally defined functions and operator classes
+
+
+### Workers functions at a ,,low"-level implementation, to be used in the
 ### parallelization of future tasks.
+
 
 def _commutator_term_worker(hi_kj):
     hi, kj = hi_kj
     if frozenset(hi.acts_over()).isdisjoint(kj.acts_over()):
-        return ScalarOperator(0, system=hi.system) 
+        return ScalarOperator(0, system=hi.system)
     comm = simplify_sum_operator(hi * kj - kj * hi)
     return comm
-    
+
+
 def _projection_worker(args):
     term, nmax, sigma_0 = args
-    return opt_project_to_n_body_operator(
-        operator=term,
-        nmax=nmax,
-        sigma=sigma_0,
-    ).simplify().tidyup(1e-10)
-    
+    return (
+        opt_project_to_n_body_operator(
+            operator=term,
+            nmax=nmax,
+            sigma=sigma_0,
+        )
+        .simplify()
+        .tidyup(1e-10)
+    )
+
+
 def _scalar_product_task(args):
     """Helper function for multiprocessing (must be top-level to be picklable)."""
     i, q, v, sp = args
     return i, sp(q, v)
-    
+
+
 def _hij_worker_explicit(args):
     """
     Calcule (i, val) avec val = Re⟨b_i | [H, b_last]_proj⟩.
@@ -66,25 +75,27 @@ def _hij_worker_explicit(args):
     i, basis_i, b_last, H, sp, sigma_0, nmax = args
 
     comm = (-1j * H * b_last + 1j * b_last * H).simplify()
-    comm_proj = opt_project_to_n_body_operator(operator=comm, 
-                                               nmax=nmax,
-                                               sigma=sigma_0)
+    comm_proj = opt_project_to_n_body_operator(operator=comm, nmax=nmax, sigma=sigma_0)
     val = sp(basis_i, comm_proj)
     return i, val
+
 
 def _gram_matrix_worker(args):
     i, j, op_i, op_j, sp = args
     return i, j, sp(op_i, op_j)
 
-### 
 
-from itertools import permutations
-from concurrent.futures import ProcessPoolExecutor
-import numpy as np
+###
+
 from collections import defaultdict
+from concurrent.futures import ProcessPoolExecutor
+from itertools import permutations
+
+import numpy as np
+
 
 def parallelized_real_time_projection_of_hierarchical_basis(
-    generator, 
+    generator,
     seed_op,
     sigma_ref,
     nmax,
@@ -96,7 +107,7 @@ def parallelized_real_time_projection_of_hierarchical_basis(
 ):
     if seed_op is None or deep == 0:
         return []
-    if ell_prime is None: 
+    if ell_prime is None:
         ell_prime = deep
 
     basis = [seed_op]
@@ -106,7 +117,8 @@ def parallelized_real_time_projection_of_hierarchical_basis(
     for i in range(1, deep):
         current_op = basis[-1]
         basis_last_terms = (
-            current_op.terms if isinstance(current_op, SumOperator)
+            current_op.terms
+            if isinstance(current_op, SumOperator)
             else current_op.as_sum_of_products().terms
         )
 
@@ -126,7 +138,9 @@ def parallelized_real_time_projection_of_hierarchical_basis(
         total_tasks = len(term_pairs)
         if chunksize is None:
             num_workers_eff = num_workers or os.cpu_count() or 4
-            chunksize = max(1, total_tasks // (8 * num_workers_eff))  # factor 8 gives smallish chunks
+            chunksize = max(
+                1, total_tasks // (8 * num_workers_eff)
+            )  # factor 8 gives smallish chunks
 
         with ProcessPoolExecutor(max_workers=num_workers) as executor:
             commutator_terms = list(
@@ -141,15 +155,16 @@ def parallelized_real_time_projection_of_hierarchical_basis(
 
         # Sum terms with same support
         merged_terms = [
-            sum(group, ScalarOperator(0, system=system)) for group in grouped_terms.values()
+            sum(group, ScalarOperator(0, system=system))
+            for group in grouped_terms.values()
         ]
 
         # Prepare projection
-        if i <= ell_prime: 
+        if i <= ell_prime:
             projection_args = [(term, nmax, sigma_ref) for term in merged_terms]
-        else: 
+        else:
             projection_args = [(term, 2, sigma_ref) for term in merged_terms]
-            
+
         with ProcessPoolExecutor(max_workers=num_workers) as executor:
             projected_terms = list(
                 executor.map(_projection_worker, projection_args, chunksize=chunksize)
@@ -169,7 +184,10 @@ def parallelized_real_time_projection_of_hierarchical_basis(
 
     return basis
 
-def compute_Hij_tensor_non_orth(basis, generator, sp, sigma_ref, nmax, Gram=None, num_workers=4, chunksize=32):
+
+def compute_Hij_tensor_non_orth(
+    basis, generator, sp, sigma_ref, nmax, Gram=None, num_workers=4, chunksize=32
+):
     """
     Construit la matrice Hij_tensor_explicit.
 
@@ -199,10 +217,7 @@ def compute_Hij_tensor_non_orth(basis, generator, sp, sigma_ref, nmax, Gram=None
                 Hij_tensor[i, j] = sp(basis[i], basis[j + 1])
 
     # Préparation des arguments pour la dernière colonne
-    args = [
-        (i, basis[i], basis[-1], generator, sp, sigma_ref, nmax)
-        for i in range(n)
-    ]
+    args = [(i, basis[i], basis[-1], generator, sp, sigma_ref, nmax) for i in range(n)]
 
     # Parallélisation du calcul de la dernière colonne
     with ProcessPoolExecutor(max_workers=num_workers) as executor:
@@ -213,13 +228,17 @@ def compute_Hij_tensor_non_orth(basis, generator, sp, sigma_ref, nmax, Gram=None
 
     return Hij_tensor
 
+
 from concurrent.futures import ProcessPoolExecutor
-import numpy as np
 from copy import deepcopy
+
+import numpy as np
+
 
 def _scalar_product_task(args):
     i, q, v, sp = args
     return i, sp(q, v)
+
 
 def orthogonalize_basis_parallel_process(
     basis, sp: callable, tol=1e-6, max_workers=None, return_orth_basis=False
@@ -277,10 +296,11 @@ def orthogonalize_basis_parallel_process(
         if return_orth_basis:
             orth_basis.append(v)
 
-    R = R[:len(orth_basis), :]
+    R = R[: len(orth_basis), :]
     G = R.conj().T @ R
 
     return (orth_basis if return_orth_basis else None), R, G
+
 
 def parallel_gram_matrix_process(basis, sp, num_workers=None, chunksize=16):
     """
@@ -307,28 +327,33 @@ def parallel_gram_matrix_process(basis, sp, num_workers=None, chunksize=16):
 
     return G
 
+
 def _fine_sp_worker(args):
     i, j, op1, op2, sp = args
     if frozenset(op1.acts_over()).isdisjoint(op2.acts_over()):
-        return i, j, 0.0  
+        return i, j, 0.0
     return i, j, sp(op1, op2)
+
 
 def parallel_gram_matrix_fine(basis, sp, num_workers=None, chunksize=32):
     from collections import defaultdict
-    import numpy as np
     from concurrent.futures import ProcessPoolExecutor
+
+    import numpy as np
 
     n = len(basis)
     flat_basis = [op.as_sum_of_products().terms for op in basis]
 
     tasks = [
-        (i, j, a, b, sp) 
-        for i in range(n) for j in range(i, n)
-        for a in flat_basis[i] for b in flat_basis[j]
+        (i, j, a, b, sp)
+        for i in range(n)
+        for j in range(i, n)
+        for a in flat_basis[i]
+        for b in flat_basis[j]
     ]
 
     partial_sums = defaultdict(complex)
-    
+
     with ProcessPoolExecutor(max_workers=num_workers) as executor:
         for i, j, val in executor.map(_fine_sp_worker, tasks, chunksize=chunksize):
             partial_sums[(i, j)] += val
