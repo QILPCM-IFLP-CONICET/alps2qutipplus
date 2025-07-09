@@ -76,7 +76,7 @@ if __name__ == "__main__":
             "commutators",
             "projections",
         ):
-            ref_file = get_latest_bench_file(main_hash, bench_set)
+            ref_file = get_latest_bench_file("main", bench_set)
             new_file = get_latest_bench_file(current_hash, bench_set)
 
             if ref_file and new_file:
@@ -110,5 +110,12 @@ if __name__ == "__main__":
                 print(line)
         sys.exit(0)
     else:
+        print(f"Usage: {sys.argv[0]}")
         print(f"Usage: {sys.argv[0]} <reference_bench.json> <new_bench.json>")
+        print(
+            (
+                "    without parameters, compare the current branch with the last"
+                " benchmark of the master branch."
+            )
+        )
         sys.exit(1)
