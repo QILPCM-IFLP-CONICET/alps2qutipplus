@@ -20,6 +20,7 @@ from alpsqutip.operators.states.meanfield.projections import (
 
 TEST_STATES = {"None": None}
 TEST_OPERATORS = {}
+TEST_OPERATORS_SQ = {}
 
 if os.environ.get("BENCHMARKS", 0):
     TEST_STATES.update(
@@ -48,6 +49,9 @@ if os.environ.get("BENCHMARKS", 0):
             "sx_A*sx_B*sz_C+ sx_A * sx_B": SX_A * SX_B * SZ_C + SX_A * SX_B,
         }
     )
+    TEST_OPERATORS_SQ = {
+        key: (op * op).simplify() for key, op in TEST_OPERATORS.items()
+    }
 
 
 @pytest.mark.parametrize(
@@ -75,9 +79,8 @@ def test_benchmark_nbody_projection(
 ):
     """Test the mean field projection over different states,
     and using both implementations"""
-    op_test = TEST_OPERATORS[op_name]
     print("testing the consistency of projection in", op_name)
-    op_sq = op_test * op_test
+    op_sq = TEST_OPERATORS_SQ[op_name]
 
     def impl():
         return projection_function(op_sq, nbody, sigma0)
