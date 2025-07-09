@@ -23,6 +23,9 @@ from alpsqutip.operators.states.basic import (
     DensityOperatorMixin,
     ProductDensityOperator,
 )
+from alpsqutip.operators.states.gibbs import (
+    GibbsProductDensityOperator,
+)
 from alpsqutip.qutip_tools.tools import schmidt_dec_firsts_last_qutip_operator
 
 # Alias: the type of the functions that project operators to a n-body sector, relative to a
@@ -105,6 +108,70 @@ def one_body_from_qutip_operator(
     )
 
 
+def _project_product_operator_to_m_body_recursive(
+    full_operator: Operator,
+    m_max: int,
+    sigma_0: Optional[ProductDensityOperator | GibbsProductDensityOperator],
+) -> Operator:
+    # reduce op1 (x) op2 (x) op3 ...
+    # to <op1> Proj_{m}(op2 (x) op3) +
+    #         Delta op1 (x) Proj_{m-1}(op2 (x) op3)
+    # and sum the result.
+
+    def compute_expect(obs, sigma_state):
+        obs_sites_op = obs.sites_op
+        if sigma_state is not None:
+            return sigma_state.expect(obs)
+        factors = (
+            qutip_op.tr() / qutip_op.dims[0][0] for qutip_op in obs_sites_op.values()
+        )
+        return reduce(lambda x, y: x * y, factors, obs.prefactor)
+
+    sites_op = full_operator.sites_op
+
+    if len(sites_op) <= m_max:
+        return full_operator
+    system = full_operator.system
+
+    # Special case: m_max=0
+    if m_max == 0:
+        ScalarOperator(compute_expect(full_operator, sigma_0), full_operator.system)
+
+    # m_max>0
+    first_site, *rest = tuple(sites_op)
+
+    op_first = sites_op[first_site]
+    weight_first = op_first
+    sigma_rest = sigma_0
+    if sigma_0 is not None:
+        sigma_rest = sigma_rest.partial_trace(frozenset(rest))
+        sigma_first = sigma_0.partial_trace(frozenset({first_site})).to_qutip()
+        weight_first = op_first * sigma_first
+    else:
+        weight_first = weight_first / op_first.dims[0][0]
+
+    first_av = weight_first.tr()
+    delta_op = LocalOperator(first_site, op_first - first_av, system)
+    sites_op_rest = {site: op for site, op in sites_op.items() if site != first_site}
+    rest_prod_operator = ProductOperator(
+        sites_op_rest, prefactor=full_operator.prefactor, system=system
+    )
+
+    if m_max > 1:
+        result = delta_op * _project_product_operator_to_m_body_recursive(
+            rest_prod_operator, m_max - 1, sigma_rest
+        )
+    else:
+        result = delta_op * compute_expect(rest_prod_operator, sigma_rest)
+
+    if first_av:
+        result = result + first_av * _project_product_operator_to_m_body_recursive(
+            rest_prod_operator, m_max, sigma_rest
+        )
+    result = result.simplify()
+    return result
+
+
 def project_operator_to_m_body(
     full_operator: Operator, m_max=2, sigma_0=None
 ) -> Operator:
@@ -113,22 +180,38 @@ def project_operator_to_m_body(
     relative to the local states `local_sigmas`.
     If `local_sigmas` is not given, maximally mixed states are assumed.
     """
-    assert sigma_0 is None or hasattr(sigma_0, "expect"), f"{type(sigma_0)} invalid"
+
+    if m_max > 0:
+        # Special cases: m_max>0, and the operator is already a one-body
+        # operator.
+        if isinstance(full_operator, (OneBodyOperator, LocalOperator)):
+            return full_operator
+
+        acts_over = full_operator.acts_over()
+        if acts_over is not None and len(acts_over) <= m_max:
+            return full_operator
+
+    # Special case: m=0, implies that the operator is reduced to its
+    # expectation value.
     if m_max == 0:
         if sigma_0 is None:
             sigma_0 = ProductDensityOperator({}, 1, full_operator.system)
+
         return ScalarOperator(sigma_0.expect(full_operator), full_operator.system)
 
-    if isinstance(full_operator, (OneBodyOperator, LocalOperator)):
-        return full_operator
-
-    acts_over = full_operator.acts_over()
-    if acts_over is not None and len(acts_over) <= m_max:
-        return full_operator
-
     full_operator = full_operator.simplify()
-    system = full_operator.system
+
     if isinstance(full_operator, SumOperator):
+        system = full_operator.system
+        # if the operator is a sum, it probably worth
+        # to convert a GibbsProductDensityOperator into
+        # a ProductDensityOperator
+        if sigma_0 is None:
+            sigma_0 = ProductDensityOperator({}, 1, full_operator.system)
+        elif hasattr(sigma_0, "to_product_state"):
+            if acts_over is None or len(acts_over) >= 10:
+                sigma_0 = sigma_0.to_product_state()
+
         terms = tuple(
             (
                 project_operator_to_m_body(term, m_max, sigma_0)
@@ -146,43 +229,9 @@ def project_operator_to_m_body(
         return SumOperator(terms, system).simplify()
 
     if isinstance(full_operator, ProductOperator):
-        # reduce op1 (x) op2 (x) op3 ...
-        # to <op1> Proj_{m}(op2 (x) op3) +
-        #         Delta op1 (x) Proj_{m-1}(op2 (x) op3)
-        # and sum the result.
-        sites_op = full_operator.sites_op
-        if len(sites_op) <= m_max:
-            return full_operator
-
-        first_site, *rest = tuple(sites_op)
-        op_first = sites_op[first_site]
-        weight_first = op_first
-        sigma_rest = sigma_0
-        if sigma_0 is not None:
-            sigma_rest = sigma_rest.partial_trace(frozenset(rest))
-            sigma_first = sigma_0.partial_trace(frozenset({first_site})).to_qutip()
-            weight_first = op_first * sigma_first
-        else:
-            weight_first = weight_first / op_first.dims[0][0]
-
-        first_av = weight_first.tr()
-        delta_op = LocalOperator(first_site, op_first - first_av, system)
-        sites_op_rest = {
-            site: op for site, op in sites_op.items() if site != first_site
-        }
-        rest_prod_operator = ProductOperator(
-            sites_op_rest, prefactor=full_operator.prefactor, system=system
+        return _project_product_operator_to_m_body_recursive(
+            full_operator, m_max, sigma_0
         )
-
-        result = delta_op * project_operator_to_m_body(
-            rest_prod_operator, m_max - 1, sigma_rest
-        )
-        if first_av:
-            result = result + first_av * project_operator_to_m_body(
-                rest_prod_operator, m_max, sigma_rest
-            )
-        result = result.simplify()
-        return result
 
     if isinstance(full_operator, QutipOperator):
         return project_qutip_operator_to_m_body(full_operator, m_max, sigma_0)
@@ -308,7 +357,7 @@ def project_product_operator_as_n_body_operator(
         for subcomb in combinations(sites_op, n_factors):
             num_factors = (val for site, val in averages.items() if site not in subcomb)
             term_prefactor = reduce(mul_func, num_factors, prefactor)
-            if prefactor == 0:
+            if term_prefactor == 0:
                 continue
             sub_site_ops = {site: fluct_op[site] for site in subcomb}
             terms.append(ProductOperator(sub_site_ops, term_prefactor, system))
@@ -433,10 +482,21 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
 
     terms_tuple: Tuple[Operator]
     system = operator.system
-    if sigma is None:
-        sigma = ProductDensityOperator({}, system=system)
+
+    if nmax > 0:
+        # Special cases: nmax>0, and the operator is already a one-body
+        # operator.
+        if isinstance(operator, (OneBodyOperator, LocalOperator)):
+            return operator
+
+        acts_over = operator.acts_over()
+        if acts_over is not None and len(acts_over) <= nmax:
+            return operator
+
     # Handle the trivial case
     if nmax == 0:
+        if sigma is None:
+            sigma = ProductDensityOperator({}, 1, system=system)
         return ScalarOperator(sigma.expect(operator), system)
 
     untouched_operator = operator
@@ -446,6 +506,11 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
     # If still a sum operator
     if isinstance(operator, SumOperator):
         terms_tuple = operator.terms
+        if sigma is None:
+            sigma = ProductDensityOperator({}, 1, system=system)
+        if hasattr(sigma, "to_product_state"):
+            if acts_over is None or len(acts_over) >= 10:
+                sigma = sigma.to_product_state()
     else:
         terms_tuple = (operator,)
 
@@ -481,7 +546,8 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
         return False
 
     dispatch_project_method = {
-        ProductOperator: project_product_operator_as_n_body_operator,
+        # ProductOperator: project_product_operator_as_n_body_operator,
+        ProductOperator: _project_product_operator_to_m_body_recursive,
         QutipOperator: project_qutip_operator_as_n_body_operator,
         QuadraticFormOperator: project_quadraticform_operator_as_n_body_operator,
     }

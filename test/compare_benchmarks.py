@@ -1,5 +1,6 @@
 import glob
 import json
+import platform
 import subprocess
 import sys
 
@@ -37,12 +38,18 @@ def compare_benchmarks(ref_bench, new_bench):
     return summary
 
 
-def get_latest_bench_file(commit_hash, benchmark_set):
+def get_latest_bench_file(commit_hash, benchmark_set, path=None):
     print("commit hash", commit_hash)
+    if path is None:
+        plat = platform.system()
+        impl = platform.python_implementation()
+        ver = f"{sys.version_info.major}.{sys.version_info.minor}"
+        bits = platform.architecture()[0]
+        platform_path = f"{plat}-{impl}-{ver}-{bits}"
+        path = f".benchmarks/{platform_path}/"
+
     files = sorted(
-        glob.glob(
-            f".benchmarks/Linux-CPython-3.12-64bit/*{benchmark_set}*{commit_hash}.json"
-        ),
+        glob.glob(path + f"*{benchmark_set}*{commit_hash}.json"),
         reverse=True,
     )
     return files[0] if files else None
