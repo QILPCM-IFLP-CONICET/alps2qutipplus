@@ -16,7 +16,7 @@ def compare_benchmarks(ref_bench, new_bench):
         # just consider changes larger than a 5% relative to the
         # worst case, plus the sum of the standar deviations of both
         # cases:
-        threshold = std_ref + std_new + .05 * max(mean_ref, mean_new)
+        threshold = std_ref + std_new + 0.05 * max(mean_ref, mean_new)
         if abs(diff) > threshold:
             direction, color = (
                 (
