@@ -17,6 +17,9 @@ from alpsqutip.operators.states.meanfield import (
 from alpsqutip.operators.states.meanfield.projections import (
     project_to_n_body_operator,
 )
+from alpsqutip.operators.states.meanfield.tom_projections import (
+    opt_project_to_n_body_operator,
+)
 
 TEST_STATES = {"None": None}
 TEST_OPERATORS = {}
@@ -71,6 +74,7 @@ if os.environ.get("BENCHMARKS", 0):
         for proj_name, proj_func in (
             ("project_to_n_body_operator", project_to_n_body_operator),
             ("project_operator_to_m_body", project_operator_to_m_body),
+            ("tom_projection", opt_project_to_n_body_operator),
         )
     ],
 )
