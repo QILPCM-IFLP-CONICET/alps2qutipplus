@@ -1,23 +1,28 @@
 from collections import defaultdict
 from functools import lru_cache, reduce
 from itertools import combinations
-from typing import Optional, Dict, FrozenSet
-### locally defined functions and operator classes
+from operator import mul
+from typing import Dict, FrozenSet, Optional
 
 from alpsqutip.operators.arithmetic import (
-    ScalarOperator,
     LocalOperator,
     OneBodyOperator,
     Operator,
     ProductOperator,
+    QutipOperator,
     ScalarOperator,
     SumOperator,
-    QutipOperator)
+)
+
+from .operators.states.gibbs import (
+    GibbsDensityOperator,
+    GibbsProductDensityOperator,
+    ProductDensityOperator,
+)
+
+### locally defined functions and operator classes
+
     
-from .operators.states.gibbs import (GibbsDensityOperator, 
-                                     GibbsProductDensityOperator, 
-                                     ProductDensityOperator)
-from operator import mul
     
 def precompute_sigma_reductions(sigma, max_support_size):
     """

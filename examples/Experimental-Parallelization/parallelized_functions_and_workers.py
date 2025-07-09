@@ -1,29 +1,31 @@
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from copy import deepcopy
+from functools import partial
+from itertools import combinations_with_replacement, product
+
 import numpy as np
 import qutip as qutip
 import scipy.linalg as linalg
 
-### Parallelization functions employed using multithreading 
-
-from itertools import product, combinations_with_replacement
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
-from functools import partial
-
-### locally defined functions and operator classes
-
-from .optimized_projections import opt_project_to_n_body_operator
-from .operators.simplify import simplify_sum_operator
-
 from alpsqutip.operators.arithmetic import (
-    ScalarOperator,
     LocalOperator,
     OneBodyOperator,
     Operator,
     ProductOperator,
+    QutipOperator,
     ScalarOperator,
     SumOperator,
-    QutipOperator
 )
+
+from .operators.simplify import simplify_sum_operator
+from .optimized_projections import opt_project_to_n_body_operator
+
+### Parallelization functions employed using multithreading 
+
+
+### locally defined functions and operator classes
+
+
 
 ### Workers functions at a ,,low"-level implementation, to be used in the 
 ### parallelization of future tasks.
@@ -78,10 +80,12 @@ def _gram_matrix_worker(args):
 
 ### 
 
-from itertools import permutations
-from concurrent.futures import ProcessPoolExecutor
-import numpy as np
 from collections import defaultdict
+from concurrent.futures import ProcessPoolExecutor
+from itertools import permutations
+
+import numpy as np
+
 
 def parallelized_real_time_projection_of_hierarchical_basis(
     generator, 
@@ -214,8 +218,10 @@ def compute_Hij_tensor_non_orth(basis, generator, sp, sigma_ref, nmax, Gram=None
     return Hij_tensor
 
 from concurrent.futures import ProcessPoolExecutor
-import numpy as np
 from copy import deepcopy
+
+import numpy as np
+
 
 def _scalar_product_task(args):
     i, q, v, sp = args
@@ -315,8 +321,9 @@ def _fine_sp_worker(args):
 
 def parallel_gram_matrix_fine(basis, sp, num_workers=None, chunksize=32):
     from collections import defaultdict
-    import numpy as np
     from concurrent.futures import ProcessPoolExecutor
+
+    import numpy as np
 
     n = len(basis)
     flat_basis = [op.as_sum_of_products().terms for op in basis]
