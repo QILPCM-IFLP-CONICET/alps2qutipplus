@@ -22,8 +22,7 @@ from .operators.states.gibbs import (
 
 ### locally defined functions and operator classes
 
-    
-    
+
 def precompute_sigma_reductions(sigma, max_support_size):
     """
     Precompute partial traces of sigma onto all subsets of the system
@@ -38,6 +37,7 @@ def precompute_sigma_reductions(sigma, max_support_size):
             reductions[subset] = sigma.partial_trace(traced_out)
     return reductions
 
+
 def cached_partial_trace(op, traced_out, sigma_reductions):
     """
     Cached version of partial trace using precomputed sigma reductions.
@@ -45,12 +45,16 @@ def cached_partial_trace(op, traced_out, sigma_reductions):
     key = (id(op), frozenset(traced_out))
     if key in _partial_trace_cache:
         return _partial_trace_cache[key]
-    sigma_reduced = sigma_reductions.get(frozenset(op.acts_over()) - frozenset(traced_out))
+    sigma_reduced = sigma_reductions.get(
+        frozenset(op.acts_over()) - frozenset(traced_out)
+    )
     result = op.partial_trace(traced_out, sigma_reduced)
     _partial_trace_cache[key] = result
     return result
 
+
 _expectation_cache = {}
+
 
 def cached_sigma_expect(sigma, site_ops_dict):
     """
@@ -63,9 +67,11 @@ def cached_sigma_expect(sigma, site_ops_dict):
     result = sigma.expect(site_ops_dict)
     _expectation_cache[key] = result
     return result
-    
-### projection functions for different types of data 
-    
+
+
+### projection functions for different types of data
+
+
 def opt_project_product_operator_as_n_body_operator(
     operator: ProductOperator,
     nmax: Optional[int] = 1,
@@ -89,15 +95,12 @@ def opt_project_product_operator_as_n_body_operator(
 
     # Get expectation values with caching
     local_ops = {
-        site: LocalOperator(site, l_op, system)
-        for site, l_op in sites_op.items()
+        site: LocalOperator(site, l_op, system) for site, l_op in sites_op.items()
     }
     averages = cached_sigma_expect(sigma, local_ops)
 
     # Compute fluctuation operators (op - ⟨op⟩)
-    fluct_op = {
-        site: l_op - averages[site] for site, l_op in sites_op.items()
-    }
+    fluct_op = {site: l_op - averages[site] for site, l_op in sites_op.items()}
 
     terms = []
     site_list = list(sites_op.keys())
@@ -117,6 +120,7 @@ def opt_project_product_operator_as_n_body_operator(
     if len(terms) == 1:
         return terms[0]
     return SumOperator(tuple(terms), system)
+
 
 def opt_project_qutip_operator_as_n_body_operator(
     operator, nmax: Optional[int] = 1, sigma: Optional["ProductDensityOperator"] = None
@@ -157,17 +161,24 @@ def opt_project_qutip_operator_as_n_body_operator(
             continue
 
         # Delegate to the now optimized project_product_operator
-        term = opt_project_product_operator_as_n_body_operator(term, nmax, sigma).simplify()
+        term = opt_project_product_operator_as_n_body_operator(
+            term, nmax, sigma
+        ).simplify()
 
         if isinstance(term, OneBodyOperator):
             one_body_terms.append(term)
         elif isinstance(term, SumOperator):
             for sub_term in term.terms:
                 sub_support = sub_term.acts_over()
-                if isinstance(sub_term, (OneBodyOperator, LocalOperator)) or len(sub_support) < 2:
+                if (
+                    isinstance(sub_term, (OneBodyOperator, LocalOperator))
+                    or len(sub_support) < 2
+                ):
                     one_body_terms.append(sub_term)
                 else:
-                    terms_by_block.setdefault(sub_support, []).append(sub_term.to_qutip_operator())
+                    terms_by_block.setdefault(sub_support, []).append(
+                        sub_term.to_qutip_operator()
+                    )
         else:
             term_support = term.acts_over()
             terms_by_block.setdefault(term_support, []).append(term.to_qutip_operator())
@@ -189,6 +200,7 @@ def opt_project_qutip_operator_as_n_body_operator(
     if len(terms_list) == 1:
         return terms_list[0]
     return SumOperator(tuple(terms_list), system)
+
 
 def opt_project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
     """
@@ -236,7 +248,7 @@ def opt_project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
 
     dispatch_project_method = {
         ProductOperator: opt_project_product_operator_as_n_body_operator,
-        QutipOperator: opt_project_qutip_operator_as_n_body_operator
+        QutipOperator: opt_project_qutip_operator_as_n_body_operator,
     }
 
     for term in terms:
@@ -264,7 +276,9 @@ def opt_project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
     scalar = sum(
         term.prefactor for term in one_body_terms if isinstance(term, ScalarOperator)
     )
-    proper_local_terms = [term for term in one_body_terms if not isinstance(term, ScalarOperator)]
+    proper_local_terms = [
+        term for term in one_body_terms if not isinstance(term, ScalarOperator)
+    ]
 
     terms = list(block_terms.values())
     if scalar != 0:
