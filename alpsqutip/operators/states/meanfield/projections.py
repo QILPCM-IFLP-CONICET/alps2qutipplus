@@ -126,8 +126,6 @@ def project_operator_to_m_body(
 
     if sigma_0 is None:
         sigma_0 = ProductDensityOperator({}, 1, full_operator.system)
-    elif hasattr("sigma", "to_product_state"):
-        sigma_0 = sigma_0.to_product_state()
 
     # Special case: m=0, implies that the operator is reduced to its
     # expectation value.
@@ -137,6 +135,13 @@ def project_operator_to_m_body(
     full_operator = full_operator.simplify()
     system = full_operator.system
     if isinstance(full_operator, SumOperator):
+        # if the operator is a sum, it probably worth
+        # to convert a GibbsProductDensityOperator into
+        # a ProductDensityOperator
+        if hasattr(sigma_0, "to_product_state"):
+            if acts_over is None or len(acts_over) >= 10:
+                sigma_0 = sigma_0.to_product_state()
+
         terms = tuple(
             (
                 project_operator_to_m_body(term, m_max, sigma_0)
@@ -460,13 +465,18 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
 
     untouched_operator = operator
 
-    if hasattr("sigma", "to_product_state"):
-        sigma = sigma.to_product_state()
-
     if isinstance(operator, SumOperator):
         operator = operator.simplify().flat()
     # If still a sum operator
     if isinstance(operator, SumOperator):
+        # if the operator is a sum, the state
+        # is a GibbsProductDensityOperator, and the terms
+        # acts over several sites (10?), it maybe worth to convert
+        # the state to a product density operator form.
+        if hasattr(sigma, "to_product_state"):
+            if acts_over is None or len(acts_over) >= 10:
+                sigma = sigma.to_product_state()
+
         terms_tuple = operator.terms
     else:
         terms_tuple = (operator,)
