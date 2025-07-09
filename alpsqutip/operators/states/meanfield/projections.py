@@ -113,18 +113,26 @@ def project_operator_to_m_body(
     relative to the local states `local_sigmas`.
     If `local_sigmas` is not given, maximally mixed states are assumed.
     """
-    assert sigma_0 is None or hasattr(sigma_0, "expect"), f"{type(sigma_0)} invalid"
+
+    if m_max > 0:
+        # Special cases: m_max>0, and the operator is already a one-body
+        # operator.
+        if isinstance(full_operator, (OneBodyOperator, LocalOperator)):
+            return full_operator
+
+        acts_over = full_operator.acts_over()
+        if acts_over is not None and len(acts_over) <= m_max:
+            return full_operator
+
+    if sigma_0 is None:
+        sigma_0 = ProductDensityOperator({}, 1, full_operator.system)
+    elif hasattr("sigma", "to_product_state"):
+        sigma_0 = sigma_0.to_product_state()
+
+    # Special case: m=0, implies that the operator is reduced to its
+    # expectation value.
     if m_max == 0:
-        if sigma_0 is None:
-            sigma_0 = ProductDensityOperator({}, 1, full_operator.system)
         return ScalarOperator(sigma_0.expect(full_operator), full_operator.system)
-
-    if isinstance(full_operator, (OneBodyOperator, LocalOperator)):
-        return full_operator
-
-    acts_over = full_operator.acts_over()
-    if acts_over is not None and len(acts_over) <= m_max:
-        return full_operator
 
     full_operator = full_operator.simplify()
     system = full_operator.system
@@ -433,6 +441,17 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
 
     terms_tuple: Tuple[Operator]
     system = operator.system
+
+    if nmax > 0:
+        # Special cases: nmax>0, and the operator is already a one-body
+        # operator.
+        if isinstance(operator, (OneBodyOperator, LocalOperator)):
+            return operator
+
+        acts_over = operator.acts_over()
+        if acts_over is not None and len(acts_over) <= nmax:
+            return operator
+
     if sigma is None:
         sigma = ProductDensityOperator({}, system=system)
     # Handle the trivial case
@@ -440,6 +459,9 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
         return ScalarOperator(sigma.expect(operator), system)
 
     untouched_operator = operator
+
+    if hasattr("sigma", "to_product_state"):
+        sigma = sigma.to_product_state()
 
     if isinstance(operator, SumOperator):
         operator = operator.simplify().flat()
