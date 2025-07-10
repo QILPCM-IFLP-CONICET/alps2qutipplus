@@ -27,12 +27,170 @@ from alpsqutip.operators.states.gibbs import (
     GibbsProductDensityOperator,
 )
 from alpsqutip.qutip_tools.tools import schmidt_dec_firsts_last_qutip_operator
+from alpsqutip.settings import ALPSQUTIP_TOLERANCE
 
 # Alias: the type of the functions that project operators to a n-body sector, relative to a
 # given reference state.
 ProjectingOperatorFunction = Callable[
     [Operator, int, Optional[DensityOperatorMixin]], Operator
 ]
+
+
+def _compute_expect(obs, sigma_state):
+    """Compute the expectation value of obs"""
+    if sigma_state is not None:
+        return sigma_state.expect(obs)
+    if hasattr(obs, "sites_op"):
+        obs_sites_op = obs.sites_op
+        factors = (
+            qutip_op.tr() / qutip_op.dims[0][0] for qutip_op in obs_sites_op.values()
+        )
+        return reduce(lambda x, y: x * y, factors, obs.prefactor)
+    # QutipOperator
+    assert isinstance(obs, QutipOperator)
+    qutip_op = obs.operator
+    prefactor = reduce(
+        lambda x, y: x * y, (1.0 / d for d in qutip_op.dims[0]), obs.prefactor
+    )
+    return qutip_op.tr() * prefactor
+
+
+def _project_product_operator_to_m_body_recursive(
+    full_operator: Operator,
+    m_max: int,
+    sigma_0: Optional[ProductDensityOperator | GibbsProductDensityOperator],
+) -> Operator:
+    # reduce op1 (x) op2 (x) op3 ...
+    # to <op1> Proj_{m}(op2 (x) op3) +
+    #         Delta op1 (x) Proj_{m-1}(op2 (x) op3)
+    # and sum the result.
+
+    sites_op = full_operator.sites_op
+
+    if len(sites_op) <= m_max:
+        return full_operator
+    system = full_operator.system
+
+    # Special case: m_max=0
+    if m_max == 0:
+        ScalarOperator(_compute_expect(full_operator, sigma_0), full_operator.system)
+
+    # m_max>0
+    first_site, *rest = tuple(sites_op)
+
+    op_first = sites_op[first_site]
+    weight_first = op_first
+    sigma_rest = sigma_0
+    if sigma_0 is not None:
+        sigma_rest = sigma_rest.partial_trace(frozenset(rest))
+        sigma_first = sigma_0.partial_trace(frozenset({first_site})).to_qutip()
+        weight_first = op_first * sigma_first
+    else:
+        weight_first = weight_first / op_first.dims[0][0]
+
+    first_av = weight_first.tr()
+    delta_op = LocalOperator(first_site, op_first - first_av, system)
+    sites_op_rest = {site: op for site, op in sites_op.items() if site != first_site}
+    rest_prod_operator = ProductOperator(
+        sites_op_rest, prefactor=full_operator.prefactor, system=system
+    )
+
+    if m_max > 1:
+        result = delta_op * _project_product_operator_to_m_body_recursive(
+            rest_prod_operator, m_max - 1, sigma_rest
+        )
+    else:
+        result = delta_op * _compute_expect(rest_prod_operator, sigma_rest)
+
+    if first_av:
+        result = result + first_av * _project_product_operator_to_m_body_recursive(
+            rest_prod_operator, m_max, sigma_rest
+        )
+    result = result.simplify()
+    return result
+
+
+def _project_qutip_operator_to_m_body_recursive(
+    full_operator: QutipOperator, m_max=2, sigma_0=None
+) -> Operator:
+    """
+    Recursive implementation for the m-body Projection
+    over QutipOperators.
+    """
+    if full_operator.is_zero:
+        return ScalarOperator(0.0, full_operator.system)
+
+    if m_max == 0:
+        return ScalarOperator(
+            _compute_expect(full_operator, sigma_0), full_operator.system
+        )
+
+    system = full_operator.system
+
+    if sigma_0 is None:
+        sigma_0 = ProductDensityOperator({}, system=system)
+
+    # Reduce a qutip operator
+    site_names = full_operator.site_names
+    if len(site_names) <= m_max:
+        return full_operator
+
+    names = tuple(sorted(site_names, key=lambda s: site_names[s]))
+    firsts, last_site = names[:-1], names[-1]
+    rest_sitenames = {site: site_names[site] for site in firsts}
+
+    block_qutip_op = full_operator.to_qutip(names)
+    qutip_ops_firsts, qutip_ops_last = schmidt_dec_firsts_last_qutip_operator(
+        block_qutip_op
+    )
+    if sigma_0 is None:
+        averages = [op_loc.tr() / op_loc.dims[0][0] for op_loc in qutip_ops_last]
+        sigma_firsts = None
+    else:
+        sigma_last_qutip = sigma_0.partial_trace(frozenset({last_site})).to_qutip()
+        averages = [qutip.expect(sigma_last_qutip, op_loc) for op_loc in qutip_ops_last]
+        sigma_firsts = sigma_0.partial_trace(frozenset(rest_sitenames))
+
+    firsts_ops = [
+        QutipOperator(op_c.tidyup(), names=rest_sitenames, system=system)
+        for op_c in qutip_ops_firsts
+    ]
+    delta_ops = [
+        LocalOperator(last_site, (op - av).tidyup(), system=system).simplify()
+        for av, op in zip(averages, qutip_ops_last)
+    ]
+
+    terms = []
+    term_index = 0
+    for av, delta, firsts_op in zip(averages, delta_ops, firsts_ops):
+        term_index += 1
+        if abs(av) > ALPSQUTIP_TOLERANCE:
+            new_term = _project_qutip_operator_to_m_body_recursive(
+                firsts_op, m_max=m_max, sigma_0=sigma_firsts
+            )
+            new_term = new_term * av
+            terms.append(new_term)
+        if bool(delta):
+            if m_max > 1:
+                reduced_op = _project_qutip_operator_to_m_body_recursive(
+                    firsts_op, m_max=m_max - 1, sigma_0=sigma_firsts
+                )
+            else:
+                reduced_op = _compute_expect(firsts_op, sigma_state=sigma_firsts)
+            if reduced_op:
+                new_term = delta * reduced_op
+                terms.append(new_term)
+
+    if terms:
+        if len(terms) == 1:
+            return terms[0]
+        result = SumOperator(tuple(terms), system).simplify()
+        error_ev = _compute_expect(full_operator - result, sigma_0)
+        assert (
+            abs(error_ev) < ALPSQUTIP_TOLERANCE
+        ), f"The difference should have a vanishing expectation value. Got {error_ev}."
+        return result
+    return ScalarOperator(0, full_operator.system)
 
 
 def one_body_from_qutip_operator(
@@ -108,68 +266,6 @@ def one_body_from_qutip_operator(
     )
 
 
-def _project_product_operator_to_m_body_recursive(
-    full_operator: Operator,
-    m_max: int,
-    sigma_0: Optional[ProductDensityOperator | GibbsProductDensityOperator],
-) -> Operator:
-    # reduce op1 (x) op2 (x) op3 ...
-    # to <op1> Proj_{m}(op2 (x) op3) +
-    #         Delta op1 (x) Proj_{m-1}(op2 (x) op3)
-    # and sum the result.
-
-    def compute_expect(obs, sigma_state):
-        obs_sites_op = obs.sites_op
-        if sigma_state is not None:
-            return sigma_state.expect(obs)
-        factors = (
-            qutip_op.tr() / qutip_op.dims[0][0] for qutip_op in obs_sites_op.values()
-        )
-        return reduce(lambda x, y: x * y, factors, obs.prefactor)
-
-    sites_op = full_operator.sites_op
-
-    if len(sites_op) <= m_max:
-        return full_operator
-    system = full_operator.system
-
-    # Special case: m_max=0
-    if m_max == 0:
-        ScalarOperator(compute_expect(full_operator, sigma_0), full_operator.system)
-
-    # m_max>0
-    first_site, *rest = tuple(sites_op)
-
-    op_first = sites_op[first_site]
-    weight_first = op_first
-    sigma_rest = sigma_0
-    if sigma_0 is not None:
-        sigma_rest = sigma_rest.partial_trace(frozenset(rest))
-        sigma_first = sigma_0.partial_trace(frozenset({first_site})).to_qutip()
-        weight_first = op_first * sigma_first
-    else:
-        weight_first = weight_first / op_first.dims[0][0]
-
-    first_av = weight_first.tr()
-    delta_op = LocalOperator(first_site, op_first - first_av, system)
-    sites_op_rest = {site: op for site, op in sites_op.items() if site != first_site}
-    rest_prod_operator = ProductOperator(
-        sites_op_rest, prefactor=full_operator.prefactor, system=system
-    )
-
-    if m_max > 1:
-        result = delta_op * _project_product_operator_to_m_body_recursive(
-            rest_prod_operator, m_max - 1, sigma_rest
-        )
-    else:
-        result = delta_op * compute_expect(rest_prod_operator, sigma_rest)
-
-    if first_av:
-        result = result + first_av * _project_product_operator_to_m_body_recursive(
-            rest_prod_operator, m_max, sigma_rest
-        )
-    result = result.simplify()
-    return result
 
 
 def project_operator_to_m_body(
@@ -234,88 +330,13 @@ def project_operator_to_m_body(
         )
 
     if isinstance(full_operator, QutipOperator):
-        return project_qutip_operator_to_m_body(full_operator, m_max, sigma_0)
+        return _project_qutip_operator_to_m_body_recursive(
+            full_operator, m_max, sigma_0
+        )
 
-    return project_qutip_operator_to_m_body(
+    return _project_qutip_operator_to_m_body_recursive(
         full_operator.to_qutip_operator(), m_max, sigma_0
     )
-
-
-def project_qutip_operator_to_m_body(
-    full_operator: QutipOperator, m_max=2, sigma_0=None
-) -> Operator:
-    """
-    Recursive implementation for the m-body Projection
-    over QutipOperators.
-    """
-    system = full_operator.system
-    if full_operator.is_zero:
-        return ScalarOperator(0, system)
-    assert sigma_0 is None or hasattr(sigma_0, "expect"), f"{type(sigma_0)} is invalid."
-    if sigma_0 is None:
-        sigma_0 = ProductDensityOperator({}, system=system)
-    assert sigma_0 is None or hasattr(sigma_0, "expect"), f"{type(sigma_0)} is invalid."
-    if m_max == 0:
-        exp_val = sigma_0.expect(full_operator)
-        return ScalarOperator(exp_val, system)
-
-    # Reduce a qutip operator
-    site_names = full_operator.site_names
-    if len(site_names) < 2:
-        return full_operator
-
-    names = tuple(sorted(site_names, key=lambda s: site_names[s]))
-    firsts, last_site = names[:-1], names[-1]
-    rest_sitenames = {site: site_names[site] for site in firsts}
-
-    block_qutip_op = full_operator.to_qutip(names)
-    qutip_ops_firsts, qutip_ops_last = schmidt_dec_firsts_last_qutip_operator(
-        block_qutip_op
-    )
-    sigma_last_qutip = sigma_0.partial_trace(frozenset({last_site})).to_qutip()
-    averages = [qutip.expect(sigma_last_qutip, op_loc) for op_loc in qutip_ops_last]
-    sigma_firsts = sigma_0.partial_trace(frozenset(rest_sitenames))
-    assert hasattr(
-        sigma_firsts, "expect"
-    ), f"{type(sigma_0)}->{type(sigma_firsts)} is invalid."
-
-    firsts_ops = [
-        QutipOperator(op_c.tidyup(), names=rest_sitenames, system=system)
-        for op_c in qutip_ops_firsts
-    ]
-    delta_ops = [
-        LocalOperator(last_site, (op - av).tidyup(), system=system)
-        for av, op in zip(averages, qutip_ops_last)
-    ]
-
-    terms = []
-    term_index = 0
-    for av, delta, firsts_op in zip(averages, delta_ops, firsts_ops):
-        term_index += 1
-        if abs(av) > 1e-10:
-            new_term = project_qutip_operator_to_m_body(
-                firsts_op, m_max=m_max, sigma_0=sigma_firsts
-            )
-            new_term = (new_term * av).simplify()
-            terms.append(new_term)
-        if bool(delta):
-            reduced_op = project_qutip_operator_to_m_body(
-                firsts_op, m_max=m_max - 1, sigma_0=sigma_firsts
-            )
-            if reduced_op:
-                new_term = (delta * reduced_op).simplify()
-                terms.append(new_term)
-
-    if terms:
-        if len(terms) == 1:
-            return terms[0]
-        result = SumOperator(tuple(terms), system).simplify()
-        error_ev = sigma_0.expect(full_operator - result)
-        assert (
-            abs(error_ev) < 1e-10
-        ), f"The difference should have a vanishing expectation value. Got {error_ev}."
-        return result
-    return ScalarOperator(0, full_operator.system)
 
 
 def project_product_operator_as_n_body_operator(
@@ -426,7 +447,7 @@ def project_qutip_operator_as_n_body_operator(
             terms_by_block.setdefault(acts_over, []).append(term)
             continue
 
-        term = project_product_operator_as_n_body_operator(
+        term = _project_product_operator_to_m_body_recursive(
             cast(ProductOperator, term), nmax, sigma
         ).simplify()
         if isinstance(term, OneBodyOperator):
@@ -549,6 +570,7 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
         # ProductOperator: project_product_operator_as_n_body_operator,
         ProductOperator: _project_product_operator_to_m_body_recursive,
         QutipOperator: project_qutip_operator_as_n_body_operator,
+        #QutipOperator: _project_qutip_operator_to_m_body_recursive,
         QuadraticFormOperator: project_quadraticform_operator_as_n_body_operator,
     }
 

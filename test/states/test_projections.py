@@ -36,9 +36,9 @@ from alpsqutip.operators.states.meanfield import (
     project_operator_to_m_body,
 )
 from alpsqutip.operators.states.meanfield.projections import (
+    _project_qutip_operator_to_m_body_recursive,
     project_product_operator_as_n_body_operator,
     project_qutip_operator_as_n_body_operator,
-    project_qutip_operator_to_m_body,
     project_to_n_body_operator,
 )
 from alpsqutip.settings import ALPSQUTIP_TOLERANCE
@@ -170,7 +170,7 @@ def test_compare_recursive_and_iterative_n_body_projections(op_name, op_test):
 def test_compare_iterative_and_recursive_n_body_qutip_projections(op_name, op_test):
     """
     This test compares the results of using the recursive
-    `project_qutip_operator_to_m_body` and the iterative
+    `_project_qutip_operator_to_m_body_recursive` and the iterative
     `project_qutip_operator_as_n_body_operator` n-body projections.
     """
     failed = {}
@@ -184,7 +184,9 @@ def test_compare_iterative_and_recursive_n_body_qutip_projections(op_name, op_te
         print(f"  = sigma0{state_name}")
         for n_body in range(0, 4):
             print("   n=", n_body)
-            result_m = project_qutip_operator_to_m_body(op_test, n_body, sigma0)
+            result_m = _project_qutip_operator_to_m_body_recursive(
+                op_test, n_body, sigma0
+            )
             result_n = project_qutip_operator_as_n_body_operator(
                 op_test, n_body, sigma0
             )
