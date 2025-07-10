@@ -266,8 +266,6 @@ def one_body_from_qutip_operator(
     )
 
 
-
-
 def project_operator_to_m_body(
     full_operator: Operator, m_max=2, sigma_0=None
 ) -> Operator:
@@ -570,7 +568,7 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
         # ProductOperator: project_product_operator_as_n_body_operator,
         ProductOperator: _project_product_operator_to_m_body_recursive,
         QutipOperator: project_qutip_operator_as_n_body_operator,
-        #QutipOperator: _project_qutip_operator_to_m_body_recursive,
+        # QutipOperator: _project_qutip_operator_to_m_body_recursive,
         QuadraticFormOperator: project_quadraticform_operator_as_n_body_operator,
     }
 
