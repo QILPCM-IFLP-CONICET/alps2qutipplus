@@ -445,7 +445,8 @@ def project_qutip_operator_as_n_body_operator(
             terms_by_block.setdefault(acts_over, []).append(term)
             continue
 
-        term = _project_product_operator_to_m_body_recursive(
+        # _project_product_operator_to_m_body_recursive
+        term = project_product_operator_as_n_body_operator(
             cast(ProductOperator, term), nmax, sigma
         ).simplify()
         if isinstance(term, OneBodyOperator):
