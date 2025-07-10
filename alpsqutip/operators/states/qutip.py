@@ -231,5 +231,11 @@ class QutipDensityOperator(DensityOperatorMixin, QutipOperator):
 
     def to_qutip(self, block: Optional[Tuple[str]] = None):
         self.normalize()
+        # set the prefactor temporarily to 1, because it should
+        # not be taken into account in the convertion of a state.
+        prefactor = self.prefactor
+        self.prefactor = 1
         qutip_op = super().to_qutip(block)
+        # setting back the value
+        self.prefactor = prefactor
         return qutip_op
