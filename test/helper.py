@@ -237,9 +237,9 @@ TEST_CASES_STATES["gibbs_H"] = (
     TEST_CASES_STATES["gibbs_H"] / TEST_CASES_STATES["gibbs_H"].tr()
 )
 TEST_CASES_STATES["mixture"] = (
-    0.5 * TEST_CASES_STATES["gibbs_H"]
-    + 0.25 * TEST_CASES_STATES["gibbs_sz"]
-    + 0.25 * TEST_CASES_STATES["gibbs_sz_bar"]
+    0.6 * TEST_CASES_STATES["gibbs_H"]
+    + 0.3 * TEST_CASES_STATES["gibbs_sz"]
+    + 0.1 * TEST_CASES_STATES["gibbs_sz_bar"]
 )
 
 
