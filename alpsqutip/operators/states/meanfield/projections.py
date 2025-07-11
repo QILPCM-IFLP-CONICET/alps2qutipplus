@@ -299,11 +299,11 @@ def project_operator_to_m_body(
 
         # Now, we cache the local states. Each term is projected using the
         # corresponding local state.
-        reduced_states_cache = {None: sigma_0}
+        # reduced_states_cache = {None: sigma_0}
         terms = tuple(
             (
                 project_operator_to_m_body(
-                    term, m_max, reduced_state_by_block(term, reduced_states_cache)
+                    term, m_max, sigma_0# reduced_state_by_block(term, reduced_states_cache)
                 )
                 for term in sorted(full_operator.terms, key=acts_over_order)
             )
@@ -432,7 +432,7 @@ def project_qutip_operator_as_n_body_operator(
     terms_by_block: Dict[Optional[frozenset], List[Operator]] = {}
     one_body_terms: List[Operator] = []
     scalar: complex = 0.0
-    local_states_cache = {None: sigma}
+    # local_states_cache = {None: sigma}
 
     for term in (
         sorted(operator.terms, key=acts_over_order)
@@ -458,7 +458,7 @@ def project_qutip_operator_as_n_body_operator(
         term = _project_product_operator_to_m_body_recursive(
             cast(ProductOperator, term),
             nmax,
-            reduced_state_by_block(term, local_states_cache),
+            sigma # reduced_state_by_block(term, local_states_cache),
         )  # .simplify()
         if isinstance(term, OneBodyOperator):
             one_body_terms.append(term)

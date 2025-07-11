@@ -227,7 +227,7 @@ def reduced_state_by_block(
     if acts_over is None:
         return None
     # No cache
-    return reduced_states_cache.get(None, None)
+    # return reduced_states_cache.get(None, None)
 
     size = len(acts_over)
     for block in sorted(
