@@ -203,6 +203,37 @@ class QuadraticFormOperator(Operator):
                 return None
         return result
 
+    def as_sum_of_products(self, simplify: bool = True) -> SumOperator:
+        """Convert to a linear combination of two-body operators"""
+        isherm = self.isherm
+        isdiag = self.isdiagonal
+        if all(b_op.isherm for b_op in self.basis):
+            terms = tuple(
+                (
+                    ((op_term * op_term) * w)
+                    for w, op_term in zip(self.weights, self.basis)
+                )
+            )
+        else:
+            terms = tuple(
+                (
+                    ((op_term * op_term) * w)
+                    for w, op_term in zip(self.weights, self.basis)
+                )
+            )
+
+        for term in (self.offset, self.linear_term):
+            if term is not None:
+                terms = terms + (term,)
+        if len(terms) == 0:
+            return ScalarOperator(0, self.system)
+        if len(terms) == 1:
+            return terms[0]
+        result = SumOperator(terms, self.system, isherm, isdiag)
+        if simplify:
+            return result.simplify()
+        return result
+
     def dag(self):
         linear_term = self.linear_term
         linear_term = None if linear_term is None else linear_term.dag()
@@ -322,37 +353,6 @@ class QuadraticFormOperator(Operator):
         for term in (self.offset, self.linear_term):
             if term is not None:
                 result += term.to_qutip(block)
-        return result
-
-    def to_sum_operator(self, simplify: bool = True) -> SumOperator:
-        """Convert to a linear combination of quadratic operators"""
-        isherm = self.isherm
-        isdiag = self.isdiagonal
-        if all(b_op.isherm for b_op in self.basis):
-            terms = tuple(
-                (
-                    ((op_term * op_term) * w)
-                    for w, op_term in zip(self.weights, self.basis)
-                )
-            )
-        else:
-            terms = tuple(
-                (
-                    ((op_term * op_term) * w)
-                    for w, op_term in zip(self.weights, self.basis)
-                )
-            )
-
-        for term in (self.offset, self.linear_term):
-            if term is not None:
-                terms = terms + (term,)
-        if len(terms) == 0:
-            return ScalarOperator(0, self.system)
-        if len(terms) == 1:
-            return terms[0]
-        result = SumOperator(terms, self.system, isherm, isdiag)
-        if simplify:
-            return result.simplify()
         return result
 
 
