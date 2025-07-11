@@ -197,8 +197,9 @@ class DensityOperatorMixin:
         block = tuple(sorted(self.system.sites))
         names = {name: pos for pos, name in enumerate(block)}
         rho_qutip = self.to_qutip(block)
+        prefactor = getattr(self, "prefactor", 1.0)
         return QutipDensityOperator(
-            rho_qutip, names=names, system=self.system, prefactor=1
+            rho_qutip, names=names, system=self.system, prefactor=prefactor
         )
 
     def tr(self):
