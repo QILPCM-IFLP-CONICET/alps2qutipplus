@@ -423,6 +423,19 @@
   <UNITCELL ref="triangular"/>
 </LATTICEGRAPH>
 
+
+<LATTICEGRAPH name = "open triangular lattice">
+  <FINITELATTICE>
+    <LATTICE ref="triangular lattice"/>
+    <PARAMETER name="W" default="L"/>
+    <EXTENT dimension="1" size="L"/>
+    <EXTENT dimension="2" size="W"/>
+    <BOUNDARY type="open"/>
+  </FINITELATTICE>
+  <UNITCELL ref="triangular"/>
+</LATTICEGRAPH>
+
+
 <LATTICEGRAPH name = "anisotropic triangular lattice">
   <FINITELATTICE>
     <LATTICE ref="triangular lattice"/>
