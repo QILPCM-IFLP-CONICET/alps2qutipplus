@@ -77,7 +77,7 @@ def collect_local_states(
     ==========
 
     obs_objs: Union[Operator], Iterable
-       an Operator or an iterable containing the operators requiered to compute the
+       an Operator or an iterable containing the operators required to compute the
        required expectation values.
 
     Return

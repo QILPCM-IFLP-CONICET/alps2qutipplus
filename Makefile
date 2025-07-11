@@ -20,8 +20,7 @@ SPHINXBUILD   = sphinx-build
 SOURCEDIR     = docs
 BUILDDIR      = docs/_build
 
-
-
+BENCHMARK_FILE := bench_$(shell date +%Y%m%d)_$(shell git rev-parse --short HEAD)
 
 .PHONY: \
     all \
@@ -73,14 +72,15 @@ docs-clean:
 	rm -rf $(BUILDDIR)
 
 
-
 benchmark:
-	BENCHMARKS=1 CHAIN_SIZE=20 pytest --benchmark-enable --benchmark-save=gram_bench --benchmark-columns=min test/scalar_product/test_gram.py
-	BENCHMARKS=1 CHAIN_SIZE=20 pytest --benchmark-enable --benchmark-save=gram_bench --benchmark-columns=min test/basic_operators/test_operator_functions_benchmarks.py
+
+	BENCHMARKS=1 CHAIN_SIZE=20 pytest --benchmark-enable --benchmark-save="gram_$(BENCHMARK_FILE)" --benchmark-columns=min test/scalar_product/test_gram.py
+	BENCHMARKS=1 CHAIN_SIZE=20 pytest --benchmark-enable --benchmark-save="commutators_$(BENCHMARK_FILE)" --benchmark-columns=min test/basic_operators/test_operator_functions_benchmarks.py
+	BENCHMARKS=1 CHAIN_SIZE=20 pytest -x --benchmark-enable --benchmark-save="projections_$(BENCHMARK_FILE)" --benchmark-columns=min test/states/test_projections_benchmark.py
 
 
 benchmark-clean:
 	rm -R .benchmarks
 
 benchmark-show:
-	pytest-benchmark compare --columns min --group-by fullname   000 001 002
+	python test/compare_benchmarks.py
