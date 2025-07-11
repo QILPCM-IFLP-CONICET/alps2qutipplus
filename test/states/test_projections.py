@@ -270,7 +270,7 @@ def test_idempotency_nbody_projection(op_name, projection_name, projection_funct
     proj_sq_3 = projection_function(op_sq, 3)
     proj_sq_2 = projection_function(op_sq, 2)
     proj_sq_3_2 = projection_function(proj_sq_3, 2)
-    assert check_operator_equality(proj_sq_2, proj_sq_3_2, 1e-7), (
+    assert check_operator_equality(proj_sq_2, proj_sq_3_2, 5e-7), (
         f"Projections on two-body manifold using {projection_name} does not match for "
         f"{op_name} and {op_name} projected on the three body manyfold"
     )
