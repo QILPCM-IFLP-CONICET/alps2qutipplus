@@ -5,7 +5,7 @@ Density operator classes.
 import logging
 import pickle
 from numbers import Number
-from typing import Iterable, Optional, Tuple, Union, cast
+from typing import Dict, Iterable, Optional, Tuple, Union, cast
 
 import numpy as np
 from qutip import (  # type: ignore[import-untyped]
@@ -183,7 +183,7 @@ class DensityOperatorMixin:
             # we already try with the implementation of the subclasses. Then, let's rely
             # in the generic implementation: convert everything to qutip and evaluate
             # the trace:
-            local_state_acts_over = reduced_state_by_block(acts_over, local_states)
+            local_state_acts_over = reduced_state_by_block(obs, local_states)
             if obs_objs is obs:
                 block = tuple(sorted(acts_over))
                 return (
@@ -391,8 +391,6 @@ class ProductDensityOperator(DensityOperatorMixin, ProductOperator):
                 for site in block
             ]
         )
-
-
 
 
 def reduced_state_by_block(

@@ -50,6 +50,7 @@ def compute_expectation_values(
 
 compute_operator_expectation_value = compute_expectation_values
 
+
 def collect_blocks_for_expect(obs_objs: Union[Operator, Iterable]) -> List[frozenset]:
     """
     Find the subsystems required to compute the expectation values
