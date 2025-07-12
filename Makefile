@@ -73,10 +73,10 @@ docs-clean:
 
 
 benchmark:
-
-	BENCHMARKS=1 CHAIN_SIZE=20 pytest --benchmark-enable --benchmark-save="gram_$(BENCHMARK_FILE)" --benchmark-columns=min test/scalar_product/test_gram.py
-	BENCHMARKS=1 CHAIN_SIZE=20 pytest --benchmark-enable --benchmark-save="commutators_$(BENCHMARK_FILE)" --benchmark-columns=min test/basic_operators/test_operator_functions_benchmarks.py
-	BENCHMARKS=1 CHAIN_SIZE=20 pytest -x --benchmark-enable --benchmark-save="projections_$(BENCHMARK_FILE)" --benchmark-columns=min test/states/test_projections_benchmark.py
+	BENCHMARKS=1 ALPSQUTIP_ALLTESTS=1 CHAIN_SIZE=20 pytest -x --benchmark-enable --benchmark-save="expect_$(BENCHMARK_FILE)" --benchmark-columns=min test/states/test_expect_benchmark.py
+	BENCHMARKS=1 ALPSQUTIP_ALLTESTS=1 CHAIN_SIZE=20 pytest --benchmark-enable --benchmark-save="gram_$(BENCHMARK_FILE)" --benchmark-columns=min test/scalar_product/test_gram.py
+	BENCHMARKS=1 ALPSQUTIP_ALLTESTS=1 CHAIN_SIZE=20 pytest --benchmark-enable --benchmark-save="commutators_$(BENCHMARK_FILE)" --benchmark-columns=min test/basic_operators/test_operator_functions_benchmarks.py
+	BENCHMARKS=1 ALPSQUTIP_ALLTESTS=1 CHAIN_SIZE=20 pytest -x --benchmark-enable --benchmark-save="projections_$(BENCHMARK_FILE)" --benchmark-columns=min test/states/test_projections_benchmark.py
 
 
 benchmark-clean:

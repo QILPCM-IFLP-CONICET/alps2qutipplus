@@ -4,7 +4,7 @@ Utility functions for alpsqutip.operators.states
 """
 
 from functools import reduce
-from typing import Dict, Iterable, List, Optional, Union, cast
+from typing import Any, Dict, Iterable, List, Optional, Union, cast
 
 import numpy as np
 from qutip import Qobj, tensor as qutip_tensor
@@ -35,6 +35,19 @@ def acts_over_order(elem):
     return -len(elem_acts_over)
 
 
+def compute_expectation_values(
+    obs: Operator | Iterable[Operator] | Dict[Any, Operator],
+    state: Optional[DensityOperatorMixin],
+):
+    """
+    Compute the expectation value of an operator or operators in an iterable object,
+    relative to the state `state`.
+    """
+    if state is None:
+        state = ProductDensityOperator({}, 1, obs.system)
+    return state.expect(obs)
+
+
 def collect_blocks_for_expect(obs_objs: Union[Operator, Iterable]) -> List[frozenset]:
     """
     Find the subsystems required to compute the expectation values
@@ -56,7 +69,7 @@ def collect_blocks_for_expect(obs_objs: Union[Operator, Iterable]) -> List[froze
     if isinstance(obs_objs, dict):
         return collect_blocks_for_expect(tuple(obs_objs.values()))
     if isinstance(obs_objs, QuadraticFormOperator):
-        obs_objs = obs_objs.to_sum_operator()
+        obs_objs = obs_objs.as_sum_of_products()
 
     if isinstance(obs_objs, Operator):
         obs_objs = obs_objs.simplify()

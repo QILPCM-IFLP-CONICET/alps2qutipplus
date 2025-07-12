@@ -59,7 +59,7 @@ def _project_product_operator_to_m_body_recursive(
 
     # Special case: m_max=0
     if m_max == 0:
-        ScalarOperator(
+        return ScalarOperator(
             compute_operator_expectation_value(full_operator, sigma_0),
             full_operator.system,
         )
@@ -269,7 +269,7 @@ def project_operator_to_m_body(
     """
     # Special case: m_max=0
     if m_max == 0:
-        ScalarOperator(
+        return ScalarOperator(
             compute_operator_expectation_value(full_operator, sigma_0),
             full_operator.system,
         )
