@@ -168,7 +168,7 @@ def _project_qutip_operator_to_m_body_recursive(
                 )
             else:
                 reduced_op = compute_operator_expectation_value(
-                    firsts_op, sigma_state=sigma_firsts
+                    firsts_op, sigma_firsts
                 )
             if reduced_op:
                 new_term = delta * reduced_op

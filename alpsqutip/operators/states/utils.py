@@ -48,7 +48,7 @@ def compute_expectation_values(
     return state.expect(obs)
 
 
-compute_operator_expectation_value = compute_expectation_value
+compute_operator_expectation_value = compute_expectation_values
 
 def collect_blocks_for_expect(obs_objs: Union[Operator, Iterable]) -> List[frozenset]:
     """
