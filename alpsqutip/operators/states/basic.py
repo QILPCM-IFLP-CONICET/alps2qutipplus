@@ -168,7 +168,7 @@ class DensityOperatorMixin:
                 return np.array([do_evaluate_expect(operator) for operator in obs])
 
             if isinstance(obs, QuadraticFormOperator):
-                obs = obs.to_sum_operator()
+                obs = obs.as_sum_of_products()
 
             obs = obs.simplify()
             if isinstance(obs, SumOperator):
