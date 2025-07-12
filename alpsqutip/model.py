@@ -97,13 +97,10 @@ class SystemDescriptor:
         if hasattr(self, "_serialized"):
             return self._serialized
 
-        subsystems_cache_tmp = self._subsystems_cache
-        operators_dict_tmp = self.operators
-        self._subsystems_cache = {}
-        self.operators = {}
-        state = self.__dict__.copy()
-        self._subsystems_cache = subsystems_cache_tmp
-        self.operators = operators_dict_tmp
+        state = {
+            key: {} if key in ("_subsystems_cache", "operators") else val
+            for key, val in self.__dict__.items()
+        }
         self._serialized = pickle.dumps(state)
         return self._serialized
 
