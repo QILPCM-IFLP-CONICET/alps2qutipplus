@@ -3,7 +3,7 @@ Utility functions for alpsqutip.operators.states
 
 """
 
-from typing import Dict, Iterable, List, Union, cast
+from typing import Any, Dict, Iterable, List, Optional, Union, cast
 
 import numpy as np
 from qutip import Qobj, tensor as qutip_tensor
@@ -25,6 +25,19 @@ from alpsqutip.operators.states.qutip import QutipDensityOperator
 from alpsqutip.qutip_tools.tools import (
     safe_exp_and_normalize as safe_exp_and_normalize_qobj,
 )
+
+
+def compute_expectation_values(
+    obs: Operator | Iterable[Operator] | Dict[Any, Operator],
+    state: Optional[DensityOperatorMixin],
+):
+    """
+    Compute the expectation value of an operator or operators in an iterable object,
+    relative to the state `state`.
+    """
+    if state is None:
+        state = ProductDensityOperator({}, 1, obs.system)
+    return state.expect(obs)
 
 
 def collect_blocks_for_expect(obs_objs: Union[Operator, Iterable]) -> List[frozenset]:
