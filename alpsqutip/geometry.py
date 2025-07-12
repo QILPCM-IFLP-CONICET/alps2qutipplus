@@ -421,6 +421,31 @@ class GraphDescriptor:
         self.complete_coordiantes()
         self.subgraphs = {}
 
+    def __getstate__(self):
+        # Copy the object's state and exclude _subsystems_cache
+        subgraphs_tmp = self.subgraphs
+        self.subgraphs = {}
+        state = self.__dict__.copy()
+        self.subgraphs = subgraphs_tmp
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+
+    def __eq__(self, other):
+        assert isinstance(other, GraphDescriptor)
+        if self.name != other.name:
+            return False
+        if self.nodes != other.nodes:
+            return False
+        if self.edges != other.edges:
+            return False
+        if self.loops != other.loops:
+            return False
+        if self.parms != other.parms:
+            return False
+        return True
+
     def complete_coordiantes(self):
         """Add coordinates to nodes without specified coordinates"""
         nodes = self.nodes

@@ -3,6 +3,7 @@ Define SystemDescriptors and different kind of operators
 """
 
 import logging
+import pickle
 import re
 from typing import Optional, Tuple
 
@@ -71,6 +72,13 @@ class SystemDescriptor:
         self._load_site_operators()
         self._load_global_ops()
 
+    def __eq__(self, other):
+        assert isinstance(other, SystemDescriptor)
+        for key in self.spec:
+            if other.spec[key] != self.spec[key]:
+                return False
+        return True
+
     def __repr__(self):
         result = (
             "graph:"
@@ -83,6 +91,25 @@ class SystemDescriptor:
             + repr(self.dimensions)
         )
         return result
+
+    def __getstate__(self):
+        # Copy the object's state and exclude _subsystems_cache and operators
+        if hasattr(self, "_serialized"):
+            return self._serialized
+
+        subsystems_cache_tmp = self._subsystems_cache
+        operators_dict_tmp = self.operators
+        self._subsystems_cache = {}
+        self.operators = {}
+        state = self.__dict__.copy()
+        self._subsystems_cache = subsystems_cache_tmp
+        self.operators = operators_dict_tmp
+        self._serialized = pickle.dumps(state)
+        return self._serialized
+
+    def __setstate__(self, state):
+        state_dict = pickle.loads(state)
+        self.__dict__.update(state_dict)
 
     def subsystem(self, sites: frozenset):
         """
