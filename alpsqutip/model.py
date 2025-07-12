@@ -73,6 +73,9 @@ class SystemDescriptor:
         self._load_global_ops()
 
     def __eq__(self, other):
+        # To be the equal, two SystemDescriptors
+        # should have the same values in the
+        # `spec` attribute:
         assert isinstance(other, SystemDescriptor)
         for key in self.spec:
             if other.spec[key] != self.spec[key]:

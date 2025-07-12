@@ -423,13 +423,18 @@ class GraphDescriptor:
 
     def __getstate__(self):
         # Copy the object's state and exclude _subsystems_cache
-        state = {key: {} if key == "subgraphs" else val for key, val in self.__dict__.items()}
+        state = {
+            key: {} if key == "subgraphs" else val for key, val in self.__dict__.items()
+        }
         return state
 
     def __setstate__(self, state):
         self.__dict__.update(state)
 
     def __eq__(self, other):
+        # To be the same, two GraphDescriptors
+        # should have the same `name`, `nodes`,
+        # `loops`, `edges` and `parms`.
         assert isinstance(other, GraphDescriptor)
         if self.name != other.name:
             return False

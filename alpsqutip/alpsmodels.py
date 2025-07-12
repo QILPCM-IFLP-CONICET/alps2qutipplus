@@ -412,8 +412,10 @@ class ModelDescriptor:
         return repr(self.__dict__)
 
     def __eq__(self, other):
+        # To be the same, two ``ModelDescriptor``
+        # objects should share their `name`, `parms`,
+        # `site_basis`, `bond_ops` and `global_ops`
         if self.name != other.name:
-
             return False
         if self.site_basis != other.site_basis:
 
