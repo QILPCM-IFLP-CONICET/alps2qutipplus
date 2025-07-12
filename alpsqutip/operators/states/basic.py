@@ -3,6 +3,7 @@ Density operator classes.
 """
 
 import logging
+import pickle
 from numbers import Number
 from typing import Iterable, Optional, Tuple, Union, cast
 
@@ -119,6 +120,17 @@ class DensityOperatorMixin:
                 tuple((operand, self)), self.system.union(operand.system)
             )
         return operand - (-self)
+
+    def __getstate__(self):
+        if hasattr(self, "_serialized"):
+            return self._serialized
+        state = self.__dict__.copy()
+        self._serialized = pickle.dumps(state)
+        return self._serialized
+
+    def __setstate__(self, state):
+        state_dict = pickle.loads(state)
+        self.__dict__.update(state_dict)
 
     def dag(self) -> Operator:
         return cast(Operator, self)
