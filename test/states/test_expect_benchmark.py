@@ -33,19 +33,24 @@ if os.environ.get("BENCHMARKS", 0):
         + 0.3 * TEST_CASES_STATES["first full polarized"]
         + 0.1 * TEST_CASES_STATES["gibbs_sz_bar"]
     )
+    BENCHMARK_EXPECTATION_CASES = (
+        [
+            (
+                name_rho,
+                name_obs,
+            )
+            for name_rho in TEST_CASES_STATES
+            for name_obs in OBSERVABLE_CASES
+        ],
+    )
+else:
+    BENCHMARK_EXPECTATION_CASES = []
 
 
-@pytest.mark.parametrize(
-    ["name_rho", "name_obs"],
-    [
-        (
-            name_rho,
-            name_obs,
-        )
-        for name_rho in TEST_CASES_STATES
-        for name_obs in OBSERVABLE_CASES
-    ],
+@pytest.mark.skipif(
+    not os.environ.get("BENCHMARKS", 0), reason="run only in benchmarks"
 )
+@pytest.mark.parametrize(["name_rho", "name_obs"], BENCHMARK_EXPECTATION_CASES)
 def test_benchmark_expect(benchmark, name_rho, name_obs):
 
     rho = TEST_CASES_STATES[name_rho]
