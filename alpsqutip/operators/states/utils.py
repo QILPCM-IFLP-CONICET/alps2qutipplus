@@ -48,6 +48,8 @@ def compute_expectation_values(
     return state.expect(obs)
 
 
+compute_operator_expectation_value = compute_expectation_value
+
 def collect_blocks_for_expect(obs_objs: Union[Operator, Iterable]) -> List[frozenset]:
     """
     Find the subsystems required to compute the expectation values
@@ -125,7 +127,7 @@ def collect_local_states(
     return local_states
 
 
-def compute_operator_expectation_value(
+def compute_operator_expectation_value__(
     obs: Operator, sigma_state: Optional[DensityOperatorMixin]
 ):
     """ """

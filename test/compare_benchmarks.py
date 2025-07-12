@@ -85,13 +85,14 @@ if __name__ == "__main__":
             "gram",
             "commutators",
             "projections",
+            "expect",
         ):
             ref_file = get_latest_bench_file("main", bench_set)
             new_file = get_latest_bench_file(current_hash, bench_set)
 
             if ref_file and new_file:
                 # Do your comparison as before
-                print(f"Comparing {ref_file} (main) to {new_file} (current branch)")
+                print(f"\nComparing {ref_file} (main) to {new_file} (current branch)")
                 ref_bench = load_benchmark(ref_file)
                 new_bench = load_benchmark(new_file)
                 results = compare_benchmarks(ref_bench, new_bench)
