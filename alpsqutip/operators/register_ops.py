@@ -2113,7 +2113,7 @@ def _(op1: Operator, op2: QuadraticFormOperator):
     -------
 
     """
-    return op1 * op2.to_sum_operator()
+    return op1 * op2.as_sum_of_products()
 
 
 @Operator.register_mul_handler(

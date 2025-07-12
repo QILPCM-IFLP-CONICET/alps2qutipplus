@@ -48,7 +48,7 @@ def collect_blocks_for_expect(obs_objs: Union[Operator, Iterable]) -> List[froze
     if isinstance(obs_objs, dict):
         return collect_blocks_for_expect(tuple(obs_objs.values()))
     if isinstance(obs_objs, QuadraticFormOperator):
-        obs_objs = obs_objs.to_sum_operator()
+        obs_objs = obs_objs.as_sum_of_products()
 
     if isinstance(obs_objs, Operator):
         obs_objs = obs_objs.simplify()

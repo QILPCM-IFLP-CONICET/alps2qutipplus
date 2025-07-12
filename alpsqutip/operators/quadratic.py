@@ -165,7 +165,7 @@ class QuadraticFormOperator(Operator):
                 linear_term=linear_term,
                 offset=offset,
             )
-        standard_repr = self.to_sum_operator(False).simplify()
+        standard_repr = self.as_sum_of_products(False).simplify()
         return standard_repr * other
 
     def __neg__(self):
@@ -702,7 +702,7 @@ def quadratic_form_expect(sq_op, state):
     Compute the expectation value of op, taking advantage
     of its structure.
     """
-    sq_op = sq_op.to_sum_operator(False)
+    sq_op = sq_op.as_sum_of_products(False)
     return state.expect(sq_op)
 
 
@@ -869,7 +869,7 @@ def simplify_quadratic_form(
     # First, rebuild the quadratic form.
     qf_op = QuadraticFormOperator(operator.basis, operator.weights, system)
     new_qf_op = build_quadratic_form_from_operator(
-        qf_op.to_sum_operator(), True, hermitic
+        qf_op.as_sum_of_products(), True, hermitic
     )
     # If the new basis is larger and the hermitician character haven´t changed, keep the older.
     if changed or len(new_qf_op.basis) < len(qf_op.basis):
