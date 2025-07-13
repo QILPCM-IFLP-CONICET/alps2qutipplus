@@ -109,6 +109,7 @@ class SystemDescriptor:
 
     def __setstate__(self, state):
         state_dict = pickle.loads(state)
+        state_dict["operators"]["global_operators"] = {}
         self.__dict__.update(state_dict)
 
     def subsystem(self, sites: frozenset):
