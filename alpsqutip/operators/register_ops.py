@@ -445,7 +445,7 @@ def _(x_op: ProductOperator, y_value: Number):
     if y_value:
         prefactor = x_op.prefactor * y_value
         return ProductOperator(x_op.sites_op, prefactor, x_op.system)
-    return ScalarOperator(0, x_op.system)
+    return x_op.system.global_operator("zero")
 
 
 @Operator.register_mul_handler(
@@ -474,7 +474,7 @@ def _(y_value: Number, x_op: ProductOperator):
     if y_value:
         prefactor = x_op.prefactor * y_value
         return ProductOperator(x_op.sites_op, prefactor, x_op.system)
-    return ScalarOperator(0, x_op.system)
+    return x_op.system.global_operator("zero")
 
 
 @Operator.register_mul_handler(
@@ -501,7 +501,7 @@ def _(x_op: ProductOperator, y_op: ScalarOperator):
     if prefactor:
         prefactor = x_op.prefactor * prefactor
         return ProductOperator(x_op.sites_op, prefactor, x_op.system)
-    return ScalarOperator(0, x_op.system)
+    return x_op.system.global_operator("zero")
 
 
 @Operator.register_mul_handler(
@@ -531,7 +531,7 @@ def _(
     if prefactor:
         prefactor = x_op.prefactor * prefactor
         return ProductOperator(x_op.sites_op, prefactor, x_op.system)
-    return ScalarOperator(0, x_op.system)
+    return x_op.system.global_operator("zero")
 
 
 @Operator.register_mul_handler(
@@ -662,11 +662,11 @@ def _(x_op: SumOperator, y_value: Number):
 
     """
     if y_value == 0:
-        return ScalarOperator(0, x_op.system)
+        return x_op.system.global_operator("zero")
 
-    terms = tuple(term * y_value for term in x_op.terms)
+    terms = tuple((term * y_value) for term in x_op.terms)
     isherm = x_op._isherm and (not isinstance(y_value, complex) or y_value.imag == 0)
-    return SumOperator(terms, x_op.system, isherm).simplify()
+    return SumOperator(terms, x_op.system, isherm, simplified=x_op._simplified)
 
 
 @Operator.register_mul_handler(
@@ -693,11 +693,11 @@ def _(y_value: Number, x_op: SumOperator):
 
     """
     if y_value == 0:
-        return ScalarOperator(0, x_op.system)
+        return x_op.system.global_operator("zero")
 
     terms = tuple(term * y_value for term in x_op.terms)
     isherm = x_op._isherm and (not isinstance(y_value, complex) or y_value.imag == 0)
-    return SumOperator(terms, x_op.system, isherm).simplify()
+    return SumOperator(terms, x_op.system, isherm, simplified=x_op._simplified)
 
 
 # SumOperator times ScalarOperator
@@ -726,7 +726,7 @@ def _(x_op: SumOperator, y_op: ScalarOperator):
     system = x_op.system or y_op.system
     y_value = y_op.prefactor
     if y_value == 0:
-        return ScalarOperator(0, system)
+        return system.global_operator("zero")
 
     terms = tuple(term * y_value for term in x_op.terms)
     if len(terms) == 1:
@@ -758,7 +758,7 @@ def _(y_op: ScalarOperator, x_op: SumOperator):
     system = x_op.system or y_op.system
     y_value = y_op.prefactor
     if y_value == 0:
-        return ScalarOperator(0, system)
+        return system.global_operator("zero")
 
     terms = tuple(term * y_value for term in x_op.terms)
     if len(terms) == 1:
@@ -804,7 +804,7 @@ def _(
     terms_it = (term * y_op for term in x_op.terms)
     terms = tuple(term for term in terms_it if bool(term))
     if len(terms) == 0:
-        return ScalarOperator(0, system)
+        return system.global_operator("zero")
     if len(terms) == 1:
         return terms[0]
     isherm = x_op._isherm and y_op.isherm
@@ -841,7 +841,7 @@ def _(y_op: LocalOperator, x_op: SumOperator):
     terms_it = (y_op * term for term in x_op.terms)
     terms = tuple(term for term in terms_it if bool(term))
     if len(terms) == 0:
-        return ScalarOperator(0, system)
+        return system.global_operator("zero")
     if len(terms) == 1:
         return terms[0]
     isherm = x_op._isherm and y_op.isherm
@@ -915,7 +915,7 @@ def _(x_op: SumOperator, y_op: SumOperator):
     terms = x_op.terms + y_op.terms
     isherm = x_op._isherm and y_op._isherm
     if len(terms) == 0:
-        return ScalarOperator(0, system)
+        return system.global_operator("zero")
     if len(terms) == 1:
         return terms[0]
     return SumOperator(terms, system, isherm)
@@ -946,7 +946,7 @@ def _(x_op: SumOperator, y_op: SumOperator):
         factor_x * factor_y for factor_x in x_op.terms for factor_y in y_op.terms
     )
     if len(terms) == 0:
-        return ScalarOperator(0, system)
+        return system.global_operator("zero")
     if len(terms) == 1:
         return terms[0]
 
@@ -983,10 +983,13 @@ def _(x_op: SumOperator, y_op: Operator):
     -------
 
     """
-    system = x_op.system * y_op.system if x_op.system else y_op.system
+    system = x_op.system.union(y_op.system)
+    if y_op.is_zero:
+        return system.global_operator("zero")
+
     terms = tuple(factor_x * y_op for factor_x in x_op.terms)
     if len(terms) == 0:
-        return ScalarOperator(0, system)
+        return system.global_operator("zero")
     if len(terms) == 1:
         return terms[0]
     return SumOperator(terms, system)
@@ -1018,9 +1021,12 @@ def _(y_op: Operator, x_op: SumOperator):
 
     """
     system = x_op.system.union(y_op.system)
+    if y_op.is_zero:
+        return system.global_operator("zero")
+
     terms = tuple(y_op * factor_x for factor_x in x_op.terms)
     if len(terms) == 0:
-        return ScalarOperator(0, system)
+        return system.global_operator("zero")
     if len(terms) == 1:
         return terms[0]
     return SumOperator(terms, system)
@@ -1056,7 +1062,7 @@ def _(x_op: OneBodyOperator, y_op: OneBodyOperator):
     system = x_op.system or y_op.system
     terms = x_op.terms + y_op.terms
     if len(terms) == 0:
-        return ScalarOperator(0, system)
+        return system.global_operator("zero")
     if len(terms) == 1:
         return terms[0]
     return OneBodyOperator(terms, system)

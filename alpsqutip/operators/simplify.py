@@ -53,7 +53,7 @@ def sum_operator_sequence(
 
     """
     if not seq:
-        return ScalarOperator(0, system)
+        return system.global_operator("zero")
     if len(seq) == 1:
         return seq[0]
     return SumOperator(tuple(seq), system=system, **attrs)
@@ -203,7 +203,7 @@ def group_terms_by_blocks(operator: Operator, fn: Optional[Callable] = None):
         return operator
 
     if not new_terms:
-        return ScalarOperator(0, system)
+        return system.global_operator("zero")
     if len(new_terms) == 1:
         return new_terms[0]
 
@@ -656,7 +656,7 @@ def simplify_sum_operator(operator):
         if not isherm:
             isherm = None
         return SumOperator(tuple(new_terms), system, isherm)
-    return ScalarOperator(0.0, system)
+    return system.global_operator("zero")
 
 
 def simplify_sum_using_orthogonal_decomposition(operator: Operator) -> Operator:

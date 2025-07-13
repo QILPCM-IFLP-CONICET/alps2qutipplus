@@ -13,7 +13,6 @@ from alpsqutip.operators.arithmetic import OneBodyOperator
 from alpsqutip.operators.basic import (
     LocalOperator,
     Operator,
-    ScalarOperator,
     is_diagonal_op,
 )
 from alpsqutip.operators.states.basic import (
@@ -42,7 +41,7 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
         normalized=False,
     ):
         if prefactor == 0:
-            self.k = ScalarOperator(0, k.system)
+            self.k = k.system.global_operator("zero")
             self.f_global = 0.0
             self._free_energy = 0.0
             self.normalized = normalized

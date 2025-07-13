@@ -142,7 +142,7 @@ class QutipOperator(Operator):
             )
         )
         if len(terms) == 0:
-            terms = tuple((ScalarOperator(0, self.system),))
+            terms = tuple((self.system.global_operator("zero"),))
         return SumOperator(terms, self.system, isherm=isherm)
 
     def dag(self):
@@ -288,12 +288,12 @@ class QutipOperator(Operator):
         qt_operator = self.operator
         system = self.system
         if prefactor == 0:
-            return ScalarOperator(0.0, system)
+            return system.global_operator("zero")
         assert len(names) > 0
 
         # If is an empty op, return a ScalarOperator
         if empty_op(qt_operator):
-            return ScalarOperator(0.0, self.system)
+            return system.global_operator("zero")
 
         if len(names) > 1:
             return self

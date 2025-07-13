@@ -85,6 +85,7 @@ if __name__ == "__main__":
             "gram",
             "commutators",
             "projections",
+            "expect",
         ):
             ref_file = get_latest_bench_file("main", bench_set)
             new_file = get_latest_bench_file(current_hash, bench_set)

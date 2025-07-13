@@ -86,7 +86,7 @@ def _(x_op: MixtureDensityOperator, y_op: DensityOperatorMixin):
     # For empty terms, return 0
     system = x_op.system or y_op.system
     if len(terms) == 0:
-        return ScalarOperator(0.0, system)
+        return system.global_operator("zero")
     # General case
     return MixtureDensityOperator(terms, system)
 
@@ -103,7 +103,7 @@ def _(y_op: Operator, x_op: MixtureDensityOperator):
     # For empty terms, return 0
     system = x_op.system.union(y_op.system)
     if len(terms) == 0:
-        return ScalarOperator(0.0, system)
+        return system.global_operator("zero")
     # General case
     return SumOperator(terms, system, y_op.isherm)
 

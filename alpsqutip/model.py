@@ -563,11 +563,18 @@ class SystemDescriptor:
     def global_operator(self, name):
         """Return a global operator by its name"""
         # pylint: disable=import-outside-toplevel
-        from alpsqutip.operators import OneBodyOperator, SumOperator
+        from alpsqutip.operators import OneBodyOperator, ScalarOperator, SumOperator
 
         result = self.operators["global_operators"].get(name, None)
         if result is not None:
             return result
+
+        # Special case: the "zero" operator.
+        if name == "zero":
+            result = ScalarOperator(0, self)
+            self.operators["global_operators"]["zero"] = result
+            return result
+
         # Build the global_operator from the descriptor
         op_descr = self.spec["model"].global_ops.get(name, None)
         if op_descr is None:

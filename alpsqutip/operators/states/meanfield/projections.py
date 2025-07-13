@@ -136,7 +136,7 @@ def project_operator_to_m_body(
             )
         )
         if len(terms) == 0:
-            return ScalarOperator(0, system)
+            return system.global_operator("zero")
         if len(terms) == 1:
             return terms[0]
         if len(full_operator.terms) == len(terms) and all(
@@ -201,7 +201,7 @@ def project_qutip_operator_to_m_body(
     """
     system = full_operator.system
     if full_operator.is_zero:
-        return ScalarOperator(0, system)
+        return system.global_operator("zero")
     assert sigma_0 is None or hasattr(sigma_0, "expect"), f"{type(sigma_0)} is invalid."
     if sigma_0 is None:
         sigma_0 = ProductDensityOperator({}, system=system)
@@ -266,7 +266,7 @@ def project_qutip_operator_to_m_body(
             abs(error_ev) < 1e-10
         ), f"The difference should have a vanishing expectation value. Got {error_ev}."
         return result
-    return ScalarOperator(0, full_operator.system)
+    return full_operator.system.global_operator("zero")
 
 
 def project_product_operator_as_n_body_operator(
@@ -283,7 +283,7 @@ def project_product_operator_as_n_body_operator(
     prefactor = src_operator.prefactor
     system = operator.system
     if prefactor == 0.0:
-        return ScalarOperator(0, system)
+        return system.global_operator("zero)")
 
     if len(sites_op) <= nmax:
         return operator
@@ -314,7 +314,7 @@ def project_product_operator_as_n_body_operator(
             terms.append(ProductOperator(sub_site_ops, term_prefactor, system))
 
     if len(terms) == 0:
-        return ScalarOperator(0, system)
+        return system.global_operator("zero")
     if len(terms) == 1:
         return terms[0]
     return SumOperator(tuple(terms), system)
@@ -415,7 +415,7 @@ def project_qutip_operator_as_n_body_operator(
                 logging.error(e)
 
     if len(terms_list) == 0:
-        return ScalarOperator(0, system)
+        return system.global_operator("zero")
     if len(terms_list) == 1:
         return terms_list[0]
     return SumOperator(tuple(terms_list), system)
@@ -521,7 +521,7 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
         terms.append(sum(proper_local_terms).simplify())
 
     if len(terms) == 0:
-        return ScalarOperator(0, system)
+        return system.global_operator("zero")
     if len(terms) == 1:
         return terms[0]
     return SumOperator(tuple(terms), system)

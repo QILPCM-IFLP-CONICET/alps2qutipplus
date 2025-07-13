@@ -106,9 +106,14 @@ class SumOperator(Operator):
 
     def acts_over(self):
         result = set()
+        system_size = len(self.system.sites)
         for term in self.terms:
             term_acts_over = term.acts_over()
+            if term_acts_over is None:
+                return None
             result = result.union(term_acts_over)
+            if len(result) >= system_size:
+                break
         return frozenset(result)
 
     def dag(self):
@@ -245,7 +250,7 @@ class SumOperator(Operator):
                 sorted(site for site in self.acts_over() if site not in block)
             )
         if len(self.terms) == 0:
-            return ScalarOperator(0, self.system).to_qutip(block)
+            return self.system.global_operator("zero").to_qutip(block)
 
         qutip_terms = (t.to_qutip(block) for t in terms)
         result = sum(qutip_terms)
@@ -259,7 +264,7 @@ class SumOperator(Operator):
         tidy_terms = [term.tidyup(atol) for term in self.terms]
         tidy_terms = tuple((term for term in tidy_terms if term))
         if len(tidy_terms) == 0:
-            return ScalarOperator(0, self.system)
+            return self.system.global_operator("zero")
         if len(tidy_terms) == 1:
             return tidy_terms[0]
         isherm = all(term.isherm for term in tidy_terms) or None
@@ -311,7 +316,7 @@ class OneBodyOperator(SumOperator):
             terms, system = self._simplify_terms(terms, system)
             simplified = True
             if len(terms) == 0:
-                terms = tuple((ScalarOperator(0.0, system),))
+                terms = tuple((system.global_operator("zero"),))
 
         super().__init__(
             terms, system=system, isherm=isherm, isdiag=isdiag, simplified=simplified
@@ -371,7 +376,7 @@ class OneBodyOperator(SumOperator):
         terms, system = self._simplify_terms(self.terms, self.system)
         num_terms = len(terms)
         if num_terms == 0:
-            return ScalarOperator(0, system)
+            return system.global_operator("zero")
         if num_terms == 1:
             return terms[0]
         return OneBodyOperator(

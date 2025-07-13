@@ -752,7 +752,7 @@ class ProductOperator(Operator):
         nontrivial_factors = {}
         prefactor = self.prefactor
         if prefactor == 0:
-            return ScalarOperator(0, self.system)
+            return self.system.global_operator("zero")
         for site, op_factor in self.sites_op.items():
             if is_scalar_op(op_factor):
                 prefactor *= op_factor[0, 0]
@@ -760,7 +760,7 @@ class ProductOperator(Operator):
                     prefactor, (int, float, complex)
                 ), f"{type(prefactor)}:{prefactor}"
                 if not prefactor:
-                    return ScalarOperator(0, self.system)
+                    return self.system.global_operator("zero")
             else:
                 nontrivial_factors[site] = op_factor
         nops = len(nontrivial_factors)

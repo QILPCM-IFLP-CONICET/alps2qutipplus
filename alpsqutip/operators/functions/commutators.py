@@ -144,7 +144,7 @@ def commutator_alps2qutip_parallel(
     """
     system = op_1.system or op_2.system
     if op_1 is op_2:
-        return ScalarOperator(0, op_1.system)
+        return op_1.system.global_operator("zero")
 
     op_1 = op_1.flat()
     op_2 = op_2.flat()
@@ -172,7 +172,7 @@ def commutator_alps2qutip_parallel(
     if len(terms) == 1:
         return terms[0]
     if len(terms) == 0:
-        return ScalarOperator(0, system)
+        return system.global_operator("zero")
     return SumOperator(terms, system).simplify()
 
 
@@ -182,7 +182,7 @@ def commutator_alps2qutip_serial(op_1: Operator, op_2: Operator) -> Operator:
     Serial implementation.
     """
     if op_1 is op_2:
-        return ScalarOperator(0, op_1.system)
+        return op_1.system.global_operator("zero")
     system = op_1.system or op_2.system
     if isinstance(op_1, SumOperator):
         return SumOperator(
@@ -196,7 +196,7 @@ def commutator_alps2qutip_serial(op_1: Operator, op_2: Operator) -> Operator:
     acts_over_1, acts_over_2 = op_1.acts_over(), op_2.acts_over()
     if acts_over_1 is not None:
         if len(acts_over_1) == 0:
-            return ScalarOperator(0, system)
+            return system.global_operator("zero")
         if acts_over_2 is not None:
             if len(acts_over_2) == 0 or len(acts_over_1.intersection(acts_over_2)) == 0:
                 return ScalarOperator(0, system)

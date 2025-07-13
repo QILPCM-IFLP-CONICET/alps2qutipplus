@@ -13,7 +13,6 @@ from alpsqutip.operators.basic import (
     LocalOperator,
     Operator,
     ProductOperator,
-    ScalarOperator,
 )
 from alpsqutip.operators.qutip import QutipOperator
 
@@ -40,7 +39,7 @@ def hermitian_and_antihermitian_parts(operator: Operator) -> Tuple[Operator, Ope
 
     system = operator.system
     if operator.isherm:
-        return operator, ScalarOperator(0, system)
+        return operator, system.global_operator("zero")
 
     if isinstance(operator, OneBodyOperator):
         operator = operator.simplify()

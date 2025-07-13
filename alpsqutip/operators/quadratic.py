@@ -226,7 +226,7 @@ class QuadraticFormOperator(Operator):
             if term is not None:
                 terms = terms + (term,)
         if len(terms) == 0:
-            return ScalarOperator(0, self.system)
+            return self.system.global_operator("zero")
         if len(terms) == 1:
             return terms[0]
         result = SumOperator(terms, self.system, isherm, isdiag)
