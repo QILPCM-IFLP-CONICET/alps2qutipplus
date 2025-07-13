@@ -185,14 +185,16 @@ def project_operator_to_m_body(
         return result
 
     if isinstance(full_operator, QutipOperator):
-        return project_qutip_operator_to_m_body(full_operator, m_max, sigma_0)
+        return _project_qutip_operator_to_m_body_recursive(
+            full_operator, m_max, sigma_0
+        )
 
-    return project_qutip_operator_to_m_body(
+    return _project_qutip_operator_to_m_body_recursive(
         full_operator.to_qutip_operator(), m_max, sigma_0
     )
 
 
-def project_qutip_operator_to_m_body(
+def _project_qutip_operator_to_m_body_recursive(
     full_operator: QutipOperator, m_max=2, sigma_0=None
 ) -> Operator:
     """
@@ -244,13 +246,13 @@ def project_qutip_operator_to_m_body(
     for av, delta, firsts_op in zip(averages, delta_ops, firsts_ops):
         term_index += 1
         if abs(av) > 1e-10:
-            new_term = project_qutip_operator_to_m_body(
+            new_term = _project_qutip_operator_to_m_body_recursive(
                 firsts_op, m_max=m_max, sigma_0=sigma_firsts
             )
             new_term = (new_term * av).simplify()
             terms.append(new_term)
         if bool(delta):
-            reduced_op = project_qutip_operator_to_m_body(
+            reduced_op = _project_qutip_operator_to_m_body_recursive(
                 firsts_op, m_max=m_max - 1, sigma_0=sigma_firsts
             )
             if reduced_op:

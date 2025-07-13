@@ -29,6 +29,8 @@ TYPES_WITH_PREFACTOR = (ScalarOperator, ProductOperator, QutipOperator)
 SUM_TYPES = (SumOperator, OneBodyOperator)
 
 
+## TODO: Check why changes here makes slower the evaluation 0-body projections.
+
 @Operator.register_add_handler(
     [
         (Operator, Operator),
@@ -666,7 +668,9 @@ def _(x_op: SumOperator, y_value: Number):
 
     terms = tuple(term * y_value for term in x_op.terms)
     isherm = x_op._isherm and (not isinstance(y_value, complex) or y_value.imag == 0)
-    return SumOperator(terms, x_op.system, isherm).simplify()
+    # return SumOperator(terms, x_op.system, isherm).simplify()
+    return SumOperator(terms, x_op.system, isherm, simplified=x_op._simplified)
+    
 
 
 @Operator.register_mul_handler(
@@ -697,7 +701,8 @@ def _(y_value: Number, x_op: SumOperator):
 
     terms = tuple(term * y_value for term in x_op.terms)
     isherm = x_op._isherm and (not isinstance(y_value, complex) or y_value.imag == 0)
-    return SumOperator(terms, x_op.system, isherm).simplify()
+    # return SumOperator(terms, x_op.system, isherm).simplify()
+    return SumOperator(terms, x_op.system, isherm, simplified=x_op._simplified)
 
 
 # SumOperator times ScalarOperator
@@ -983,7 +988,10 @@ def _(x_op: SumOperator, y_op: Operator):
     -------
 
     """
-    system = x_op.system * y_op.system if x_op.system else y_op.system
+    system = x_op.system.union(y_op.system)
+    if y_op.is_zero:
+        return ScalarOperator(0.0, system)
+
     terms = tuple(factor_x * y_op for factor_x in x_op.terms)
     if len(terms) == 0:
         return ScalarOperator(0, system)
@@ -1018,6 +1026,9 @@ def _(y_op: Operator, x_op: SumOperator):
 
     """
     system = x_op.system.union(y_op.system)
+    if y_op.is_zero:
+        return ScalarOperator(0.0, system)
+
     terms = tuple(y_op * factor_x for factor_x in x_op.terms)
     if len(terms) == 0:
         return ScalarOperator(0, system)
