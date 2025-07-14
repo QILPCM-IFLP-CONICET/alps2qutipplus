@@ -536,10 +536,10 @@ def build_quadratic_form_from_operator(
     """
     Build a QuadraticFormOperator from `operator`
     """
-    from alpsqutip.operators.states.basic import (
-        ProductDensityOperator,
-    )
-    from alpsqutip.operators.states.gibbs import GibbsProductDensityOperator
+    # Required for `assert` test bellow
+    # from alpsqutip.operators.states.basic import (
+    #    ProductDensityOperator,
+    # )
 
     def force_hermitic_t(t):
         if t is None:
@@ -562,11 +562,11 @@ def build_quadratic_form_from_operator(
         operator = operator.simplify()
 
     if sigma_ref is not None:
-        if isinstance(sigma_ref, GibbsProductDensityOperator):
+        if hasattr(sigma_ref, "to_product_state"):
             sigma_ref = sigma_ref.to_product_state()
-        assert isinstance(
-            sigma_ref, ProductDensityOperator
-        ), f"sigma_ref must be a ProductDensityOperator. Got {type(sigma_ref)}"
+        # assert isinstance(
+        #    sigma_ref, ProductDensityOperator
+        #), f"sigma_ref must be a ProductDensityOperator. Got {type(sigma_ref)}"
 
     system = operator.system
     # Trivial cases
