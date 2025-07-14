@@ -146,10 +146,13 @@ class DensityOperatorMixin:
         """Compute the expectation value of an observable"""
         # TODO: expode that expectation values of operators just requires the
         # state where the operators acts.
-        from alpsqutip.operators.states.utils import collect_local_states
+        from alpsqutip.operators.states.utils import (
+            collect_local_states,
+            reduced_state_by_block,
+        )
 
         local_states = collect_local_states(obs_objs, self)
-        local_states.update({None: self})
+        # local_states = {None: self}
 
         def do_evaluate_expect(obs):
             """
@@ -183,15 +186,16 @@ class DensityOperatorMixin:
             # we already try with the implementation of the subclasses. Then, let's rely
             # in the generic implementation: convert everything to qutip and evaluate
             # the trace:
+            local_state_acts_over = reduced_state_by_block(obs, local_states)
             if obs_objs is obs:
                 block = tuple(sorted(acts_over))
                 return (
-                    local_states[acts_over].to_qutip(block) * obs.to_qutip(block)
+                    local_state_acts_over.to_qutip(block) * obs.to_qutip(block)
                 ).tr()
 
             # If obs comes from an internal call, then try to use the specific method
             # of the subclass.
-            return local_states[acts_over].expect(obs)
+            return local_state_acts_over.expect(obs)
 
         return do_evaluate_expect(obs_objs)
 

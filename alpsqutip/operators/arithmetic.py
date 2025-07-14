@@ -106,9 +106,14 @@ class SumOperator(Operator):
 
     def acts_over(self):
         result = set()
+        system_size = len(self.system.sites)
         for term in self.terms:
             term_acts_over = term.acts_over()
+            if term_acts_over is None:
+                return None
             result = result.union(term_acts_over)
+            if len(result) >= system_size:
+                break
         return frozenset(result)
 
     def dag(self):

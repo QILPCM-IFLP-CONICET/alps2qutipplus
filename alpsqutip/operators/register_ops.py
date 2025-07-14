@@ -664,9 +664,8 @@ def _(x_op: SumOperator, y_value: Number):
     if y_value == 0:
         return ScalarOperator(0, x_op.system)
 
-    terms = tuple(term * y_value for term in x_op.terms)
+    terms = tuple((term * y_value) for term in x_op.terms)
     isherm = x_op._isherm and (not isinstance(y_value, complex) or y_value.imag == 0)
-    # return SumOperator(terms, x_op.system, isherm).simplify()
     return SumOperator(terms, x_op.system, isherm, simplified=x_op._simplified)
 
 
@@ -698,7 +697,6 @@ def _(y_value: Number, x_op: SumOperator):
 
     terms = tuple(term * y_value for term in x_op.terms)
     isherm = x_op._isherm and (not isinstance(y_value, complex) or y_value.imag == 0)
-    # return SumOperator(terms, x_op.system, isherm).simplify()
     return SumOperator(terms, x_op.system, isherm, simplified=x_op._simplified)
 
 
