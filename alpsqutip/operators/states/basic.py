@@ -5,7 +5,7 @@ Density operator classes.
 import logging
 import pickle
 from numbers import Number
-from typing import Dict, Iterable, Optional, Tuple, Union, cast
+from typing import Iterable, Optional, Tuple, Union, cast
 
 import numpy as np
 from qutip import (  # type: ignore[import-untyped]
@@ -146,10 +146,13 @@ class DensityOperatorMixin:
         """Compute the expectation value of an observable"""
         # TODO: expode that expectation values of operators just requires the
         # state where the operators acts.
-        # from alpsqutip.operators.states.utils import collect_local_states
+        from alpsqutip.operators.states.utils import (
+            collect_local_states,
+            reduced_state_by_block,
+        )
 
-        # local_states = collect_local_states(obs_objs, self)
-        local_states = {None: self}
+        local_states = collect_local_states(obs_objs, self)
+        # local_states = {None: self}
 
         def do_evaluate_expect(obs):
             """
@@ -391,35 +394,3 @@ class ProductDensityOperator(DensityOperatorMixin, ProductOperator):
                 for site in block
             ]
         )
-
-
-def reduced_state_by_block(
-    term: Operator,
-    reduced_states_cache: Dict[Optional[frozenset], DensityOperatorMixin],
-):
-    acts_over = term.acts_over()
-    result = reduced_states_cache.get(acts_over, None)
-    if result is not None:
-        return result
-    if acts_over is None:
-        return None
-    # No cache
-    # return reduced_states_cache.get(None, None)
-
-    size = len(acts_over)
-    for block in sorted(
-        [block for block in reduced_states_cache if block and len(block) > size],
-        key=lambda x: len(x),
-    ):
-        if acts_over.issubset(block):
-
-            result = reduced_states_cache[block]
-            if result is not None:
-                result = result.partial_trace(acts_over)
-            reduced_states_cache[acts_over] = result
-            return result
-    result = reduced_states_cache.get(None, None)
-    if result is not None:
-        result = result.partial_trace(acts_over)
-    reduced_states_cache[acts_over] = result
-    return result
