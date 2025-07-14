@@ -154,6 +154,67 @@ def compute_operator_expectation_value__(
     return qutip_op.tr() * prefactor
 
 
+def do_evaluate_expect_serial(obs, local_states, inner=False):
+    """
+    Inner function to evaluate expectation values. This method keeps
+    track of the states of the subsystems required in the evaluation,
+    which in typical cases is the most expensive part of the evaluation.
+    """
+
+    if isinstance(obs, dict):
+        return {
+            name: do_evaluate_expect_serial(operator, local_states, True)
+            for name, operator in obs.items()
+        }
+
+    if isinstance(obs, (tuple, list)):
+        return np.array(
+            [
+                do_evaluate_expect_serial(operator, local_states, True)
+                for operator in obs
+            ]
+        )
+
+    if isinstance(obs, QuadraticFormOperator):
+        obs = obs.as_sum_of_products()
+
+    obs = obs.simplify()
+    if isinstance(obs, SumOperator):
+        return sum(
+            do_evaluate_expect_serial(term, local_states, True) for term in obs.terms
+        )
+
+    acts_over = obs.acts_over()
+    if acts_over is not None and len(acts_over) == 0:
+        if hasattr(obs, "prefactor"):
+            return obs.prefactor
+
+    # if the argument matches with the argument of expect, it means that
+    # we already try with the implementation of the subclasses. Then, let's rely
+    # in the generic implementation: convert everything to qutip and evaluate
+    # the trace:
+    local_state_acts_over = reduced_state_by_block(obs, local_states)
+
+    # If this function was called from the same function in a recursive way,
+    # try to use the `expect` method of the local state class.
+    # This method could try again to use the generic method, which calls this
+    # function. Or the method raises an exception, because does not know how to
+    # deal with this class of operator. In any case, `inner` is set to False,
+    # and the operator is converted to its QutipOperator form.
+    if inner:
+        try:
+            return local_state_acts_over.expect(obs)
+        except ValueError:
+            obs = obs.to_qutip_operator()
+
+    if not inner:
+        block = tuple(sorted(acts_over))
+        return (local_state_acts_over.to_qutip(block) * obs.to_qutip(block)).tr()
+
+    # If obs comes from an internal call, then try to use the specific method
+    # of the subclass.
+
+
 def k_by_site_from_operator(k: Operator) -> Dict[str, Operator]:
     """
     Maps an operator `k` to a dictionary where keys are site identifiers and
@@ -398,3 +459,6 @@ def safe_exp_and_normalize(operator):
 
     # assume Qobj or any other class with a compatible interface.
     return safe_exp_and_normalize_qobj(operator)
+
+
+do_evaluate_expect = do_evaluate_expect_serial
