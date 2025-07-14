@@ -566,7 +566,7 @@ def build_quadratic_form_from_operator(
             sigma_ref = sigma_ref.to_product_state()
         # assert isinstance(
         #    sigma_ref, ProductDensityOperator
-        #), f"sigma_ref must be a ProductDensityOperator. Got {type(sigma_ref)}"
+        # ), f"sigma_ref must be a ProductDensityOperator. Got {type(sigma_ref)}"
 
     system = operator.system
     # Trivial cases
