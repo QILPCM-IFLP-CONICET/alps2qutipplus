@@ -16,10 +16,10 @@ from alpsqutip.operators import (
     SumOperator,
 )
 from alpsqutip.operators.quadratic import QuadraticFormOperator
-from alpsqutip.operators.simplify import group_terms_by_blocks, simplify_sum_operator
+from alpsqutip.operators.simplify import group_terms_by_blocks
 from alpsqutip.operators.states import GibbsDensityOperator, GibbsProductDensityOperator
 
-from .helper import FULL_TEST_CASES, OPERATORS, check_equality, check_operator_equality
+from .helper import FULL_TEST_CASES, check_operator_equality
 
 
 def union_set(set_list):
@@ -130,21 +130,6 @@ def test_simplify(key, operator):
                     continue
                 print("OK")
         assert passed, "there were errors in simplificacion."
-
-
-def test_simplify_sum_operator():
-    def do_test(name, operator):
-        if isinstance(operator, list):
-            for op_case in operator:
-                do_test(name, op_case)
-            return
-        operator_simpl = simplify_sum_operator(operator)
-        assert check_equality(operator.to_qutip(), operator_simpl.to_qutip())
-        assert operator.to_qutip().isherm == operator_simpl.isherm
-
-    for name, operator_case in OPERATORS.items():
-        print("name", name, type(operator_case))
-        do_test(name, operator_case)
 
 
 def test_sum_as_blocks():

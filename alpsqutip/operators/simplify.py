@@ -3,30 +3,23 @@
 Functions to simplify sums of operators
 """
 import logging
-from numbers import Number
 from typing import Callable, Optional, Sequence
 
-import numpy as np
 from qutip import tensor
-from scipy.linalg import svd
 
 from alpsqutip.model import SystemDescriptor
 from alpsqutip.operators.arithmetic import OneBodyOperator, SumOperator
 from alpsqutip.operators.basic import (
-    LocalOperator,
     Operator,
     ProductOperator,
     ScalarOperator,
     empty_op,
 )
 from alpsqutip.operators.qutip import QutipOperator
-from alpsqutip.operators.states import DensityOperatorMixin
 from alpsqutip.qutip_tools.tools import (
     data_is_diagonal,
     decompose_qutip_operator,
 )
-from alpsqutip.scalarprod import orthogonalize_basis
-from alpsqutip.settings import ALPSQUTIP_TOLERANCE
 
 
 def sum_operator_sequence(
@@ -136,7 +129,8 @@ def group_terms_by_blocks(operator: Operator, fn: Optional[Callable] = None):
     if (
         not isinstance(operator, SumOperator)
         or getattr(operator, "_simplified", False)
-        or isinstance(operator, (OneBodyOperator, DensityOperatorMixin))
+        or isinstance(operator, OneBodyOperator)
+        or hasattr(operator, "expect")
     ):
         return operator
 
@@ -297,76 +291,6 @@ def simplify_qutip_sums(sum_operator: SumOperator) -> Operator:
     return sum_operator_sequence(terms, system=system, simplified=True)
 
 
-def post_process_collections(collection: dict) -> dict:
-    """Collect terms acting on blocks or subblocks
-
-    Parameters
-    ----------
-    collection: dict :
-
-
-    Returns
-    -------
-
-    """
-    new_collection = {}
-    keys = sorted((c for c in collection if c is not None), key=lambda x: -len(x))
-
-    for key in keys:
-        found = False
-        for existent_key, existent_dict in new_collection.items():
-            if all(q in existent_key for q in key):
-                existent_dict.extend(collection[key])
-                found = True
-                break
-        if not found:
-            new_collection[key] = collection[key].copy()
-
-    if None in collection:
-        new_collection[None] = collection[None]
-    return new_collection
-
-
-def reduce_by_orthogonalization(operator_list):
-    """From a list of operators whose sum spans another operator,
-    produce a new list with linear independent terms
-
-    Parameters
-    ----------
-    operator_list :
-
-
-    Returns
-    -------
-
-    """
-
-    def scalar_product(op_1, op_2):
-        """
-
-        Parameters
-        ----------
-        op_1 :
-
-        op_2 :
-
-
-        Returns
-        -------
-
-        """
-        return (op_1.dag() * op_2).tr()
-
-    basis = orthogonalize_basis(operator_list, sp=scalar_product)
-    if len(basis) > len(operator_list):
-        return operator_list
-    coeffs = [
-        sum(scalar_product(op_b, term) for term in operator_list) for op_b in basis
-    ]
-
-    return [op_b * coeff for coeff, op_b in zip(coeffs, basis)]
-
-
 def rewrite_nbody_term_using_qutip(
     operator_list: list,
     block: tuple,
@@ -440,271 +364,3 @@ def rewrite_nbody_term_using_qutip(
         isherm=isherm,
         isdiag=isdiag,
     )
-
-
-def rewrite_nbody_term_using_orthogonal_decomposition(
-    operator_list: list,
-    block: tuple,
-    system: SystemDescriptor,
-    isherm: bool = None,
-    isdiag: bool = None,
-) -> Operator:
-    """Do the decomposition work using qutip
-
-    Parameters
-    ----------
-    operator_list: list :
-
-    block: tuple :
-
-    system: SystemDescriptor :
-
-    isherm: bool :
-         (Default value = None)
-    isdiag: bool :
-         (Default value = None)
-
-    Returns
-    -------
-
-    """
-    # Build the Gram's matrix
-    # TODO: exploit isherm
-    basis = operator_list
-
-    def sp(a, b):
-        """HS scalar product over block
-
-        Parameters
-        ----------
-        a :
-
-        b :
-
-
-        Returns
-        -------
-
-        """
-        sites_op_a, sites_op_b = a.sites_op, b.sites_op
-        result = 0
-        for site in block:
-            op_a_i = sites_op_a.get(site, None)
-            op_b_i = sites_op_b.get(site, None)
-            if op_a_i is None:
-                result += op_b_i.tr()
-            elif op_b_i is None:
-                result += np.conj(op_a_i.tr())
-            else:
-                result += (op_a_i.dag() * op_b_i).tr()
-        return result
-
-    gram_matrix = np.array([[sp(op1, op2) for op2 in basis] for op1 in basis])
-    u_mat, s_diag, uh_mat = svd(gram_matrix, full_matrices=False, overwrite_a=True)
-    nontrivial = s_diag > ALPSQUTIP_TOLERANCE
-    u_mat, uh_mat = u_mat[:, nontrivial], uh_mat[nontrivial]
-    coeffs = sum(u_mat.dot(uh_mat))
-    new_terms = (
-        op_i * coeff
-        for coeff, op_i in zip(coeffs, basis)
-        if abs(coeff) > ALPSQUTIP_TOLERANCE
-    )
-    return SumOperator(
-        tuple(new_terms),
-        system,
-        isherm=isherm,
-        isdiag=isdiag,
-    )
-
-
-def simplify_sum_using_qutip(operator: Operator) -> Operator:
-    """Decompose Operator as a sum of n-body terms,
-    convert each term to a qutip operator,
-    and decompose each operator again as a sum
-    of n-body terms
-
-    Parameters
-    ----------
-    operator: Operator :
-
-
-    Returns
-    -------
-
-    """
-    operator = operator.flat()
-    if not isinstance(operator, SumOperator):
-        return operator
-
-    system = operator.system
-    isherm = getattr(operator, "_isherm", None)
-    isdiag = getattr(operator, "_isdiagonal", None)
-
-    new_terms = []
-    terms_by_block = post_process_collections(collect_nbody_terms(operator))
-
-    # Process the n-body terms
-    for block, block_list in terms_by_block.items():
-        # For one-body terms, just add all of them as qutip operators
-        if block is None or len(block) == 0:
-            new_terms.extend(block_list)
-            continue
-        if len(block) == 1:
-            new_terms.append(
-                LocalOperator(block[0], sum(term.to_qutip() for term in block_list))
-            )
-            continue
-
-        # For n>1 n-body terms, rebuild the local operator
-        # Notice that if Operator is diagonal / hermitician,
-        # each independent N-body term must be too.
-        new_term = rewrite_nbody_term_using_qutip(
-            block_list, block, system, isherm, isdiag
-        )
-        new_terms.append(new_term)
-
-    return sum_operator_sequence(new_terms, system=system, isherm=isherm, isdiag=isdiag)
-
-
-def simplify_sum_operator(operator):
-    """Try a more aggressive simplification that self.simplify()
-    by classifing the terms according to which subsystem acts,
-    reducing the partial sums by orthogonalization.
-
-    Parameters
-    ----------
-    operator :
-
-
-    Returns
-    -------
-
-    """
-    simplified_op = operator.simplify().flat()
-
-    if isinstance(simplified_op, OneBodyOperator) or not isinstance(
-        simplified_op, SumOperator
-    ):
-        return simplified_op
-
-    operator = simplified_op
-    # Now, operator has at least two non-trivial terms.
-    operator_terms = operator.terms
-
-    system = operator.system
-    isherm = getattr(operator, "_isherm", None)
-
-    terms_by_subsystem = {}
-    one_body_terms = []
-    scalar_terms = []
-
-    for term in operator_terms:
-        assert not isinstance(
-            term, SumOperator
-        ), f"{type(term)} should not be here. Check simplify."
-        assert not isinstance(term, Number), (
-            "In a sum, numbers should be represented by "
-            f"ScalarOperator's, but {type(term)} was found."
-        )
-
-    for term in operator_terms:
-        if isinstance(term, LocalOperator):
-            one_body_terms.append(term)
-        elif isinstance(term, ScalarOperator):
-            scalar_terms.append(term)
-        else:
-            sites = term.acts_over()
-            sites = tuple(sites) if sites is not None else None
-            terms_by_subsystem.setdefault(sites, []).append(term)
-
-    # Simplify the scalars:
-    if len(scalar_terms) > 1:
-        assert all(isinstance(t, ScalarOperator) for t in scalar_terms)
-        value = sum(value.prefactor for value in scalar_terms)
-        scalar_terms = [ScalarOperator(value, system)] if value else []
-    elif len(scalar_terms) == 1:
-        if scalar_terms[0].prefactor == 0:
-            scalar_terms = []
-
-    one_body_terms = (
-        [OneBodyOperator(tuple(one_body_terms), system)]
-        if len(one_body_terms) != 0
-        else []
-    )
-    new_terms = scalar_terms + one_body_terms
-
-    # Try to reduce the other terms
-    for subsystem, block_terms in terms_by_subsystem.items():
-        if subsystem is None:
-            # Maybe here we should convert block_terms into
-            # qutip, add the terms and if the result is not zero,
-            # store as a single term
-            new_terms.extend(block_terms)
-        elif len(subsystem) > 1:
-            if len(block_terms) > 1:
-                block_terms = reduce_by_orthogonalization(block_terms)
-            new_terms.extend(block_terms)
-        else:
-            # Never reached?
-            assert False
-            new_terms.extend(block_terms)
-
-    # Build the return value
-    if new_terms:
-        if len(new_terms) == 1:
-            return new_terms[0]
-        if not isherm:
-            isherm = None
-        return SumOperator(tuple(new_terms), system, isherm)
-    return ScalarOperator(0.0, system)
-
-
-def simplify_sum_using_orthogonal_decomposition(operator: Operator) -> Operator:
-    """Decompose Operator as a sum of n-body terms,
-    convert each term to a qutip operator,
-    and decompose each operator again as a sum
-    of n-body terms
-
-    Parameters
-    ----------
-    operator: Operator :
-
-
-    Returns
-    -------
-
-    """
-    if not isinstance(operator, SumOperator):
-        return operator
-    operator = operator.flat()
-
-    system = operator.system
-    isherm = getattr(operator, "_isherm", False)
-    isdiag = getattr(operator, "_isdiagonal", False)
-
-    new_terms = []
-    terms_by_block = collect_nbody_terms(operator)
-
-    # Process the n-body terms
-    for block, block_list in terms_by_block.items():
-        # For one-body terms, just add all of them as qutip operators
-        if block is None or len(block) == 0:
-            new_terms.extend(block_list)
-            continue
-        if len(block) == 1:
-            new_terms.append(
-                LocalOperator(
-                    tuple(block)[0], sum(term.to_qutip() for term in block_list)
-                )
-            )
-            continue
-
-        # For n>1 n-body terms, rebuild the local operator
-        # Notice that if Operator is diagonal / hermitician,
-        # each independent N-body term must be too.
-        new_term = rewrite_nbody_term_using_orthogonal_decomposition(
-            block_list, block, system, isherm, isdiag
-        )
-        new_terms.append(new_term)
-
-    return sum_operator_sequence(new_terms, system=system, isherm=isherm, isdiag=isdiag)
