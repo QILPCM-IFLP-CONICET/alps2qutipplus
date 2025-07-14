@@ -467,8 +467,6 @@ def project_quadraticform_operator_as_n_body_operator(
     """
     Project a product operator to the manifold of n-body operators
     """
-    from alpsqutip.operators.quadratic import QuadraticFormOperator
-
     if nmax != 2:
         project_to_n_body_operator(operator, nmax, sigma)
 
