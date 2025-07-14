@@ -333,6 +333,83 @@ def project_operator_to_m_body(
     )
 
 
+def _project_qutip_operator_to_m_body_recursive(
+    full_operator: QutipOperator, m_max=2, sigma_0=None
+) -> Operator:
+    """
+    Recursive implementation for the m-body Projection
+    over QutipOperators.
+    """
+    system = full_operator.system
+    if full_operator.is_zero:
+        return ScalarOperator(0, system)
+    assert sigma_0 is None or hasattr(sigma_0, "expect"), f"{type(sigma_0)} is invalid."
+    if sigma_0 is None:
+        sigma_0 = ProductDensityOperator({}, system=system)
+    assert sigma_0 is None or hasattr(sigma_0, "expect"), f"{type(sigma_0)} is invalid."
+    if m_max == 0:
+        exp_val = sigma_0.expect(full_operator)
+        return ScalarOperator(exp_val, system)
+
+    # Reduce a qutip operator
+    site_names = full_operator.site_names
+    if len(site_names) < 2:
+        return full_operator
+
+    names = tuple(sorted(site_names, key=lambda s: site_names[s]))
+    firsts, last_site = names[:-1], names[-1]
+    rest_sitenames = {site: site_names[site] for site in firsts}
+
+    block_qutip_op = full_operator.to_qutip(names)
+    qutip_ops_firsts, qutip_ops_last = schmidt_dec_firsts_last_qutip_operator(
+        block_qutip_op
+    )
+    sigma_last_qutip = sigma_0.partial_trace(frozenset({last_site})).to_qutip()
+    averages = [qutip.expect(sigma_last_qutip, op_loc) for op_loc in qutip_ops_last]
+    sigma_firsts = sigma_0.partial_trace(frozenset(rest_sitenames))
+    assert hasattr(
+        sigma_firsts, "expect"
+    ), f"{type(sigma_0)}->{type(sigma_firsts)} is invalid."
+
+    firsts_ops = [
+        QutipOperator(op_c.tidyup(), names=rest_sitenames, system=system)
+        for op_c in qutip_ops_firsts
+    ]
+    delta_ops = [
+        LocalOperator(last_site, (op - av).tidyup(), system=system)
+        for av, op in zip(averages, qutip_ops_last)
+    ]
+
+    terms = []
+    term_index = 0
+    for av, delta, firsts_op in zip(averages, delta_ops, firsts_ops):
+        term_index += 1
+        if abs(av) > 1e-10:
+            new_term = _project_qutip_operator_to_m_body_recursive(
+                firsts_op, m_max=m_max, sigma_0=sigma_firsts
+            )
+            new_term = (new_term * av).simplify()
+            terms.append(new_term)
+        if bool(delta):
+            reduced_op = _project_qutip_operator_to_m_body_recursive(
+                firsts_op, m_max=m_max - 1, sigma_0=sigma_firsts
+            )
+            if reduced_op:
+                new_term = (delta * reduced_op).simplify()
+                terms.append(new_term)
+
+    if terms:
+        if len(terms) == 1:
+            return terms[0]
+        result = SumOperator(tuple(terms), system).simplify()
+        error_ev = sigma_0.expect(full_operator - result)
+        assert (
+            abs(error_ev) < 1e-10
+        ), f"The difference should have a vanishing expectation value. Got {error_ev}."
+        return result
+    return ScalarOperator(0, full_operator.system)
+
+
 def project_product_operator_as_n_body_operator(
     operator: Operator,
     nmax: int = 1,
