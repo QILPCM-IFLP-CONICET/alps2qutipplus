@@ -34,13 +34,13 @@ if os.environ.get("BENCHMARKS", 0):
         + 0.1 * TEST_CASES_STATES["gibbs_sz_bar"]
     )
     BENCHMARK_EXPECTATION_CASES = [
-            (
-                name_rho,
-                name_obs,
-            )
-            for name_rho in TEST_CASES_STATES
-            for name_obs in OBSERVABLE_CASES
-        ]
+        (
+            name_rho,
+            name_obs,
+        )
+        for name_rho in TEST_CASES_STATES
+        for name_obs in OBSERVABLE_CASES
+    ]
 else:
     BENCHMARK_EXPECTATION_CASES = []
 
