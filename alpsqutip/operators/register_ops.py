@@ -29,8 +29,6 @@ TYPES_WITH_PREFACTOR = (ScalarOperator, ProductOperator, QutipOperator)
 SUM_TYPES = (SumOperator, OneBodyOperator)
 
 
-## TODO: Check why changes here makes slower the evaluation 0-body projections.
-
 @Operator.register_add_handler(
     [
         (Operator, Operator),
@@ -670,7 +668,6 @@ def _(x_op: SumOperator, y_value: Number):
     isherm = x_op._isherm and (not isinstance(y_value, complex) or y_value.imag == 0)
     # return SumOperator(terms, x_op.system, isherm).simplify()
     return SumOperator(terms, x_op.system, isherm, simplified=x_op._simplified)
-    
 
 
 @Operator.register_mul_handler(
