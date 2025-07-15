@@ -19,21 +19,21 @@ def compare_benchmarks(ref_bench, new_bench):
         # cases:
         threshold = std_ref + std_new + 0.05 * max(mean_ref, mean_new)
         if abs(diff) > threshold:
+            pct = abs(diff) / mean_ref * 100
             direction, color = (
                 (
-                    "regression",
+                    f"regression {pct:.2f}%",
                     "\033[91m",
                 )
                 if diff > 0
                 else (
-                    "progress",
+                    f"progress {pct:.2f}%",
                     "\033[92m",
                 )
             )
-            pct = abs(diff) / mean_ref * 100
             summary.append(
-                f"{name}: {color} {direction.upper()} \033[0m ({mean_ref:.6f} -> {mean_new:.6f}, "
-                f"Δ={diff:.6f}, threshold={threshold:.6f}, {pct:.2f}% change)"
+                f"{color}{direction.upper()} \033[0m {name}: ({mean_ref:.6f} -> {mean_new:.6f}, "
+                f"Δ={diff:.6f}, threshold={threshold:.6f})"
             )
     return summary
 
