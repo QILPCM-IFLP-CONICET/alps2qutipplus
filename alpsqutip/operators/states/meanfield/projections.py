@@ -10,6 +10,7 @@ from typing import Callable, Dict, List, Optional, Tuple, Union, cast
 import qutip
 from qutip import Qobj
 
+import alpsqutip.settings as alpsqutip_settings
 from alpsqutip.operators import (
     LocalOperator,
     OneBodyOperator,
@@ -39,6 +40,23 @@ from alpsqutip.settings import ALPSQUTIP_TOLERANCE
 ProjectingOperatorFunction = Callable[
     [Operator, int, Optional[DensityOperatorMixin]], Operator
 ]
+
+USE_PARALLEL = alpsqutip_settings.USE_PARALLEL
+MAX_WORKERS = alpsqutip_settings.PARALLEL_MAX_WORKERS
+USE_THREADS = alpsqutip_settings.PARALLEL_USE_THREADS
+
+if USE_PARALLEL:
+    try:
+        from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+
+        logging.info("using parallel routines to build Gram's matrices.")
+    except ModuleNotFoundError:
+        USE_PARALLEL = alpsqutip_settings.USE_PARALLEL = False
+        logging.warning(
+            "ProcessPoolExecutor/ThreadPoolExecutor cannot be loaded. Using serial routines."
+        )
+else:
+    logging.info("using serial routines to build Gram's matrices.")
 
 
 def _project_product_operator_to_m_body_recursive(
@@ -632,13 +650,14 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
     changed = False
     one_body_terms = []
     block_terms: Dict[Optional[frozenset], Operator] = {}
-
+    non_dispatched_length = 0
     def dispatch_term(t):
         """
         If t is a nbody-term acting on not more than
         nmax sites, stores in the proper place and return True.
         Otherwise, return False.
         """
+        nonlocal non_dispatched_length
         if isinstance(t, OneBodyOperator):
             one_body_terms.append(t)
             return True
@@ -658,6 +677,7 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
             else:
                 block_terms[acts_over_t] = t
             return True
+        non_dispatched_length += 1
         return False
 
     # Process all the terms
@@ -670,9 +690,18 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
         for term in terms_tuple
         if not dispatch_term(term)
     )
-    non_dispatched_terms = (
-        projector_dispatch_worker(parms) for parms in non_dispatched_terms
-    )
+
+    if USE_PARALLEL:
+        executor_cls = ThreadPoolExecutor if USE_THREADS else ProcessPoolExecutor
+        chunksize= max(1, int(non_dispatched_length/MAX_WORKERS))
+        with executor_cls(max_workers=MAX_WORKERS) as executor:
+            non_dispatched_terms = tuple(
+                x for x in executor.map(projector_dispatch_worker, non_dispatched_terms, chunksize=chunksize)
+            )
+    else:
+        non_dispatched_terms = (
+            projector_dispatch_worker(parms) for parms in non_dispatched_terms
+        )
 
     for term in non_dispatched_terms:
         changed = True
