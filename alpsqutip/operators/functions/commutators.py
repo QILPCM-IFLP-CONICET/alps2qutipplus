@@ -2,42 +2,23 @@
 Functions for operators.
 """
 
-import logging
-
 # from collections.abc import Iterable
 # from typing import Callable, List, Optional, Tuple
 from typing import Union
 
 from qutip import Qobj
 
-import alpsqutip.settings as alpsqutip_settings
 from alpsqutip.operators.arithmetic import SumOperator
 from alpsqutip.operators.basic import (
     Operator,
     ScalarOperator,
 )
+from alpsqutip.operators.simplify import collect_nbody_terms
 
 # from alpsqutip.operators.simplify import simplify_sum_operator
 
 
 # from datetime import datetime
-
-
-MAX_WORKERS = alpsqutip_settings.PARALLEL_MAX_WORKERS
-USE_THREADS = alpsqutip_settings.PARALLEL_USE_THREADS
-
-if alpsqutip_settings.USE_PARALLEL:
-    try:
-        from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
-
-        logging.info("Using parallel routines to compute commutators.")
-    except ModuleNotFoundError:
-        alpsqutip_settings.USE_PARALLEL = False
-        logging.warning(
-            "ProcessPoolExecutor/ThreadPoolExecutor cannot be loaded. Using serial routines."
-        )
-else:
-    logging.info("Using serial routines to compute commutators.")
 
 
 def anticommutator(
@@ -63,7 +44,7 @@ def anticommutator(
     return anticommutator_alps2qutip(op_1, op_2)
 
 
-def anticommutator_alps2qutip_serial(op_1: Operator, op_2: Operator) -> Operator:
+def anticommutator_alps2qutip(op_1: Operator, op_2: Operator) -> Operator:
     """
     Computes the anticommutator of two operators, defined as {op1, op2} = op1 * op2 + op2 * op1.
 
@@ -115,97 +96,36 @@ def commutator(
     return commutator_alps2qutip(op_1, op_2)
 
 
-def _commutator_term_worker(entries):
-    """
-    Compute the commutator [hi, kj] = hi * kj - kj * hi and simplify the result.
+def commutator_alps2qutip(op_1: Operator, op_2: Operator) -> Operator:
+    """ """
 
-    Parameters:
-        hi_kj (tuple): A tuple (hi, kj) of SumOperator objects.
-
-    Returns:
-        Operator: The simplified commutator operator with small terms removed (threshold 1e-5).
-    """
-    op_1, op_2 = entries
-    acts_over_1, acts_over_2 = op_1.acts_over(), op_2.acts_over()
-    if acts_over_1 is not None:
-        if len(acts_over_1) == 0:
-            return None
-        if acts_over_2 is not None:
-            if len(acts_over_2) == 0 or len(acts_over_1.intersection(acts_over_2)) == 0:
-                return None
-    return (op_1 * op_2 - op_2 * op_1).simplify()
-
-
-def commutator_alps2qutip_parallel(
-    op_1: Operator, op_2: Operator, use_threads=USE_THREADS, num_workers=MAX_WORKERS
-) -> Operator:
-    """
-    The commutator of two Operator objects. Parallel implementation.
-    """
-    system = op_1.system or op_2.system
     if op_1 is op_2:
         return ScalarOperator(0, op_1.system)
 
-    op_1 = op_1.flat()
-    op_2 = op_2.flat()
-    op_1_terms = op_1.terms if isinstance(op_1, SumOperator) else (op_1,)
-    op_2_terms = op_2.terms if isinstance(op_2, SumOperator) else (op_2,)
-    terms_entries = (
-        (
-            t1,
-            t2,
-        )
-        for t1 in op_1_terms
-        for t2 in op_2_terms
-    )
+    system = op_1.system or op_2.system
 
-    executor_cls = ThreadPoolExecutor if use_threads else ProcessPoolExecutor
-    with executor_cls(max_workers=num_workers) as executor:
-        terms = tuple(
-            (
-                val
-                for val in executor.map(_commutator_term_worker, terms_entries)
-                if val is not None
-            )
-        )
+    op_1_terms = collect_nbody_terms(op_1.flat())
+    op_2_terms = collect_nbody_terms(op_2.flat())
 
-    if len(terms) == 1:
-        return terms[0]
+    def fetch_terms():
+        for block_1, terms_1 in op_1_terms.items():
+            for block_2, terms_2 in op_2_terms.items():
+                if (
+                    block_1 is not None
+                    and block_2 is not None
+                    and not block_1.intersection(block_2)
+                ):
+                    continue
+                for term_1 in terms_1:
+                    for term_2 in terms_2:
+                        if term_1 is term_2:
+                            continue
+                        yield (term_1, term_2)
+
+    terms = tuple(op_1 * op_2 - op_2 * op_1 for op_1, op_2 in fetch_terms())
+
     if len(terms) == 0:
         return ScalarOperator(0, system)
+    if len(terms) == 1:
+        return terms[0]
     return SumOperator(terms, system).simplify()
-
-
-def commutator_alps2qutip_serial(op_1: Operator, op_2: Operator) -> Operator:
-    """
-    The commutator of two Operator objects.
-    Serial implementation.
-    """
-    if op_1 is op_2:
-        return ScalarOperator(0, op_1.system)
-    system = op_1.system or op_2.system
-    if isinstance(op_1, SumOperator):
-        return SumOperator(
-            tuple((commutator_alps2qutip(term, op_2) for term in op_1.terms)), system
-        ).simplify()
-    if isinstance(op_2, SumOperator):
-        return SumOperator(
-            tuple((commutator_alps2qutip(op_1, term) for term in op_2.terms)), system
-        ).simplify()
-
-    acts_over_1, acts_over_2 = op_1.acts_over(), op_2.acts_over()
-    if acts_over_1 is not None:
-        if len(acts_over_1) == 0:
-            return ScalarOperator(0, system)
-        if acts_over_2 is not None:
-            if len(acts_over_2) == 0 or len(acts_over_1.intersection(acts_over_2)) == 0:
-                return ScalarOperator(0, system)
-    return (op_1 * op_2 - op_2 * op_1).simplify()
-
-
-anticommutator_alps2qutip = anticommutator_alps2qutip_serial
-commutator_alps2qutip = (
-    commutator_alps2qutip_parallel
-    if alpsqutip_settings.USE_PARALLEL
-    else commutator_alps2qutip_serial
-)
