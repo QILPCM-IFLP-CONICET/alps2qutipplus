@@ -576,6 +576,18 @@ def project_qutip_operator_as_n_body_operator(
     return SumOperator(tuple(terms_list), system)
 
 
+def projector_dispatch_worker(parms):
+    dispatch_project_method = {
+        # ProductOperator: project_product_operator_as_n_body_operator,
+        ProductOperator: _project_product_operator_to_m_body_recursive,
+        QutipOperator: project_qutip_operator_as_n_body_operator,
+        # QutipOperator: _project_qutip_operator_to_m_body_recursive,
+        QuadraticFormOperator: project_quadraticform_operator_as_n_body_operator,
+    }
+    term, nmax, sigma = parms
+    return dispatch_project_method[type(term)](*parms)
+
+
 def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
     """
     Approximate `operator` by a sum of (up to) nmax-body
@@ -648,23 +660,22 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
             return True
         return False
 
-    dispatch_project_method = {
-        # ProductOperator: project_product_operator_as_n_body_operator,
-        ProductOperator: _project_product_operator_to_m_body_recursive,
-        QutipOperator: project_qutip_operator_as_n_body_operator,
-        # QutipOperator: _project_qutip_operator_to_m_body_recursive,
-        QuadraticFormOperator: project_quadraticform_operator_as_n_body_operator,
-    }
+    # Process all the terms
+    non_dispatched_terms = (
+        (
+            term,
+            nmax,
+            sigma,
+        )
+        for term in terms_tuple
+        if not dispatch_term(term)
+    )
+    non_dispatched_terms = (
+        projector_dispatch_worker(parms) for parms in non_dispatched_terms
+    )
 
-    for term in terms_tuple:
-        if dispatch_term(term):
-            continue
+    for term in non_dispatched_terms:
         changed = True
-        try:
-            term = dispatch_project_method[type(term)](term, nmax, sigma)
-        except KeyError:
-            raise TypeError(f"{type(term)} not in {dispatch_project_method.keys()}")
-
         if isinstance(term, (ScalarOperator, LocalOperator, OneBodyOperator)):
             one_body_terms.append(term)
         elif isinstance(term, SumOperator):
