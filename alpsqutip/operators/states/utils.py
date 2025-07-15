@@ -3,12 +3,14 @@ Utility functions for alpsqutip.operators.states
 
 """
 
+import logging
 from functools import reduce
 from typing import Any, Dict, Iterable, List, Optional, Union, cast
 
 import numpy as np
 from qutip import Qobj, tensor as qutip_tensor
 
+import alpsqutip.settings as alpsqutip_settings
 from alpsqutip.operators.arithmetic import SumOperator
 from alpsqutip.operators.basic import (
     LocalOperator,
@@ -26,6 +28,23 @@ from alpsqutip.operators.states.qutip import QutipDensityOperator
 from alpsqutip.qutip_tools.tools import (
     safe_exp_and_normalize as safe_exp_and_normalize_qobj,
 )
+
+USE_PARALLEL = alpsqutip_settings.USE_PARALLEL
+MAX_WORKERS = alpsqutip_settings.PARALLEL_MAX_WORKERS
+USE_THREADS = alpsqutip_settings.PARALLEL_USE_THREADS
+
+if USE_PARALLEL:
+    try:
+        from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+
+        logging.info("Using parallel routines to compute commutators.")
+    except ModuleNotFoundError:
+        USE_PARALLEL = alpsqutip_settings.USE_PARALLEL = False
+        logging.warning(
+            "ProcessPoolExecutor/ThreadPoolExecutor cannot be loaded. Using serial routines."
+        )
+else:
+    logging.info("Using serial routines to compute commutators.")
 
 
 def acts_over_order(elem):
@@ -152,6 +171,35 @@ def compute_operator_expectation_value__(
         lambda x, y: x * y, (1.0 / d for d in qutip_op.dims[0]), obs.prefactor
     )
     return qutip_op.tr() * prefactor
+
+
+def do_evaluate_expect_parallel(
+    obs, sigma, use_threads=USE_THREADS, num_workers=MAX_WORKERS
+):
+    """
+    Evaluate expectation values using parallel evaluation
+    """
+    executor_cls = ThreadPoolExecutor if use_threads else ProcessPoolExecutor
+    if isinstance(obs, SumOperator):
+        obs = obs.flat()
+        with executor_cls(max_workers=num_workers) as executor:
+            terms = obs.terms
+            chunksize = max(1, int(len(terms) / num_workers))
+            return sum(executor.map(sigma.expect, terms, chunksize=chunksize))
+
+    if isinstance(obs, (list, tuple)):
+        with executor_cls(max_workers=num_workers) as executor:
+            chunksize = max(1, int(len(obs) / num_workers))
+            return np.array(list(executor.map(sigma.expect, obs, chunksize=chunksize)))
+
+    if isinstance(obs, dict):
+        keys = obs.keys()
+        with executor_cls(max_workers=num_workers) as executor:
+            chunksize = max(1, int(len(obs) / num_workers))
+            exp_values = executor.map(sigma.expect, obs.values(), chunksize=chunksize)
+            return {key: val for key, val in zip(keys, exp_values)}
+
+    return do_evaluate_expect_serial(obs, {None: sigma})
 
 
 def do_evaluate_expect_serial(obs, local_states, inner=False):

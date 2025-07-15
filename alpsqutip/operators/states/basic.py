@@ -13,6 +13,7 @@ from qutip import (  # type: ignore[import-untyped]
     tensor as qutip_tensor,
 )
 
+import alpsqutip.settings as alpsqutip_settings
 from alpsqutip.model import SystemDescriptor
 from alpsqutip.operators.arithmetic import OneBodyOperator, SumOperator
 from alpsqutip.operators.basic import (
@@ -21,6 +22,8 @@ from alpsqutip.operators.basic import (
     ProductOperator,
     ScalarOperator,
 )
+
+USE_PARALLEL = alpsqutip_settings.USE_PARALLEL
 
 
 class DensityOperatorMixin:
@@ -145,6 +148,12 @@ class DensityOperatorMixin:
         """Compute the expectation value of an observable"""
         # TODO: expode that expectation values of operators just requires the
         # state where the operators acts.
+
+        if USE_PARALLEL:
+            from alpsqutip.operators.states.utils import do_evaluate_expect_parallel
+
+            return do_evaluate_expect_parallel(obs_objs, self)
+
         from alpsqutip.operators.states.utils import (
             collect_local_states,
             do_evaluate_expect,
