@@ -1,8 +1,8 @@
 import glob
 import os
 import platform
-import sys
 import subprocess
+import sys
 
 
 def get_platform_path():
