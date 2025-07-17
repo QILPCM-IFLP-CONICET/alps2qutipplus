@@ -44,6 +44,9 @@ USE_PARALLEL = alpsqutip_settings.USE_PARALLEL
 MAX_WORKERS = alpsqutip_settings.PARALLEL_MAX_WORKERS
 USE_THREADS = alpsqutip_settings.PARALLEL_USE_THREADS
 
+
+
+
 if USE_PARALLEL:
     try:
         from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
@@ -323,9 +326,9 @@ def project_operator_to_m_body(
         )
 
     if isinstance(full_operator, QutipOperator):
-        return project_qutip_operator_as_n_body_operator(full_operator, m_max, sigma_0)
+        return n_body_qutip_projection(full_operator, m_max, sigma_0)
 
-    return _project_qutip_operator_to_m_body_recursive(
+    return n_body_qutip_projection(
         full_operator.to_qutip_operator(), m_max, sigma_0
     )
 
@@ -510,7 +513,7 @@ def project_qutip_operator_as_n_body_operator(
 def projector_dispatch_worker(term, nmax, sigma):
     dispatch_project_method = {
         ProductOperator: _project_product_operator_to_m_body_recursive,
-        QutipOperator: project_qutip_operator_as_n_body_operator,
+        QutipOperator: n_body_qutip_projection,
         QuadraticFormOperator: project_quadraticform_operator_as_n_body_operator,
     }
     return (
@@ -651,3 +654,7 @@ def n_body_projector(operator, nmax=1, sigma=None) -> Operator:
         assert term.system is system
 
     return iterable_to_operator(terms, system)
+
+
+n_body_qutip_projection = project_qutip_operator_as_n_body_operator
+# n_body_qutip_projection = _project_qutip_operator_to_m_body_recursive
