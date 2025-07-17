@@ -156,15 +156,14 @@ class MixtureDensityOperator(DensityOperatorMixin, SumOperator):
             # Operator, list or tuple, just return the linear combination, because exp_eval
             # is a tuple of Operator or ndarray objects.
             return sum(
-                exp_val * prefactor
-                for exp_val, prefactor in zip(sub_averages, prefactors)
+                exp_val * p_refactor
+                for exp_val, p_refactor in zip(sub_averages, prefactors)
             )
 
         averages = tuple(
             cast(DensityOperatorMixin, term).expect(obs) for term in self.terms
         )
         prefactors = tuple(term.prefactor for term in self.terms)
-
         return compute_results(obs, averages, prefactors)
 
     def partial_trace(self, sites: Union[frozenset, SystemDescriptor]):
@@ -191,6 +190,11 @@ class MixtureDensityOperator(DensityOperatorMixin, SumOperator):
 
         # TODO: find a more efficient way to avoid element-wise
         # multiplications
-        return sum(
-            cast(Operator, term).to_qutip(block) * term.prefactor for term in self.terms
+        terms = (
+            (
+                cast(Operator, term).to_qutip(block),
+                term.prefactor,
+            )
+            for term in self.terms
         )
+        return sum(term[0] * term[1] for term in terms)

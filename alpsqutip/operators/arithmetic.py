@@ -5,7 +5,7 @@ Classes and functions for operator arithmetic.
 """
 
 import logging
-from typing import Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -105,9 +105,14 @@ class SumOperator(Operator):
     def acts_over(self):
         """ """
         result = set()
+        system_size = len(self.system.sites)
         for term in self.terms:
             term_acts_over = term.acts_over()
+            if term_acts_over is None:
+                return None
             result = result.union(term_acts_over)
+            if len(result) >= system_size:
+                break
         return frozenset(result)
 
     def dag(self):
@@ -244,11 +249,13 @@ class SumOperator(Operator):
         new_terms = tuple((term.partial_trace(sites) for term in self.terms))
         subsystem = new_terms[0].system
         new_terms = tuple((term for term in new_terms if term))
-        if len(new_terms) == 0:
-            return ScalarOperator(0, subsystem)
-        if len(new_terms) == 1:
-            return new_terms[0]
-        return SumOperator(new_terms, subsystem)
+        return iterable_to_operator(
+            new_terms,
+            subsystem,
+            isherm=self._isherm,
+            isdiag=self._isdiagonal,
+            simplified=self._simplified,
+        )
 
     def simplify(self):
         """Simplify the operator"""
@@ -310,13 +317,7 @@ class SumOperator(Operator):
         """
         tidy_terms = [term.tidyup(atol) for term in self.terms]
         tidy_terms = tuple((term for term in tidy_terms if term))
-        if len(tidy_terms) == 0:
-            return ScalarOperator(0, self.system)
-        if len(tidy_terms) == 1:
-            return tidy_terms[0]
-        isherm = all(term.isherm for term in tidy_terms) or None
-        isdiag = all(term.isdiagonal for term in tidy_terms) or None
-        return SumOperator(tidy_terms, self.system, isherm=isherm, isdiag=isdiag)
+        return iterable_to_operator(tidy_terms, self.system)
 
 
 NBodyOperator = SumOperator
@@ -516,3 +517,14 @@ class OneBodyOperator(SumOperator):
         isherm = all(term.isherm for term in tidy_terms) or None
         isdiag = all(term.isdiagonal for term in tidy_terms) or None
         return OneBodyOperator(tidy_terms, self.system, isherm=isherm, isdiag=isdiag)
+
+
+def iterable_to_operator(terms: List[Operator], system, **kwargs) -> Operator:
+    """
+    Convert a tuple or list of operators in an operator.
+    """
+    if len(terms) == 0:
+        return ScalarOperator(0, system)
+    if len(terms) == 1:
+        return terms[0]
+    return SumOperator(tuple(terms), system, **kwargs)

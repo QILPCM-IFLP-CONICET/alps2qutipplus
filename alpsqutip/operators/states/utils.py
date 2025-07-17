@@ -3,7 +3,8 @@ Utility functions for alpsqutip.operators.states
 
 """
 
-from typing import Dict, Iterable, List, Union, cast
+from functools import reduce
+from typing import Any, Dict, Iterable, List, Optional, Union, cast
 
 import numpy as np
 from qutip import Qobj, tensor as qutip_tensor
@@ -27,6 +28,29 @@ from alpsqutip.qutip_tools.tools import (
 )
 
 
+def acts_over_order(elem):
+    elem_acts_over = elem.acts_over()
+    if elem_acts_over is None:
+        return 0
+    return -len(elem_acts_over)
+
+
+def compute_expectation_values(
+    obs: Operator | Iterable[Operator] | Dict[Any, Operator],
+    state: Optional[DensityOperatorMixin],
+):
+    """
+    Compute the expectation value of an operator or operators in an iterable object,
+    relative to the state `state`.
+    """
+    if state is None:
+        state = ProductDensityOperator({}, 1, obs.system)
+    return state.expect(obs)
+
+
+compute_operator_expectation_value = compute_expectation_values
+
+
 def collect_blocks_for_expect(obs_objs: Union[Operator, Iterable]) -> List[frozenset]:
     """
     Find the subsystems required to compute the expectation values
@@ -48,7 +72,7 @@ def collect_blocks_for_expect(obs_objs: Union[Operator, Iterable]) -> List[froze
     if isinstance(obs_objs, dict):
         return collect_blocks_for_expect(tuple(obs_objs.values()))
     if isinstance(obs_objs, QuadraticFormOperator):
-        obs_objs = obs_objs.to_sum_operator()
+        obs_objs = obs_objs.as_sum_of_products()
 
     if isinstance(obs_objs, Operator):
         obs_objs = obs_objs.simplify()
@@ -77,7 +101,7 @@ def collect_local_states(
     ==========
 
     obs_objs: Union[Operator], Iterable
-       an Operator or an iterable containing the operators requiered to compute the
+       an Operator or an iterable containing the operators required to compute the
        required expectation values.
 
     Return
@@ -102,6 +126,32 @@ def collect_local_states(
                 break
         local_states[obj_block] = parent_state.partial_trace(obj_block)
     return local_states
+
+
+def compute_operator_expectation_value__(
+    obs: Operator, sigma_state: Optional[DensityOperatorMixin]
+):
+    """ """
+    if sigma_state is not None:
+        return sigma_state.expect(obs)
+    if hasattr(obs, "sites_op"):
+        obs_sites_op = obs.sites_op
+        factors = (
+            qutip_op.tr() / qutip_op.dims[0][0] for qutip_op in obs_sites_op.values()
+        )
+        return reduce(lambda x, y: x * y, factors, obs.prefactor)
+
+    if hasattr(obs, "terms"):
+        return sum(
+            compute_operator_expectation_value(term, sigma_state) for term in obs.terms
+        )
+
+    # assert isinstance(obs, QutipOperator)
+    qutip_op = obs.operator
+    prefactor = reduce(
+        lambda x, y: x * y, (1.0 / d for d in qutip_op.dims[0]), obs.prefactor
+    )
+    return qutip_op.tr() * prefactor
 
 
 def k_by_site_from_operator(k: Operator) -> Dict[str, Operator]:
@@ -180,6 +230,38 @@ def k_by_site_from_operator(k: Operator) -> Dict[str, Operator]:
             f"Invalid QutipOperator: acts_over={acts_over}. Expected a single act-over site."
         )
     raise TypeError(f"Unsupported operator type: {type(k)}.")
+
+
+def reduced_state_by_block(
+    term: Operator,
+    reduced_states_cache: Dict[Optional[frozenset], DensityOperatorMixin],
+):
+    acts_over = term.acts_over()
+    result = reduced_states_cache.get(acts_over, None)
+    if result is not None:
+        return result
+    if acts_over is None:
+        return None
+    # No cache
+    # return reduced_states_cache.get(None, None)
+
+    size = len(acts_over)
+    for block in sorted(
+        [block for block in reduced_states_cache if block and len(block) > size],
+        key=lambda x: len(x),
+    ):
+        if acts_over.issubset(block):
+
+            result = reduced_states_cache[block]
+            if result is not None:
+                result = result.partial_trace(acts_over)
+            reduced_states_cache[acts_over] = result
+            return result
+    result = reduced_states_cache.get(None, None)
+    if result is not None:
+        result = result.partial_trace(acts_over)
+    reduced_states_cache[acts_over] = result
+    return result
 
 
 def safe_exp_and_normalize_localop(operator: LocalOperator):

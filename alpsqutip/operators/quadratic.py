@@ -171,7 +171,7 @@ class QuadraticFormOperator(Operator):
                 linear_term=linear_term,
                 offset=offset,
             )
-        standard_repr = self.to_sum_operator(False).simplify()
+        standard_repr = self.as_sum_of_products(False).simplify()
         return standard_repr * other
 
     def __neg__(self):
@@ -205,6 +205,37 @@ class QuadraticFormOperator(Operator):
                 result = result.union(term.acts_over())
             except TypeError:
                 return None
+        return result
+
+    def as_sum_of_products(self, simplify: bool = True) -> SumOperator:
+        """Convert to a linear combination of two-body operators"""
+        isherm = self.isherm
+        isdiag = self.isdiagonal
+        if all(b_op.isherm for b_op in self.basis):
+            terms = tuple(
+                (
+                    ((op_term * op_term) * w)
+                    for w, op_term in zip(self.weights, self.basis)
+                )
+            )
+        else:
+            terms = tuple(
+                (
+                    ((op_term * op_term) * w)
+                    for w, op_term in zip(self.weights, self.basis)
+                )
+            )
+
+        for term in (self.offset, self.linear_term):
+            if term is not None:
+                terms = terms + (term,)
+        if len(terms) == 0:
+            return ScalarOperator(0, self.system)
+        if len(terms) == 1:
+            return terms[0]
+        result = SumOperator(terms, self.system, isherm, isdiag)
+        if simplify:
+            return result.simplify()
         return result
 
     def dag(self):
@@ -357,47 +388,6 @@ class QuadraticFormOperator(Operator):
         for term in (self.offset, self.linear_term):
             if term is not None:
                 result += term.to_qutip(block)
-        return result
-
-    def to_sum_operator(self, simplify: bool = True) -> SumOperator:
-        """Convert to a linear combination of quadratic operators
-
-        Parameters
-        ----------
-        simplify: bool :
-             (Default value = True)
-
-        Returns
-        -------
-
-        """
-        isherm = self.isherm
-        isdiag = self.isdiagonal
-        if all(b_op.isherm for b_op in self.basis):
-            terms = tuple(
-                (
-                    ((op_term * op_term) * w)
-                    for w, op_term in zip(self.weights, self.basis)
-                )
-            )
-        else:
-            terms = tuple(
-                (
-                    ((op_term * op_term) * w)
-                    for w, op_term in zip(self.weights, self.basis)
-                )
-            )
-
-        for term in (self.offset, self.linear_term):
-            if term is not None:
-                terms = terms + (term,)
-        if len(terms) == 0:
-            return ScalarOperator(0, self.system)
-        if len(terms) == 1:
-            return terms[0]
-        result = SumOperator(terms, self.system, isherm, isdiag)
-        if simplify:
-            return result.simplify()
         return result
 
 
@@ -645,10 +635,10 @@ def build_quadratic_form_from_operator(
     -------
 
     """
-    from alpsqutip.operators.states.basic import (
-        ProductDensityOperator,
-    )
-    from alpsqutip.operators.states.gibbs import GibbsProductDensityOperator
+    # Required for `assert` test bellow
+    # from alpsqutip.operators.states.basic import (
+    #    ProductDensityOperator,
+    # )
 
     def force_hermitic_t(t):
         """
@@ -693,11 +683,11 @@ def build_quadratic_form_from_operator(
         operator = operator.simplify()
 
     if sigma_ref is not None:
-        if isinstance(sigma_ref, GibbsProductDensityOperator):
+        if hasattr(sigma_ref, "to_product_state"):
             sigma_ref = sigma_ref.to_product_state()
-        assert isinstance(
-            sigma_ref, ProductDensityOperator
-        ), f"sigma_ref must be a ProductDensityOperator. Got {type(sigma_ref)}"
+        # assert isinstance(
+        #    sigma_ref, ProductDensityOperator
+        # ), f"sigma_ref must be a ProductDensityOperator. Got {type(sigma_ref)}"
 
     system = operator.system
     # Trivial cases
@@ -843,7 +833,7 @@ def quadratic_form_expect(sq_op, state):
     -------
 
     """
-    sq_op = sq_op.to_sum_operator(False)
+    sq_op = sq_op.as_sum_of_products(False)
     return state.expect(sq_op)
 
 
@@ -1063,7 +1053,7 @@ def simplify_quadratic_form(
     # First, rebuild the quadratic form.
     qf_op = QuadraticFormOperator(operator.basis, operator.weights, system)
     new_qf_op = build_quadratic_form_from_operator(
-        qf_op.to_sum_operator(), True, hermitic
+        qf_op.as_sum_of_products(), True, hermitic
     )
     # If the new basis is larger and the hermitician character haven´t changed, keep the older.
     if changed or len(new_qf_op.basis) < len(qf_op.basis):
