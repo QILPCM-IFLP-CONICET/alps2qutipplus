@@ -119,31 +119,24 @@ def _project_product_operator_to_m_body_recursive(
 
 
 def _project_qutip_operator_to_m_body_recursive(
-    full_operator: QutipOperator, m_max=2, sigma_0=None
+    full_operator: QutipOperator, n_max:int = 1, sigma_ref:Optional[ProductDensityOperator] = None
 ) -> Operator:
     """
     Recursive implementation for the m-body Projection
     over QutipOperators.
     """
-    if full_operator.is_zero:
-        return ScalarOperator(0.0, full_operator.system)
-
-    if m_max == 0:
+    if n_max == 0:
         return ScalarOperator(
-            compute_operator_expectation_value(full_operator, sigma_0),
+            compute_operator_expectation_value(full_operator, sigma_ref),
             full_operator.system,
         )
-
-    system = full_operator.system
-
-    if sigma_0 is None:
-        sigma_0 = ProductDensityOperator({}, system=system)
-
     # Reduce a qutip operator
     site_names = full_operator.site_names
-    if len(site_names) <= m_max:
+    if len(site_names) <= n_max:
         return full_operator
 
+    system = full_operator.system
+    sigma_0:ProductDensityOperator = sigma_ref or ProductDensityOperator({}, system=system)        
     names = tuple(sorted(site_names, key=lambda s: site_names[s]))
     firsts, last_site = names[:-1], names[-1]
     rest_sitenames = {site: site_names[site] for site in firsts}
@@ -175,14 +168,14 @@ def _project_qutip_operator_to_m_body_recursive(
         term_index += 1
         if abs(av) > ALPSQUTIP_TOLERANCE:
             new_term = _project_qutip_operator_to_m_body_recursive(
-                firsts_op, m_max=m_max, sigma_0=sigma_firsts
+                firsts_op, n_max=n_max, sigma_0=sigma_firsts
             )
             new_term = new_term * av
             terms.append(new_term)
         if bool(delta):
-            if m_max > 1:
+            if n_max > 1:
                 reduced_op = _project_qutip_operator_to_m_body_recursive(
-                    firsts_op, m_max=m_max - 1, sigma_0=sigma_firsts
+                    firsts_op, n_max=n_max - 1, sigma_0=sigma_firsts
                 )
             else:
                 reduced_op = compute_operator_expectation_value(firsts_op, sigma_firsts)
@@ -347,10 +340,8 @@ def _project_qutip_operator_to_m_body_recursive(
     system = full_operator.system
     if full_operator.is_zero:
         return ScalarOperator(0, system)
-    assert sigma_0 is None or hasattr(sigma_0, "expect"), f"{type(sigma_0)} is invalid."
     if sigma_0 is None:
         sigma_0 = ProductDensityOperator({}, system=system)
-    assert sigma_0 is None or hasattr(sigma_0, "expect"), f"{type(sigma_0)} is invalid."
     if m_max == 0:
         exp_val = sigma_0.expect(full_operator)
         return ScalarOperator(exp_val, system)
@@ -406,47 +397,47 @@ def _project_qutip_operator_to_m_body_recursive(
 
 
 def project_quadraticform_operator_as_n_body_operator(
-    operator, nmax: Optional[int] = 1, sigma: Optional[ProductDensityOperator] = None
+    operator, n_max: Optional[int] = 1, sigma: Optional[ProductDensityOperator] = None
 ) -> Operator:
     """
     Project a product operator to the manifold of n-body operators
     """
-    if nmax != 2:
-        return n_body_projector(operator.as_sum_of_products(), nmax, sigma)
+    if n_max != 2:
+        return n_body_projector(operator.as_sum_of_products(), n_max, sigma)
 
     linear_term = operator.linear_term
-    offset = n_body_projector(operator.offset, nmax, sigma)
-    if offset is operator.offset:
+    offset = operator.offset
+    if offset:
+        new_offset = n_body_projector(offset, n_max, sigma) if offset else offset
+
+    if new_offset is offset:
         return operator
+
     return QuadraticFormOperator(
-        operator.basis, operator.weights, operator.system, linear_term, offset
-    )
+        operator.basis, operator.weights, operator.system, linear_term, new_offset)
 
 
 def project_qutip_operator_as_n_body_operator(
-    operator, nmax: int = 1, sigma_ref: Optional[ProductDensityOperator] = None
+    full_operator:QutipOperator, n_max: int = 1, sigma_ref: Optional[ProductDensityOperator] = None
 ) -> Operator:
     """
-    Project a qutip operator to the manifold of n-body operators
+    Project a QutipOperator to the manifold of n-body operators.
+    For non-trivial cases, this routine converts `full_operator` to the form
+    of a sum of ProductOperators, and then project each term.
     """
-    acts_over = operator.acts_over()
-    if acts_over is not None and len(cast(frozenset, acts_over)) <= nmax:
-        return operator
-
-    if nmax == 0:
+    if n_max == 0:
         return ScalarOperator(
-            compute_operator_expectation_value(operator, sigma_ref),
-            operator.system,
+            compute_operator_expectation_value(full_operator, sigma_ref),
+            full_operator.system,
         )
+    # Reduce a qutip operator
+    site_names = full_operator.site_names
+    if len(site_names) <= n_max:
+        return full_operator
 
-    system = operator.system
-    sigma: ProductDensityOperator
-    if sigma_ref is None:
-        sigma = ProductDensityOperator({}, system=system)
-    else:
-        sigma = sigma_ref
-
-    operator = operator.as_sum_of_products()
+    system = full_operator.system
+    sigma: ProductDensityOperator = sigma_ref or ProductDensityOperator({}, system=system)
+    operator = full_operator.as_sum_of_products()
 
     terms_by_block: Dict[Optional[frozenset], List[Operator]] = {}
     one_body_terms: List[Operator] = []
@@ -469,14 +460,14 @@ def project_qutip_operator_as_n_body_operator(
         elif block_size == 1:
             one_body_terms.append(term.simplify())
             continue
-        elif block_size <= nmax:
+        elif block_size <= n_max:
             terms_by_block.setdefault(acts_over, []).append(term)
             continue
 
         #  project_product_operator_as_n_body_operator
         term = _project_product_operator_to_m_body_recursive(
             cast(ProductOperator, term),
-            nmax,
+            n_max,
             sigma,  # reduced_state_by_block(term, local_states_cache),
         )  # .simplify()
         if isinstance(term, OneBodyOperator):
