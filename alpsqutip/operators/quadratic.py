@@ -536,7 +536,7 @@ def build_quadratic_form_from_operator(
     """
     Build a QuadraticFormOperator from `operator`
     """
-    # Required for `assert` test bellow
+    # Required for `assert` test below
     # from alpsqutip.operators.states.basic import (
     #    ProductDensityOperator,
     # )
