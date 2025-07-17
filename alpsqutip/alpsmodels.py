@@ -411,6 +411,27 @@ class ModelDescriptor:
     def __repr__(self):
         return repr(self.__dict__)
 
+    def __eq__(self, other):
+        # To be the same, two ``ModelDescriptor``
+        # objects should share their `name`, `parms`,
+        # `site_basis`, `bond_ops` and `global_ops`
+        if self.name != other.name:
+            return False
+        if self.site_basis != other.site_basis:
+
+            return False
+        if self.parms != other.parms:
+
+            return False
+        if self.bond_ops != other.bond_ops:
+
+            return False
+        if self.global_ops != other.global_ops:
+
+            return False
+
+        return True
+
 
 def qutip_model_from_dims(dims, local_ops=None, global_ops=None, model_name="qutip"):
     """

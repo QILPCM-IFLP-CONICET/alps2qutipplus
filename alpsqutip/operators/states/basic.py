@@ -3,6 +3,7 @@ Density operator classes.
 """
 
 import logging
+import pickle
 from numbers import Number
 from typing import Iterable, Optional, Tuple, Union, cast
 
@@ -120,6 +121,17 @@ class DensityOperatorMixin:
             )
         return operand - (-self)
 
+    def __getstate__(self):
+        if hasattr(self, "_serialized"):
+            return self._serialized
+        state = self.__dict__.copy()
+        self._serialized = pickle.dumps(state)
+        return self._serialized
+
+    def __setstate__(self, state):
+        state_dict = pickle.loads(state)
+        self.__dict__.update(state_dict)
+
     def dag(self) -> Operator:
         return cast(Operator, self)
 
@@ -134,10 +146,13 @@ class DensityOperatorMixin:
         """Compute the expectation value of an observable"""
         # TODO: expode that expectation values of operators just requires the
         # state where the operators acts.
-        from alpsqutip.operators.states.utils import collect_local_states
+        from alpsqutip.operators.states.utils import (
+            collect_local_states,
+            reduced_state_by_block,
+        )
 
         local_states = collect_local_states(obs_objs, self)
-        local_states.update({None: self})
+        # local_states = {None: self}
 
         def do_evaluate_expect(obs):
             """
@@ -156,7 +171,7 @@ class DensityOperatorMixin:
                 return np.array([do_evaluate_expect(operator) for operator in obs])
 
             if isinstance(obs, QuadraticFormOperator):
-                obs = obs.to_sum_operator()
+                obs = obs.as_sum_of_products()
 
             obs = obs.simplify()
             if isinstance(obs, SumOperator):
@@ -171,15 +186,16 @@ class DensityOperatorMixin:
             # we already try with the implementation of the subclasses. Then, let's rely
             # in the generic implementation: convert everything to qutip and evaluate
             # the trace:
+            local_state_acts_over = reduced_state_by_block(obs, local_states)
             if obs_objs is obs:
                 block = tuple(sorted(acts_over))
                 return (
-                    local_states[acts_over].to_qutip(block) * obs.to_qutip(block)
+                    local_state_acts_over.to_qutip(block) * obs.to_qutip(block)
                 ).tr()
 
             # If obs comes from an internal call, then try to use the specific method
             # of the subclass.
-            return local_states[acts_over].expect(obs)
+            return local_state_acts_over.expect(obs)
 
         return do_evaluate_expect(obs_objs)
 

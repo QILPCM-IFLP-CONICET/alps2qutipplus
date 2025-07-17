@@ -8,7 +8,11 @@ from typing import Union
 import numpy as np
 from qutip import Qobj
 
-from alpsqutip.operators.arithmetic import OneBodyOperator, SumOperator
+from alpsqutip.operators.arithmetic import (
+    OneBodyOperator,
+    SumOperator,
+    iterable_to_operator,
+)
 from alpsqutip.operators.basic import (
     LocalOperator,
     Operator,
@@ -664,9 +668,9 @@ def _(x_op: SumOperator, y_value: Number):
     if y_value == 0:
         return ScalarOperator(0, x_op.system)
 
-    terms = tuple(term * y_value for term in x_op.terms)
+    terms = tuple((term * y_value) for term in x_op.terms)
     isherm = x_op._isherm and (not isinstance(y_value, complex) or y_value.imag == 0)
-    return SumOperator(terms, x_op.system, isherm).simplify()
+    return SumOperator(terms, x_op.system, isherm, simplified=x_op._simplified)
 
 
 @Operator.register_mul_handler(
@@ -697,7 +701,7 @@ def _(y_value: Number, x_op: SumOperator):
 
     terms = tuple(term * y_value for term in x_op.terms)
     isherm = x_op._isherm and (not isinstance(y_value, complex) or y_value.imag == 0)
-    return SumOperator(terms, x_op.system, isherm).simplify()
+    return SumOperator(terms, x_op.system, isherm, simplified=x_op._simplified)
 
 
 # SumOperator times ScalarOperator
@@ -729,10 +733,8 @@ def _(x_op: SumOperator, y_op: ScalarOperator):
         return ScalarOperator(0, system)
 
     terms = tuple(term * y_value for term in x_op.terms)
-    if len(terms) == 1:
-        return terms[0]
     isherm = x_op._isherm and (not isinstance(y_value, complex) or y_value.imag == 0)
-    return SumOperator(terms, system, isherm)
+    return iterable_to_operator(terms, system, isherm=isherm)
 
 
 @Operator.register_mul_handler(
@@ -761,10 +763,10 @@ def _(y_op: ScalarOperator, x_op: SumOperator):
         return ScalarOperator(0, system)
 
     terms = tuple(term * y_value for term in x_op.terms)
-    if len(terms) == 1:
-        return terms[0]
     isherm = x_op._isherm and (not isinstance(y_value, complex) or y_value.imag == 0)
-    return SumOperator(terms, system, isherm)
+    return iterable_to_operator(
+        terms, system, isherm=isherm, simplified=x_op._simplified
+    )
 
 
 # Sum with LocalOperator
@@ -803,12 +805,8 @@ def _(
 
     terms_it = (term * y_op for term in x_op.terms)
     terms = tuple(term for term in terms_it if bool(term))
-    if len(terms) == 0:
-        return ScalarOperator(0, system)
-    if len(terms) == 1:
-        return terms[0]
     isherm = x_op._isherm and y_op.isherm
-    return SumOperator(terms, system, isherm)
+    return iterable_to_operator(terms, system, isherm=isherm)
 
 
 @Operator.register_mul_handler(
@@ -840,12 +838,8 @@ def _(y_op: LocalOperator, x_op: SumOperator):
     system = x_op.system.union(y_op.system)
     terms_it = (y_op * term for term in x_op.terms)
     terms = tuple(term for term in terms_it if bool(term))
-    if len(terms) == 0:
-        return ScalarOperator(0, system)
-    if len(terms) == 1:
-        return terms[0]
     isherm = x_op._isherm and y_op.isherm
-    return SumOperator(terms, system, isherm)
+    return iterable_to_operator(terms, system, isherm=isherm)
 
 
 # SumOperator and any Operator
@@ -887,7 +881,7 @@ def _(x_op: SumOperator, y_op: Operator):
     if len(terms) == 1:
         return terms[0]
     isherm = x_op._isherm and y_op.isherm
-    return SumOperator(terms, system, isherm)
+    return iterable_to_operator(terms, system, isherm=isherm)
 
 
 # Sum another sum operator
@@ -914,11 +908,7 @@ def _(x_op: SumOperator, y_op: SumOperator):
     system = x_op.system.union(y_op.system)
     terms = x_op.terms + y_op.terms
     isherm = x_op._isherm and y_op._isherm
-    if len(terms) == 0:
-        return ScalarOperator(0, system)
-    if len(terms) == 1:
-        return terms[0]
-    return SumOperator(terms, system, isherm)
+    return iterable_to_operator(terms, system, isherm=isherm)
 
 
 @Operator.register_mul_handler(
@@ -983,13 +973,12 @@ def _(x_op: SumOperator, y_op: Operator):
     -------
 
     """
-    system = x_op.system * y_op.system if x_op.system else y_op.system
+    system = x_op.system.union(y_op.system)
+    if y_op.is_zero:
+        return ScalarOperator(0.0, system)
+
     terms = tuple(factor_x * y_op for factor_x in x_op.terms)
-    if len(terms) == 0:
-        return ScalarOperator(0, system)
-    if len(terms) == 1:
-        return terms[0]
-    return SumOperator(terms, system)
+    return iterable_to_operator(terms, system)
 
 
 @Operator.register_mul_handler(
@@ -1018,12 +1007,11 @@ def _(y_op: Operator, x_op: SumOperator):
 
     """
     system = x_op.system.union(y_op.system)
+    if y_op.is_zero:
+        return ScalarOperator(0.0, system)
+
     terms = tuple(y_op * factor_x for factor_x in x_op.terms)
-    if len(terms) == 0:
-        return ScalarOperator(0, system)
-    if len(terms) == 1:
-        return terms[0]
-    return SumOperator(terms, system)
+    return iterable_to_operator(terms, system)
 
 
 # ######################
@@ -2113,7 +2101,7 @@ def _(op1: Operator, op2: QuadraticFormOperator):
     -------
 
     """
-    return op1 * op2.to_sum_operator()
+    return op1 * op2.as_sum_of_products()
 
 
 @Operator.register_mul_handler(

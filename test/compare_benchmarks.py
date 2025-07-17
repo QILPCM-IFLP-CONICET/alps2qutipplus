@@ -19,21 +19,21 @@ def compare_benchmarks(ref_bench, new_bench):
         # cases:
         threshold = std_ref + std_new + 0.05 * max(mean_ref, mean_new)
         if abs(diff) > threshold:
+            pct = abs(diff) / mean_ref * 100
             direction, color = (
                 (
-                    "regression",
+                    f"regression {pct:.2f}%",
                     "\033[91m",
                 )
                 if diff > 0
                 else (
-                    "progress",
+                    f"progress {pct:.2f}%",
                     "\033[92m",
                 )
             )
-            pct = abs(diff) / mean_ref * 100
             summary.append(
-                f"{name}: {color} {direction.upper()} \033[0m ({mean_ref:.6f} -> {mean_new:.6f}, "
-                f"Δ={diff:.6f}, threshold={threshold:.6f}, {pct:.2f}% change)"
+                f"{color}{direction.upper()} \033[0m {name}: ({mean_ref:.6f} -> {mean_new:.6f}, "
+                f"Δ={diff:.6f}, threshold={threshold:.6f})"
             )
     return summary
 
@@ -85,13 +85,14 @@ if __name__ == "__main__":
             "gram",
             "commutators",
             "projections",
+            "expect",
         ):
             ref_file = get_latest_bench_file("main", bench_set)
             new_file = get_latest_bench_file(current_hash, bench_set)
 
             if ref_file and new_file:
                 # Do your comparison as before
-                print(f"Comparing {ref_file} (main) to {new_file} (current branch)")
+                print(f"\nComparing {ref_file} (main) to {new_file} (current branch)")
                 ref_bench = load_benchmark(ref_file)
                 new_bench = load_benchmark(new_file)
                 results = compare_benchmarks(ref_bench, new_bench)

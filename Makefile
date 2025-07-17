@@ -26,14 +26,20 @@ BENCHMARK_FILE := bench_$(shell date +%Y%m%d)_$(shell git rev-parse --short HEAD
     all \
     benchmark \
     benchmark-clean\
+    benchmark-expect \
+    benchmark-commutators \
+    benchmark-gram \
+    benchmark-projections \
     benchmark-show \
+    benchmark-set-reference \
     check_pre_commit \
+    conventions \
     develop \
     docs\
     docs-clean\
     install \
-    pytest \
-    conventions \
+    pytest
+
 
 
 all: develop check_pre_commit
@@ -72,12 +78,22 @@ docs-clean:
 	rm -rf $(BUILDDIR)
 
 
-benchmark:
+benchmark: benchmark-expect benchmark-commutators benchmark-gram benchmark-projections
 
-	BENCHMARKS=1 CHAIN_SIZE=20 pytest --benchmark-enable --benchmark-save="gram_$(BENCHMARK_FILE)" --benchmark-columns=min test/scalar_product/test_gram.py
-	BENCHMARKS=1 CHAIN_SIZE=20 pytest --benchmark-enable --benchmark-save="commutators_$(BENCHMARK_FILE)" --benchmark-columns=min test/basic_operators/test_operator_functions_benchmarks.py
-	BENCHMARKS=1 CHAIN_SIZE=20 pytest -x --benchmark-enable --benchmark-save="projections_$(BENCHMARK_FILE)" --benchmark-columns=min test/states/test_projections_benchmark.py
+benchmark-expect:
+	BENCHMARKS=1 ALPSQUTIP_ALLTESTS=1 CHAIN_SIZE=20 pytest -x --benchmark-enable --benchmark-save="expect_$(BENCHMARK_FILE)" --benchmark-columns=min test/states/test_expect_benchmark.py
 
+benchmark-gram:
+	BENCHMARKS=1 ALPSQUTIP_ALLTESTS=1 CHAIN_SIZE=20 pytest --benchmark-enable --benchmark-save="gram_$(BENCHMARK_FILE)" --benchmark-columns=min test/scalar_product/test_gram.py
+
+benchmark-commutators:
+	BENCHMARKS=1 ALPSQUTIP_ALLTESTS=1 CHAIN_SIZE=20 pytest --benchmark-enable --benchmark-save="commutators_$(BENCHMARK_FILE)" --benchmark-columns=min test/basic_operators/test_operator_functions_benchmarks.py
+
+benchmark-projections:
+	BENCHMARKS=1 ALPSQUTIP_ALLTESTS=1 CHAIN_SIZE=20 pytest -x --benchmark-enable --benchmark-save="projections_$(BENCHMARK_FILE)" --benchmark-columns=min test/states/test_projections_benchmark.py
+
+benchmark-set-reference:
+	python test/set_benchmark_reference.py
 
 benchmark-clean:
 	rm -R .benchmarks
