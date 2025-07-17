@@ -31,6 +31,7 @@ BENCHMARK_FILE := bench_$(shell date +%Y%m%d)_$(shell git rev-parse --short HEAD
     benchmark-gram \
     benchmark-projections \
     benchmark-show \
+    benchmark-set-reference \
     check_pre_commit \
     conventions \
     develop \
@@ -91,6 +92,8 @@ benchmark-commutators:
 benchmark-projections:
 	BENCHMARKS=1 ALPSQUTIP_ALLTESTS=1 CHAIN_SIZE=20 pytest -x --benchmark-enable --benchmark-save="projections_$(BENCHMARK_FILE)" --benchmark-columns=min test/states/test_projections_benchmark.py
 
+benchmark-set-reference:
+	python test/set_benchmark_reference.py
 
 benchmark-clean:
 	rm -R .benchmarks
