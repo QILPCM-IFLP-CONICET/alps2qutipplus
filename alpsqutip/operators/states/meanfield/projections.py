@@ -190,13 +190,8 @@ def _project_qutip_operator_to_m_body_recursive(
                 new_term = delta * reduced_op
                 terms.append(new_term)
 
-    if terms:
-        if len(terms) == 1:
-            return terms[0]
-        result = SumOperator(tuple(terms), system).simplify()
+    return iterable_to_operator(terms, system)
 
-        return result
-    return ScalarOperator(0, full_operator.system)
 
 
 def one_body_from_qutip_operator(
@@ -323,15 +318,12 @@ def project_operator_to_m_body(
                 for term in sorted(full_operator.terms, key=acts_over_order)
             )
         )
-        if len(terms) == 0:
-            return ScalarOperator(0, system)
-        if len(terms) == 1:
-            return terms[0]
         if len(full_operator.terms) == len(terms) and all(
             t1 is t2 for t1, t2 in zip(full_operator.terms, terms)
         ):
             return full_operator
-        return SumOperator(terms, system).simplify()
+
+        return iterable_to_operator(terms, system).simplify()
 
     if isinstance(full_operator, ProductOperator):
         return _project_product_operator_to_m_body_recursive(
@@ -339,7 +331,7 @@ def project_operator_to_m_body(
         )
 
     if isinstance(full_operator, QutipOperator):
-        return _project_qutip_operator_to_m_body_recursive(
+        return project_qutip_operator_as_n_body_operator(
             full_operator, m_max, sigma_0
         )
 
@@ -413,16 +405,8 @@ def _project_qutip_operator_to_m_body_recursive(
                 new_term = (delta * reduced_op).simplify()
                 terms.append(new_term)
 
-    if terms:
-        if len(terms) == 1:
-            return terms[0]
-        result = SumOperator(tuple(terms), system).simplify()
-        error_ev = sigma_0.expect(full_operator - result)
-        assert (
-            abs(error_ev) < 1e-10
-        ), f"The difference should have a vanishing expectation value. Got {error_ev}."
-        return result
-    return ScalarOperator(0, full_operator.system)
+    return iterable_to_operator(terms, system)
+
 
 
 def project_quadraticform_operator_as_n_body_operator(
@@ -533,19 +517,13 @@ def project_qutip_operator_as_n_body_operator(
             except Exception as e:
                 logging.error(e)
 
-    if len(terms_list) == 0:
-        return ScalarOperator(0, system)
-    if len(terms_list) == 1:
-        return terms_list[0]
-    return SumOperator(tuple(terms_list), system)
+    return iterable_to_operator(terms_list, system)
 
 
 def projector_dispatch_worker(term, nmax, sigma):
     dispatch_project_method = {
-        # ProductOperator: project_product_operator_as_n_body_operator,
         ProductOperator: _project_product_operator_to_m_body_recursive,
-        # QutipOperator: project_qutip_operator_as_n_body_operator,
-        QutipOperator: _project_qutip_operator_to_m_body_recursive,
+        QutipOperator: project_qutip_operator_as_n_body_operator,
         QuadraticFormOperator: project_quadraticform_operator_as_n_body_operator,
     }
     return (

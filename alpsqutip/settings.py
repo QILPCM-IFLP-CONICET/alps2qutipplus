@@ -3,7 +3,7 @@
 """
 Created on Tue Sep 12 19:07:05 2023
 
-@author: mauricio
+@author: mmatera@fisica.unlp.edu.ar
 """
 
 # import os
