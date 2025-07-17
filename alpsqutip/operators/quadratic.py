@@ -183,6 +183,12 @@ class QuadraticFormOperator(Operator):
             offset,
         )
 
+    def _set_system_(self, system=None):
+        self.system = system
+        for basis_elem in self.basis:
+            basis_elem._set_system_(system)
+        return self
+
     def acts_over(self):
         """
         Set of sites over the state acts.

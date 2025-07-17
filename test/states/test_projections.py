@@ -3,6 +3,8 @@ Test functions that implement n-body projections
 """
 
 import os
+from functools import reduce
+from itertools import combinations
 from test.helper import (
     CHAIN_SIZE,
     HAMILTONIAN,
@@ -15,12 +17,14 @@ from test.helper import (
     TEST_CASES_STATES,
     check_operator_equality,
 )
+from typing import Dict, Optional, cast
 
 import pytest
 
 from alpsqutip.operators import (
     LocalOperator,
     OneBodyOperator,
+    Operator,
     ProductOperator,
     QutipOperator,
     ScalarOperator,
@@ -35,11 +39,10 @@ from alpsqutip.operators.states.meanfield import (
     project_meanfield,
     project_operator_to_m_body,
 )
-from alpsqutip.operators.states.meanfield.projections import (
+from alpsqutip.operators.states.meanfield.projections import (  # project_product_operator_as_n_body_operator,
     _project_qutip_operator_to_m_body_recursive,
-    project_product_operator_as_n_body_operator,
+    n_body_projector,
     project_qutip_operator_as_n_body_operator,
-    project_to_n_body_operator,
 )
 from alpsqutip.settings import ALPSQUTIP_TOLERANCE
 
@@ -130,6 +133,60 @@ if os.environ.get("ALPSQUTIP_ALLTESTS"):
 ######################################################
 
 
+def project_product_operator_to_n_body_combinatorial(
+    operator: Operator,
+    nmax: int = 1,
+    sigma: Optional[ProductDensityOperator] = None,
+) -> Operator:
+    """
+    Project a product operator to the manifold of n-body operators
+    using a combinatorial approach. Used just for testing,
+    since it is always very inefficient compared against the
+    recursive algorithm.
+    """
+    # Trivial case
+    src_operator: ProductOperator = cast(ProductOperator, operator)
+    sites_op = src_operator.sites_op
+    prefactor = src_operator.prefactor
+    system = operator.system
+    if prefactor == 0.0:
+        return ScalarOperator(0, system)
+
+    if len(sites_op) <= nmax:
+        return operator
+
+    def mul_func(x, y):
+        return x * y
+
+    if sigma is None:
+        sigma = ProductDensityOperator({}, system=system)
+
+    terms = []
+    averages: Dict[str, Operator] = cast(
+        Dict[str, Operator],
+        sigma.expect(
+            {site: LocalOperator(site, l_op, system) for site, l_op in sites_op.items()}
+        ),
+    )
+    fluct_op = {site: l_op - averages[site] for site, l_op in sites_op.items()}
+    # Now, we run a loop over
+    for n_factors in range(nmax + 1):
+        # subterms = terms_by_factors.setdefault(n_factors, [])
+        for subcomb in combinations(sites_op, n_factors):
+            num_factors = (val for site, val in averages.items() if site not in subcomb)
+            term_prefactor = reduce(mul_func, num_factors, prefactor)
+            if term_prefactor == 0:
+                continue
+            sub_site_ops = {site: fluct_op[site] for site in subcomb}
+            terms.append(ProductOperator(sub_site_ops, term_prefactor, system))
+
+    if len(terms) == 0:
+        return ScalarOperator(0, system)
+    if len(terms) == 1:
+        return terms[0]
+    return SumOperator(tuple(terms), system)
+
+
 @pytest.mark.parametrize(["op_name", "op_test"], list(TEST_OPERATORS.items()))
 def test_compare_recursive_and_iterative_n_body_projections(op_name, op_test):
     """
@@ -148,7 +205,7 @@ def test_compare_recursive_and_iterative_n_body_projections(op_name, op_test):
         for n_body in [1]:
             print("   n=", n_body)
             result_m = project_operator_to_m_body(op_test, n_body, sigma0)
-            result_n = project_to_n_body_operator(op_test, n_body, sigma0)
+            result_n = n_body_projector(op_test, n_body, sigma0)
             if not check_operator_equality(result_m, result_n, 1.0e-6):
                 failed[
                     (
@@ -230,7 +287,7 @@ def test_compare_iterative_and_recursive_n_body_product_projections(op_name, op_
         for n_body in range(0, 4):
             print("   n=", n_body)
             result_m = project_operator_to_m_body(op_test, n_body, sigma0)
-            result_n = project_product_operator_as_n_body_operator(
+            result_n = project_product_operator_to_n_body_combinatorial(
                 op_test, n_body, sigma0
             )
             if not check_operator_equality(result_m, result_n, 1e-7):
@@ -256,7 +313,7 @@ def test_compare_iterative_and_recursive_n_body_product_projections(op_name, op_
         (name, proj_name, proj_func)
         for name in TEST_OPERATORS
         for proj_name, proj_func in (
-            ("project_to_n_body_operator", project_to_n_body_operator),
+            ("n_body_projector", n_body_projector),
             ("project_operator_to_m_body", project_operator_to_m_body),
         )
     ],
@@ -282,7 +339,7 @@ def test_idempotency_nbody_projection(op_name, projection_name, projection_funct
         (state_name, state, proj_name, proj_func)
         for state_name, state in TEST_CASES_STATES.items()
         for proj_name, proj_func in (
-            ("project_to_n_body_operator", project_to_n_body_operator),
+            ("n_body_projector", n_body_projector),
             ("project_operator_to_m_body", project_operator_to_m_body),
         )
         if isinstance(state, (GibbsProductDensityOperator, ProductDensityOperator))
@@ -378,9 +435,7 @@ def test_compare_meanfield_projection_using_iterative_and_recursive_projections(
         result_m = project_meanfield(
             op_test, sigma0, proj_func=project_operator_to_m_body
         )
-        result_n = project_meanfield(
-            op_test, sigma0, proj_func=project_to_n_body_operator
-        )
+        result_n = project_meanfield(op_test, sigma0, proj_func=n_body_projector)
         if not check_operator_equality(result_m.to_qutip(), result_n.to_qutip()):
             failed[state_name] = (
                 f"Result:\n{result_m}\n\n Result n:\n{result_n}\n\nDelta = \n{result_m.to_qutip()-result_n.to_qutip()}"

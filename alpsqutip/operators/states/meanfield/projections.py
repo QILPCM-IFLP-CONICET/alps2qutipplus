@@ -3,8 +3,6 @@ Module that implements a meanfield approximation of a Gibbsian state
 """
 
 import logging
-from functools import reduce
-from itertools import combinations
 from typing import Callable, Dict, List, Optional, Tuple, Union, cast
 
 import qutip
@@ -19,6 +17,7 @@ from alpsqutip.operators import (
     ScalarOperator,
     SumOperator,
 )
+from alpsqutip.operators.arithmetic import iterable_to_operator
 from alpsqutip.operators.quadratic import QuadraticFormOperator
 from alpsqutip.operators.qutip import QutipOperator
 from alpsqutip.operators.states.basic import (
@@ -48,6 +47,7 @@ USE_THREADS = alpsqutip_settings.PARALLEL_USE_THREADS
 if USE_PARALLEL:
     try:
         from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+        from functools import partial
 
         logging.info("using parallel routines to build Gram's matrices.")
     except ModuleNotFoundError:
@@ -194,10 +194,7 @@ def _project_qutip_operator_to_m_body_recursive(
         if len(terms) == 1:
             return terms[0]
         result = SumOperator(tuple(terms), system).simplify()
-        # error_ev = compute_operator_expectation_value(full_operator - result, sigma_0)
-        # assert (
-        #    abs(error_ev) < ALPSQUTIP_TOLERANCE
-        # ), f"The difference should have a vanishing expectation value. Got {error_ev}."
+
         return result
     return ScalarOperator(0, full_operator.system)
 
@@ -428,57 +425,6 @@ def _project_qutip_operator_to_m_body_recursive(
     return ScalarOperator(0, full_operator.system)
 
 
-def project_product_operator_as_n_body_operator(
-    operator: Operator,
-    nmax: int = 1,
-    sigma: Optional[ProductDensityOperator] = None,
-) -> Operator:
-    """
-    Project a product operator to the manifold of n-body operators
-    """
-    # Trivial case
-    src_operator: ProductOperator = cast(ProductOperator, operator)
-    sites_op = src_operator.sites_op
-    prefactor = src_operator.prefactor
-    system = operator.system
-    if prefactor == 0.0:
-        return ScalarOperator(0, system)
-
-    if len(sites_op) <= nmax:
-        return operator
-
-    def mul_func(x, y):
-        return x * y
-
-    if sigma is None:
-        sigma = ProductDensityOperator({}, system=system)
-
-    terms = []
-    averages: Dict[str, Operator] = cast(
-        Dict[str, Operator],
-        sigma.expect(
-            {site: LocalOperator(site, l_op, system) for site, l_op in sites_op.items()}
-        ),
-    )
-    fluct_op = {site: l_op - averages[site] for site, l_op in sites_op.items()}
-    # Now, we run a loop over
-    for n_factors in range(nmax + 1):
-        # subterms = terms_by_factors.setdefault(n_factors, [])
-        for subcomb in combinations(sites_op, n_factors):
-            num_factors = (val for site, val in averages.items() if site not in subcomb)
-            term_prefactor = reduce(mul_func, num_factors, prefactor)
-            if term_prefactor == 0:
-                continue
-            sub_site_ops = {site: fluct_op[site] for site in subcomb}
-            terms.append(ProductOperator(sub_site_ops, term_prefactor, system))
-
-    if len(terms) == 0:
-        return ScalarOperator(0, system)
-    if len(terms) == 1:
-        return terms[0]
-    return SumOperator(tuple(terms), system)
-
-
 def project_quadraticform_operator_as_n_body_operator(
     operator, nmax: Optional[int] = 1, sigma: Optional[ProductDensityOperator] = None
 ) -> Operator:
@@ -486,10 +432,10 @@ def project_quadraticform_operator_as_n_body_operator(
     Project a product operator to the manifold of n-body operators
     """
     if nmax != 2:
-        project_to_n_body_operator(operator, nmax, sigma)
+        return n_body_projector(operator.as_sum_of_products(), nmax, sigma)
 
     linear_term = operator.linear_term
-    offset = project_to_n_body_operator(operator.offset, nmax, sigma)
+    offset = n_body_projector(operator.offset, nmax, sigma)
     if offset is operator.offset:
         return operator
     return QuadraticFormOperator(
@@ -594,19 +540,20 @@ def project_qutip_operator_as_n_body_operator(
     return SumOperator(tuple(terms_list), system)
 
 
-def projector_dispatch_worker(parms):
+def projector_dispatch_worker(term, nmax, sigma):
     dispatch_project_method = {
         # ProductOperator: project_product_operator_as_n_body_operator,
         ProductOperator: _project_product_operator_to_m_body_recursive,
-        QutipOperator: project_qutip_operator_as_n_body_operator,
-        # QutipOperator: _project_qutip_operator_to_m_body_recursive,
+        # QutipOperator: project_qutip_operator_as_n_body_operator,
+        QutipOperator: _project_qutip_operator_to_m_body_recursive,
         QuadraticFormOperator: project_quadraticform_operator_as_n_body_operator,
     }
-    term, nmax, sigma = parms
-    return dispatch_project_method[type(term)](*parms)
+    return (
+        dispatch_project_method[type(term)](term, nmax, sigma).simplify()._set_system_()
+    )
 
 
-def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
+def n_body_projector(operator, nmax=1, sigma=None) -> Operator:
     """
     Approximate `operator` by a sum of (up to) nmax-body
     terms, relative to the state sigma.
@@ -614,7 +561,6 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
 
     ``operator`` can be a SumOperator or a Product Operator.
     """
-
     terms_tuple: Tuple[Operator]
     system = operator.system
     # Handle the trivial case
@@ -647,24 +593,19 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
     else:
         terms_tuple = (operator,)
 
-    changed = False
     one_body_terms = []
     block_terms: Dict[Optional[frozenset], Operator] = {}
-    non_dispatched_length = 0
+
     def dispatch_term(t):
         """
         If t is a nbody-term acting on not more than
         nmax sites, stores in the proper place and return True.
         Otherwise, return False.
         """
-        nonlocal non_dispatched_length
         if isinstance(t, OneBodyOperator):
             one_body_terms.append(t)
             return True
         acts_over_t = t.acts_over()
-        # assert isinstance(
-        #    acts_over_t, frozenset
-        # ), f"{type(t)}.acts_over() should return a frozenset. Got({type(acts_over_t)})"
         n_body_sector = len(acts_over_t)
         if n_body_sector <= 1:
             one_body_terms.append(t)
@@ -677,34 +618,42 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
             else:
                 block_terms[acts_over_t] = t
             return True
-        non_dispatched_length += 1
         return False
 
-    # Process all the terms
-    non_dispatched_terms = (
-        (
-            term,
-            nmax,
-            sigma,
-        )
-        for term in terms_tuple
-        if not dispatch_term(term)
+    non_dispatched_terms = tuple(
+        term for term in terms_tuple if not dispatch_term(term)
     )
+    for i, t in enumerate(non_dispatched_terms):
+        t.name = f"term_{i}"
 
+    # Process all the terms
     if USE_PARALLEL:
+        non_dispatched_length = len(non_dispatched_terms)
+        project_worker = partial(projector_dispatch_worker, nmax=nmax, sigma=sigma)
         executor_cls = ThreadPoolExecutor if USE_THREADS else ProcessPoolExecutor
-        chunksize= max(1, int(non_dispatched_length/MAX_WORKERS))
+        chunksize = max(1, int(non_dispatched_length / MAX_WORKERS))
         with executor_cls(max_workers=MAX_WORKERS) as executor:
             non_dispatched_terms = tuple(
-                x for x in executor.map(projector_dispatch_worker, non_dispatched_terms, chunksize=chunksize)
+                term
+                for term in executor.map(
+                    project_worker, non_dispatched_terms, chunksize=chunksize
+                )
             )
     else:
-        non_dispatched_terms = (
-            projector_dispatch_worker(parms) for parms in non_dispatched_terms
+        non_dispatched_length = len(non_dispatched_terms)
+        non_dispatched_terms = tuple(
+            projector_dispatch_worker(term, nmax, sigma)
+            for term in non_dispatched_terms
         )
 
+    if not non_dispatched_terms:
+        # The projection acts trivially on this operator.
+        # Return it without changes.
+        return untouched_operator
+
     for term in non_dispatched_terms:
-        changed = True
+        term._set_system_(system)
+
         if isinstance(term, (ScalarOperator, LocalOperator, OneBodyOperator)):
             one_body_terms.append(term)
         elif isinstance(term, SumOperator):
@@ -713,9 +662,6 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
         else:
             if not dispatch_term(term):
                 raise TypeError(f"term of type {type(term)} could not be dispatched.")
-
-    if not changed:
-        return untouched_operator
 
     scalar = sum(
         term.prefactor for term in one_body_terms if isinstance(term, ScalarOperator)
@@ -730,8 +676,4 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
     if proper_local_terms:
         terms.append(sum(proper_local_terms).simplify())
 
-    if len(terms) == 0:
-        return ScalarOperator(0, system)
-    if len(terms) == 1:
-        return terms[0]
-    return SumOperator(tuple(terms), system)
+    return iterable_to_operator(terms, system)
