@@ -21,9 +21,7 @@ from alpsqutip.settings import ALPSQUTIP_TOLERANCE
 
 
 class SumOperator(Operator):
-    """
-    Represents a linear combination of operators
-    """
+    """Represents a linear combination of operators"""
 
     terms: Tuple[Operator]
 
@@ -105,6 +103,7 @@ class SumOperator(Operator):
         return f"${result}$"
 
     def acts_over(self):
+        """ """
         result = set()
         system_size = len(self.system.sites)
         for term in self.terms:
@@ -117,15 +116,19 @@ class SumOperator(Operator):
         return frozenset(result)
 
     def dag(self):
-        """return the adjoint operator"""
+        """ """
         if self._isherm:
             return self
         return SumOperator(tuple(term.dag() for term in self.terms), self.system)
 
     def flat(self):
-        """
-        Use the associativity to write the sum of sums
+        """Use the associativity to write the sum of sums
         as a sum of non sum terms.
+
+        Returns
+        -------
+        The object in flat representation, it. if the object is a sum,
+        the terms of objects that are not sums.
         """
         terms = []
         changed = False
@@ -151,10 +154,21 @@ class SumOperator(Operator):
 
     @property
     def isherm(self) -> bool:
+        """ """
         isherm = self._isherm
 
         def aggresive_hermitician_test(non_hermitian_tuple: Tuple[Operator]):
-            """Determine if the antihermitician part is zero"""
+            """Determine if the antihermitician part is zero
+
+            Parameters
+            ----------
+            non_hermitian_tuple: Tuple[Operator] :
+
+
+            Returns
+            -------
+
+            """
             # Here we assume that after simplify, the operator is a single term
             # (not a SumOperator), a OneBodyOperator, or a sum of a one-body operator
             # and terms acting over an specific block.
@@ -195,6 +209,7 @@ class SumOperator(Operator):
 
     @property
     def isdiagonal(self) -> bool:
+        """ """
         if self._isdiagonal is None:
             simplified = self if self._simplified else self.simplify()
             try:
@@ -205,6 +220,7 @@ class SumOperator(Operator):
 
     @property
     def is_zero(self) -> bool:
+        """ """
         simplify_self = self if self._simplified else self.simplify()
         if hasattr(simplify_self, "terms"):
             result = all(term.is_zero for term in simplify_self.terms)
@@ -215,7 +231,19 @@ class SumOperator(Operator):
         return result
 
     def partial_trace(self, sites: Union[frozenset, SystemDescriptor]):
-        """Compute the partial trace"""
+        """Compute the partial trace
+
+        Parameters
+        ----------
+        sites: Union[frozenset :
+
+        SystemDescriptor] :
+
+
+        Returns
+        -------
+
+        """
         if not isinstance(sites, SystemDescriptor):
             sites = self.system.subsystem(sites)
         new_terms = tuple((term.partial_trace(sites) for term in self.terms))
@@ -241,7 +269,18 @@ class SumOperator(Operator):
         return group_terms_by_blocks(self.flat().tidyup())
 
     def to_qutip(self, block: Optional[Tuple[str]] = None):
-        """Produce a qutip compatible object"""
+        """Produce a qutip compatible object
+
+        Parameters
+        ----------
+        block: Optional[Tuple[str]] :
+             (Default value = None)
+
+        Returns
+        -------
+        Return a Qutip Qobj representation of the object, acting
+        on the smallest subsystem containing the block.
+        """
         terms = self.terms
         system = self.system
         assert all(t.system is system for t in terms)
@@ -259,10 +298,23 @@ class SumOperator(Operator):
         return result
 
     def tr(self):
+        """ """
         return sum(t.tr() for t in self.terms)
 
     def tidyup(self, atol=None):
-        """Removes small elements from the quantum object."""
+        """Removes small elements from the quantum object.
+
+        Parameters
+        ----------
+        atol :
+             the tolerance in the truncation (Default value = None)
+
+        Returns
+        -------
+           A new Operator in whose representation
+           all the numbers with modules smaller that `atol`
+           are replaced by `0`
+        """
         tidy_terms = [term.tidyup(atol) for term in self.terms]
         tidy_terms = tuple((term for term in tidy_terms if term))
         return iterable_to_operator(tidy_terms, self.system)
@@ -290,6 +342,19 @@ class OneBodyOperator(SumOperator):
         assert system is not None
 
         def collect_systems(terms, system):
+            """
+
+            Parameters
+            ----------
+            terms :
+
+            system :
+
+
+            Returns
+            -------
+
+            """
             for term in terms:
                 if not hasattr(term, "system"):
                     continue
@@ -325,6 +390,7 @@ class OneBodyOperator(SumOperator):
         return OneBodyOperator(tuple(-term for term in self.terms), self.system)
 
     def dag(self):
+        """ """
         return OneBodyOperator(
             tuple(term.dag() for term in self.terms),
             system=self.system,
@@ -332,6 +398,7 @@ class OneBodyOperator(SumOperator):
         )
 
     def expm(self):
+        """ """
         # Import here to avoid circular dependency
         # pylint: disable=import-outside-toplevel
         from alpsqutip.operators.functions import eigenvalues
@@ -367,6 +434,7 @@ class OneBodyOperator(SumOperator):
         return ProductOperator(sites_op, prefactor=prefactor, system=self.system)
 
     def simplify(self):
+        """ """
         if self._simplified:
             return self
         terms, system = self._simplify_terms(self.terms, self.system)
@@ -431,7 +499,19 @@ class OneBodyOperator(SumOperator):
         return tuple(terms), system
 
     def tidyup(self, atol=None):
-        """Removes small elements from the quantum object."""
+        """Removes small elements from the quantum object.
+
+        Parameters
+        ----------
+        atol :
+             the tolerance upto the value of a number
+        is considered zero(Default value = None)
+
+        Returns
+        -------
+        Return a new Operator whose matrix elements with absolute
+        values smaller than tolerance are replaced by zero.
+        """
         tidy_terms = [term.tidyup(atol) for term in self.terms]
         tidy_terms = tuple((term for term in tidy_terms if term))
         isherm = all(term.isherm for term in tidy_terms) or None

@@ -25,8 +25,7 @@ from alpsqutip.operators.quadratic import QuadraticFormOperator
 
 
 class DensityOperatorMixin:
-    """
-    DensityOperatorMixin is a Mixing class that
+    """DensityOperatorMixin is a Mixing class that
     contributes operator subclasses with the method
     `expect`.
 
@@ -72,6 +71,13 @@ class DensityOperatorMixin:
     ```
     mix.expect(A)== (mix * A).tr()/sum([t.prefactor for t in A.terms])
     ```
+
+    Parameters
+    ----------
+
+    Returns
+    -------
+
     """
 
     prefactor: complex
@@ -133,9 +139,11 @@ class DensityOperatorMixin:
         self.__dict__.update(state_dict)
 
     def dag(self) -> Operator:
+        """ """
         return cast(Operator, self)
 
     def eigenstates(self) -> list:
+        """ """
         if isinstance(self, Operator):
             return super().eigenstates()  # type:ignore[misc]
         raise NotImplementedError
@@ -143,7 +151,19 @@ class DensityOperatorMixin:
     def expect(
         self, obs_objs: Union[Operator, Iterable]
     ) -> Union[np.ndarray, dict, Number]:
-        """Compute the expectation value of an observable"""
+        """Compute the expectation value of an observable
+
+        Parameters
+        ----------
+        obs_objs: Union[Operator :
+
+        Iterable] :
+
+
+        Returns
+        -------
+
+        """
         # TODO: expode that expectation values of operators just requires the
         # state where the operators acts.
         from alpsqutip.operators.states.utils import (
@@ -155,10 +175,18 @@ class DensityOperatorMixin:
         # local_states = {None: self}
 
         def do_evaluate_expect(obs):
-            """
-            Inner function to evaluate expectation values. This method keeps
+            """Inner function to evaluate expectation values. This method keeps
             track of the states of the subsystems required in the evaluation,
             which in typical cases is the most expensive part of the evaluation.
+
+            Parameters
+            ----------
+            obs :
+
+
+            Returns
+            -------
+
             """
             nonlocal local_states
 
@@ -201,13 +229,16 @@ class DensityOperatorMixin:
 
     @property
     def isherm(self):
+        """ """
         return True
 
     def simplify(self):
+        """ """
         # DensityOperator's are considered "simplified".
         return self
 
     def to_qutip_operator(self):
+        """ """
         from alpsqutip.operators.states import QutipDensityOperator
 
         block = tuple(sorted(self.system.sites))
@@ -219,6 +250,7 @@ class DensityOperatorMixin:
         )
 
     def tr(self):
+        """ """
         return 1
 
 
@@ -296,8 +328,22 @@ class ProductDensityOperator(DensityOperatorMixin, ProductOperator):
             return ProductOperator(self.sites_op, 1, self.system) * a
         return a * ProductOperator(self.sites_op, 1, self.system)
 
-    def expect(self, obs: Union[Operator, Iterable]) -> Union[np.ndarray, dict, Number]:
-        """Compute the expectation value of an operator or a sequence of operators"""
+    def expect(self, obs: Operator | Iterable) -> Union[np.ndarray, dict, Number]:
+        """
+        Compute the expectation value of an operator or a sequence of operators
+
+        Parameters
+        ----------
+        obs: Operator | Iterable :
+          An operator or an iterable object containing Operators
+
+        Returns
+        -------
+          the expectation value associated to the operator, or the
+          original container with Operators replaced by their
+          expectation values.
+        """
+
         if isinstance(obs, LocalOperator):
             operator = obs.operator
             site = obs.site
@@ -333,7 +379,20 @@ class ProductDensityOperator(DensityOperatorMixin, ProductOperator):
         return super().expect(obs)
 
     def logm(self):
+        """ """
+
         def log_qutip(loc_op):
+            """
+
+            Parameters
+            ----------
+            loc_op :
+
+
+            Returns
+            -------
+
+            """
             evals, evecs = loc_op.eigenstates()
             evals[abs(evals) < 1.0e-30] = 1.0e-30
             return sum(
@@ -357,6 +416,19 @@ class ProductDensityOperator(DensityOperatorMixin, ProductOperator):
         return OneBodyOperator(terms, system, False)
 
     def partial_trace(self, sites: Union[frozenset, SystemDescriptor]):
+        """
+
+        Parameters
+        ----------
+        sites: Union[frozenset :
+
+        SystemDescriptor] :
+
+
+        Returns
+        -------
+
+        """
         sites_op = self.sites_op
         if isinstance(sites, SystemDescriptor):
             subsystem = sites
@@ -371,6 +443,17 @@ class ProductDensityOperator(DensityOperatorMixin, ProductOperator):
         )
 
     def to_qutip(self, block: Optional[Tuple[str]] = None):
+        """
+
+        Parameters
+        ----------
+        block: Optional[Tuple[str]] :
+             (Default value = None)
+
+        Returns
+        -------
+
+        """
         prefactor = self.prefactor
         if prefactor == 0 or len(self.system.dimensions) == 0:
             return np.exp(-sum(np.log(dim) for dim in self.system.dimensions.values()))

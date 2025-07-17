@@ -9,6 +9,7 @@ from alpsqutip.operators.states.gibbs import (
     GibbsProductDensityOperator,
 )
 from alpsqutip.operators.states.qutip import QutipDensityOperator
+from alpsqutip.operators.states.utils import safe_exp_and_normalize
 
 __all__ = [
     "DensityOperatorMixin",
@@ -18,4 +19,5 @@ __all__ = [
     "ProductDensityOperator",
     "QutipDensityOperator",
     "_register_ops",
+    "safe_exp_and_normalize",
 ]

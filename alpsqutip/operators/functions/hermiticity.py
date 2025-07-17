@@ -19,9 +19,17 @@ from alpsqutip.operators.qutip import QutipOperator
 
 
 def compute_dagger(operator):
-    """
-    Compute the adjoint of an `operator.
+    """Compute the adjoint of an `operator.
     If `operator` is a number, return its complex conjugate.
+
+    Parameters
+    ----------
+    operator :
+
+
+    Returns
+    -------
+
     """
     if isinstance(operator, (int, float, float64)):
         return operator
@@ -35,6 +43,15 @@ def compute_dagger(operator):
 def hermitian_and_antihermitian_parts(operator: Operator) -> Tuple[Operator, Operator]:
     """Decompose an operator Q as A + i B with
     A and B self-adjoint operators
+
+    Parameters
+    ----------
+    operator: Operator :
+
+
+    Returns
+    -------
+
     """
     from alpsqutip.operators.quadratic import QuadraticFormOperator
 

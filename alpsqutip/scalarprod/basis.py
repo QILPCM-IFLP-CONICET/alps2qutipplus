@@ -693,6 +693,7 @@ def prepend_basis_old(
     # `basis_1.gram_inv`, `basis_1.gen_matrix`, and `basis_1.errors`
     # to avoid recompute scalar products and projections.
     sp = basis_1.sp
+
     operators = basis_1.operator_basis
     generator = basis_1.generator
 

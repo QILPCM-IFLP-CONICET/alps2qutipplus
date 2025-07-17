@@ -4,6 +4,7 @@ Operators
 """
 
 import alpsqutip.operators.register_ops as register_ops
+import alpsqutip.operators.simplify as simplify
 from alpsqutip.operators.arithmetic import OneBodyOperator, SumOperator
 from alpsqutip.operators.basic import (
     LocalOperator,
@@ -24,4 +25,5 @@ __all__ = [
     "ScalarOperator",
     "SumOperator",
     "register_ops",
+    "simplify",
 ]

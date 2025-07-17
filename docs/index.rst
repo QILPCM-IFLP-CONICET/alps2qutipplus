@@ -1,23 +1,26 @@
-.. Alps2Qutip++ documentation master file, created by Juan Mauricio Matera
-   sphinx-quickstart on Tue Aug  6 17:30:58 2024.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+ALPS2QuTip+ Documentation
+=========================
 
-Welcome to Alps2Qutip++'s documentation!
-========================================
+.. figure:: figures/logo.png
+   :align: center
+   :width: 7in
+
+
+
+A Python toolbox to generate quantum models from ALPS XML files, build operator representations, and simulate quantum dynamics.
+
 
 .. toctree::
-   :maxdepth: 4
-   :caption: Contents:
-
+   :maxdepth: 1
+   :caption: Get Started
+	    
    what-is-alps2qutippp
    installing
-   running
-   alpsqutip
+   quickstart
+   guide/guide
+   user/index
+   apidoc/index
    bugs
-	
-
-automodule:: alpsqutip
 
 
 Indices and tables

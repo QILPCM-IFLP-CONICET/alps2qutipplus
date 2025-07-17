@@ -26,8 +26,22 @@ from alpsqutip.settings import (
 
 
 def check_multiplication(a, b, result, func=None) -> bool:
-    """
-    Check the result of the multiplication
+    """Check the result of the multiplication
+
+    Parameters
+    ----------
+    a :
+
+    b :
+
+    result :
+
+    func :
+         (Default value = None)
+
+    Returns
+    -------
+
     """
     if isinstance(a, Qobj) and isinstance(b, Qobj):
         return True
@@ -67,9 +81,30 @@ class Operator:
 
     @staticmethod
     def register_add_handler(key: Tuple):
-        """Register a function to implement add"""
+        """Register a function to implement add
+
+        Parameters
+        ----------
+        key: Tuple :
+
+
+        Returns
+        -------
+
+        """
 
         def register_func(func):
+            """
+
+            Parameters
+            ----------
+            func :
+
+
+            Returns
+            -------
+
+            """
             if isinstance(key[0], (list, tuple)):
                 keys = key
             else:
@@ -89,9 +124,30 @@ class Operator:
 
     @staticmethod
     def register_mul_handler(key: Tuple):
-        """Register a function to implement mul"""
+        """Register a function to implement mul
+
+        Parameters
+        ----------
+        key: Tuple :
+
+
+        Returns
+        -------
+
+        """
 
         def register_func(func):
+            """
+
+            Parameters
+            ----------
+            func :
+
+
+            Returns
+            -------
+
+            """
             if isinstance(key[0], (list, tuple)):
                 keys = key
             else:
@@ -250,8 +306,15 @@ class Operator:
 
     def acts_over(self) -> Optional[frozenset]:
         """
-        Return the list of sites over which the operator acts nontrivially.
-        If this cannot be determined, return None.
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+        type
+            If this cannot be determined, return None.
+
         """
         return None
 
@@ -291,9 +354,7 @@ class Operator:
         return self.to_qutip_operator().eigenstates()
 
     def expm(self):
-        """
-        Compute the exponential of the Qutip representation of the operator
-        """
+        """Compute the exponential of the Qutip representation of the operator"""
 
         # Import here to avoid circular dependency
         # pylint: disable=import-outside-toplevel
@@ -320,12 +381,34 @@ class Operator:
         return self.to_qutip_operator().logm()
 
     def norm(self, ord: Optional[int | str | float] = None):
-        """The norm of the operator"""
+        """The norm of the operator
+
+        Parameters
+        ----------
+        ord: Optional[int | str | float] :
+             (Default value = None)
+
+        Returns
+        -------
+
+        """
 
         return norm(self.to_qutip(), ord)
 
     def partial_trace(self, sites: Union[frozenset, SystemDescriptor]):
-        """Partial trace over sites not listed in `sites`"""
+        """Partial trace over sites not listed in `sites`
+
+        Parameters
+        ----------
+        sites: Union[frozenset :
+
+        SystemDescriptor] :
+
+
+        Returns
+        -------
+
+        """
         raise NotImplementedError
 
     def simplify(self):
@@ -333,7 +416,17 @@ class Operator:
         return self
 
     def to_qutip(self, block: Optional[Tuple[str]] = None):
-        """Convert to a Qutip object"""
+        """Convert to a Qutip object
+
+        Parameters
+        ----------
+        block: Optional[Tuple[str]] :
+             (Default value = None)
+
+        Returns
+        -------
+
+        """
         raise NotImplementedError
 
     def to_qutip_operator(self):
@@ -356,14 +449,22 @@ class Operator:
         return self.partial_trace(frozenset()).prefactor
 
     def tidyup(self, atol=None):
-        """remove tiny elements of the operator"""
+        """remove tiny elements of the operator
+
+        Parameters
+        ----------
+        atol :
+             (Default value = None)
+
+        Returns
+        -------
+
+        """
         return self
 
 
 class LocalOperator(Operator):
-    """
-    Operator acting over a single site.
-    """
+    """Operator acting over a single site."""
 
     def __init__(
         self,
@@ -401,21 +502,22 @@ class LocalOperator(Operator):
         return f"Local Operator on site {self.site}:" f"\n {repr(self.operator.full())}"
 
     def acts_over(self) -> Optional[frozenset]:
+        """ """
         return frozenset((self.site,))
 
     def dag(self):
-        """
-        Return the adjoint operator
-        """
+        """ """
         operator = self.operator
         if operator.isherm:
             return self
         return LocalOperator(self.site, operator.dag(), self.system)
 
     def expm(self):
+        """ """
         return LocalOperator(self.site, self.operator.expm(), self.system)
 
     def inv(self):
+        """ """
         operator = self.operator
         system = self.system
         site = self.site
@@ -427,6 +529,7 @@ class LocalOperator(Operator):
 
     @property
     def isherm(self) -> bool:
+        """ """
         operator = self.operator
         if isinstance(operator, (float, int)):
             return True
@@ -436,10 +539,24 @@ class LocalOperator(Operator):
 
     @property
     def isdiagonal(self) -> bool:
+        """ """
         return is_diagonal_op(self.operator)
 
     def logm(self):
+        """ """
+
         def log_qutip(loc_op):
+            """
+
+            Parameters
+            ----------
+            loc_op :
+
+
+            Returns
+            -------
+
+            """
             evals, evecs = loc_op.eigenstates()
             evals[abs(evals) < 1.0e-50] = 1.0e-50
             return sum(
@@ -450,7 +567,17 @@ class LocalOperator(Operator):
         return LocalOperator(self.site, log_qutip(self.operator), self.system)
 
     def norm(self, ord=None):
-        """The norm of the operator"""
+        """The norm of the operator
+
+        Parameters
+        ----------
+        ord :
+             (Default value = None)
+
+        Returns
+        -------
+
+        """
 
         result = norm(self.operator, ord)
         if ord in ("fro", "nuc"):
@@ -467,6 +594,19 @@ class LocalOperator(Operator):
         return result
 
     def partial_trace(self, sites: Union[frozenset, SystemDescriptor]):
+        """
+
+        Parameters
+        ----------
+        sites: Union[frozenset :
+
+        SystemDescriptor] :
+
+
+        Returns
+        -------
+
+        """
         system = self.system
         assert system is not None
         dimensions = system.dimensions
@@ -490,6 +630,7 @@ class LocalOperator(Operator):
         return LocalOperator(site, local_op * prefactor, subsystem)
 
     def simplify(self):
+        """ """
         # TODO: reduce multiples of the identity to ScalarOperators
         operator = self.operator
         if not is_scalar_op(operator):
@@ -498,7 +639,17 @@ class LocalOperator(Operator):
         return ScalarOperator(value, self.system)
 
     def to_qutip(self, block: Optional[tuple] = None):
-        """Convert to a Qutip object"""
+        """Convert to a Qutip object
+
+        Parameters
+        ----------
+        block: Optional[tuple] :
+             (Default value = None)
+
+        Returns
+        -------
+
+        """
         site = self.site
         system = self.system
         sites = system.sites
@@ -523,11 +674,22 @@ class LocalOperator(Operator):
         return qutip.tensor(*factors_dict)
 
     def tr(self):
+        """ """
         result = self.partial_trace(frozenset())
         return result.prefactor
 
     def tidyup(self, atol=None):
-        """remove tiny elements of the operator"""
+        """remove tiny elements of the operator
+
+        Parameters
+        ----------
+        atol :
+             (Default value = None)
+
+        Returns
+        -------
+
+        """
         return LocalOperator(self.site, self.operator.tidyup(atol), self.system)
 
 
@@ -610,12 +772,11 @@ class ProductOperator(Operator):
         return "$" + "\\otimes".join(factors_latex) + "$"
 
     def acts_over(self) -> Optional[frozenset]:
+        """ """
         return frozenset(site for site in self.sites_op)
 
     def dag(self):
-        """
-        Return the adjoint operator
-        """
+        """ """
         sites_op_dag = {key: op.dag() for key, op in self.sites_op.items()}
         prefactor = self.prefactor
         if isinstance(prefactor, complex):
@@ -623,6 +784,7 @@ class ProductOperator(Operator):
         return ProductOperator(sites_op_dag, prefactor, self.system)
 
     def expm(self):
+        """ """
         sites_op = self.sites_op
         n_ops = len(sites_op)
         if n_ops == 0:
@@ -637,6 +799,7 @@ class ProductOperator(Operator):
         return result
 
     def flat(self):
+        """ """
         nfactors = len(self.sites_op)
         if nfactors == 0:
             return ScalarOperator(self.prefactor, self.system)
@@ -646,6 +809,7 @@ class ProductOperator(Operator):
         return self
 
     def inv(self):
+        """ """
         sites_op = self.sites_op
         system = self.system
         prefactor = self.prefactor
@@ -659,22 +823,36 @@ class ProductOperator(Operator):
 
     @property
     def isherm(self) -> bool:
+        """ """
         if not all(loc_op.isherm for loc_op in self.sites_op.values()):
             return False
         return isinstance(self.prefactor, (int, float))
 
     @property
     def isdiagonal(self) -> bool:
+        """ """
         for factor_op in self.sites_op.values():
             if not is_diagonal_op(factor_op):
                 return False
         return True
 
     def logm(self):
+        """ """
         # pylint: disable=import-outside-toplevel
         from alpsqutip.operators.arithmetic import OneBodyOperator
 
         def log_qutip(loc_op):
+            """
+
+            Parameters
+            ----------
+            loc_op :
+
+
+            Returns
+            -------
+
+            """
             evals, evecs = loc_op.eigenstates()
             evals[abs(evals) < 1.0e-30] = 1.0e-30
             return sum(
@@ -692,7 +870,17 @@ class ProductOperator(Operator):
         return result
 
     def norm(self, ord=None):
-        """The norm of the operator"""
+        """The norm of the operator
+
+        Parameters
+        ----------
+        ord :
+             (Default value = None)
+
+        Returns
+        -------
+
+        """
 
         result = self.prefactor
         for op_loc in self.sites_op.values():
@@ -714,6 +902,19 @@ class ProductOperator(Operator):
         return result
 
     def partial_trace(self, sites: Union[frozenset, SystemDescriptor]):
+        """
+
+        Parameters
+        ----------
+        sites: Union[frozenset :
+
+        SystemDescriptor] :
+
+
+        Returns
+        -------
+
+        """
         full_system_sites = self.system.sites
         dimensions = self.dimensions
         if isinstance(sites, SystemDescriptor):
@@ -739,14 +940,20 @@ class ProductOperator(Operator):
         return ProductOperator(sites_op, prefactor, subsystem)
 
     def simplify(self) -> Operator:
-        """
-        Simplifies a product operator
+        """Simplifies a product operator
            - first, collect all the scalar factors and
              absorbe them in the prefactor.
            - If the prefactor vanishes, or all the factors are scalars,
-             return a ScalarOperator.
-           - If there is just one nontrivial factor, return a LocalOperator.
-           - If no reduction is possible, return self.
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+        type
+            - If there is just one nontrivial factor, return a LocalOperator.
+            - If no reduction is possible, return self.
+
         """
         # Remove multiples of the identity
         nontrivial_factors = {}
@@ -775,10 +982,19 @@ class ProductOperator(Operator):
 
     def to_qutip(self, block: Optional[Tuple[str]] = None):
         """
-        return a qutip object acting over the sites listed in
-        `block`.
-        By default (`block=None`) returns a qutip object
-        acting over all the sites, in lexicographical order.
+
+        Parameters
+        ----------
+        block: Optional[Tuple[str]] :
+             (Default value = None)
+
+        Returns
+        -------
+        type
+            `block`.
+            By default (`block=None`) returns a qutip object
+            acting over all the sites, in lexicographical order.
+
         """
         sites_op = self.sites_op
         system = self.system
@@ -807,9 +1023,16 @@ class ProductOperator(Operator):
 
     def to_qutip_operator(self) -> Operator:
         """
-        Return a QutipOperator representation.
-        If the operator is scalar, returns a ScalarOperator.
-        Otherwise, returns a QutipOperator.
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+        type
+            If the operator is scalar, returns a ScalarOperator.
+            Otherwise, returns a QutipOperator.
+
         """
         from alpsqutip.operators.qutip import QutipOperator
 
@@ -823,11 +1046,22 @@ class ProductOperator(Operator):
         return QutipOperator(self.to_qutip(tuple()), names=names, system=self.system)
 
     def tr(self):
+        """ """
         result = self.partial_trace(frozenset())
         return result.prefactor
 
     def tidyup(self, atol=None):
-        """remove tiny elements of the operator"""
+        """remove tiny elements of the operator
+
+        Parameters
+        ----------
+        atol :
+             (Default value = None)
+
+        Returns
+        -------
+
+        """
         tidy_site_operators = {
             name: op_s.tidyup(atol) for name, op_s in self.sites_op.items()
         }
@@ -855,6 +1089,7 @@ class ScalarOperator(ProductOperator):
         return result
 
     def _repr_latex_(self):
+        """ """
 
         return (
             "$\\left("
@@ -865,15 +1100,18 @@ class ScalarOperator(ProductOperator):
         )
 
     def acts_over(self) -> Optional[frozenset]:
+        """ """
         return frozenset()
 
     def dag(self):
+        """ """
         if isinstance(self.prefactor, complex):
             return ScalarOperator(self.prefactor.conjugate(), self.system)
         return self
 
     @property
     def isherm(self):
+        """ """
         prefactor = self.prefactor
         return not (
             isinstance(prefactor, complex) and abs(prefactor.imag) > ALPSQUTIP_TOLERANCE
@@ -881,13 +1119,25 @@ class ScalarOperator(ProductOperator):
 
     @property
     def isdiagonal(self) -> bool:
+        """ """
         return True
 
     def logm(self):
+        """ """
         return ScalarOperator(np.log(self.prefactor), self.system)
 
     def norm(self, ord=None):
-        """The norm of the operator"""
+        """The norm of the operator
+
+        Parameters
+        ----------
+        ord :
+             (Default value = None)
+
+        Returns
+        -------
+
+        """
 
         result = self.prefactor
         if ord in ("fro", "nuc"):
@@ -907,10 +1157,19 @@ class ScalarOperator(ProductOperator):
 
     def to_qutip(self, block: Optional[Tuple[str]] = None):
         """
-        return a qutip object acting over the sites listed in
-        `block`.
-        By default (`block=None`) returns a qutip object
-        acting over all the sites, in lexicographical order.
+
+        Parameters
+        ----------
+        block: Optional[Tuple[str]] :
+             (Default value = None)
+
+        Returns
+        -------
+        type
+            `block`.
+            By default (`block=None`) returns a qutip object
+            acting over all the sites, in lexicographical order.
+
         """
         system = self.system
         sites = system.sites
@@ -923,17 +1182,35 @@ class ScalarOperator(ProductOperator):
         return self.prefactor * qutip.tensor(*factors)
 
     def to_qutip_operator(self):
-        """
-        Produce a Qutip representation of the operator.
+        """Produce a Qutip representation of the operator.
         For ScalarOperators, just return self.
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+
         """
         return self
 
 
 def empty_op(op: Union[Number, Qobj, Operator]) -> bool:
-    """
-    Check if op is an sparse operator without
+    """Check if op is an sparse operator without
     non-zero elements.
+
+    Parameters
+    ----------
+    op: Union[Number :
+
+    Qobj :
+
+    Operator] :
+
+
+    Returns
+    -------
+
     """
     if isinstance(op, Number):
         return op == 0
@@ -946,13 +1223,26 @@ def empty_op(op: Union[Number, Qobj, Operator]) -> bool:
 
     if hasattr(op, "operator"):
         return empty_op(op.operator)
+
     if any(empty_op(factor) for factor in getattr(op, "sites_op", {}).values()):
         return True
     return False
 
 
 def is_diagonal_op(op: Union[Qobj, Operator]) -> bool:
-    """Check if op is a diagonal operator"""
+    """Check if op is a diagonal operator
+
+    Parameters
+    ----------
+    op: Union[Qobj :
+
+    Operator] :
+
+
+    Returns
+    -------
+
+    """
     if not hasattr(op, "data"):
         if isinstance(op, ScalarOperator):
             return True
@@ -967,9 +1257,17 @@ def is_diagonal_op(op: Union[Qobj, Operator]) -> bool:
 
 
 def is_scalar_op(op: Qobj) -> bool:
-    """
-    Check if the operator is a
+    """Check if the operator is a
     multiple of the identity
+
+    Parameters
+    ----------
+    op: Qobj :
+
+
+    Returns
+    -------
+
     """
     if not hasattr(op, "data"):
         if isinstance(op, ScalarOperator):
@@ -985,12 +1283,24 @@ def is_scalar_op(op: Qobj) -> bool:
 def find_arithmetic_implementation(
     op1, op2, dispatch_table: dict
 ) -> Optional[Callable]:
-    """
-    Find the function that implements the operation
+    """Find the function that implements the operation
     op1 [operation] op2 in the dispatch table
     dispatch.
     If the combination of types is not already in the dispatch table,
     store it.
+
+    Parameters
+    ----------
+    op1 :
+
+    op2 :
+
+    dispatch_table: dict :
+
+
+    Returns
+    -------
+
     """
 
     type_op1, type_op2 = type(op1), type(op2)
