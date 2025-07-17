@@ -36,6 +36,11 @@ class SumOperator(Operator):
         simplified: Optional[bool] = False,
     ):
         assert system is not None
+        for i, t in enumerate(term_tuple):
+            assert (
+                t.system is system
+            ), f"in the {i}th term, \n{t.system}\n is not\n {system}"
+
         assert isinstance(term_tuple, tuple)
         assert len(term_tuple) > 0
         assert self not in term_tuple, "cannot be a term of myself."
@@ -103,6 +108,12 @@ class SumOperator(Operator):
         else:
             result = " + ".join(term._repr_latex_()[1:-1] for term in terms)
         return f"${result}$"
+
+    def _set_system_(self, system=None):
+        self.system = system
+        for term in self.terms:
+            term._set_system_(system)
+        return self
 
     def acts_over(self):
         result = set()

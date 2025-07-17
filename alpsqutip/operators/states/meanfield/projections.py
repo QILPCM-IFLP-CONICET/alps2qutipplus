@@ -193,7 +193,6 @@ def _project_qutip_operator_to_m_body_recursive(
     return iterable_to_operator(terms, system)
 
 
-
 def one_body_from_qutip_operator(
     operator: Union[Operator, Qobj], sigma0: Optional[DensityOperatorMixin] = None
 ) -> Operator:
@@ -331,9 +330,7 @@ def project_operator_to_m_body(
         )
 
     if isinstance(full_operator, QutipOperator):
-        return project_qutip_operator_as_n_body_operator(
-            full_operator, m_max, sigma_0
-        )
+        return project_qutip_operator_as_n_body_operator(full_operator, m_max, sigma_0)
 
     return _project_qutip_operator_to_m_body_recursive(
         full_operator.to_qutip_operator(), m_max, sigma_0
@@ -406,7 +403,6 @@ def _project_qutip_operator_to_m_body_recursive(
                 terms.append(new_term)
 
     return iterable_to_operator(terms, system)
-
 
 
 def project_quadraticform_operator_as_n_body_operator(
@@ -601,8 +597,6 @@ def n_body_projector(operator, nmax=1, sigma=None) -> Operator:
     non_dispatched_terms = tuple(
         term for term in terms_tuple if not dispatch_term(term)
     )
-    for i, t in enumerate(non_dispatched_terms):
-        t.name = f"term_{i}"
 
     # Process all the terms
     if USE_PARALLEL:
@@ -624,6 +618,8 @@ def n_body_projector(operator, nmax=1, sigma=None) -> Operator:
             for term in non_dispatched_terms
         )
 
+    terms = list(block_terms.values())
+
     if not non_dispatched_terms:
         # The projection acts trivially on this operator.
         # Return it without changes.
@@ -636,6 +632,7 @@ def n_body_projector(operator, nmax=1, sigma=None) -> Operator:
             one_body_terms.append(term)
         elif isinstance(term, SumOperator):
             for sub_term in term.terms:
+                assert sub_term.system is system
                 dispatch_term(sub_term)
         else:
             if not dispatch_term(term):
@@ -649,9 +646,17 @@ def n_body_projector(operator, nmax=1, sigma=None) -> Operator:
     )
 
     terms: List[Operator] = list(block_terms.values())
+
     if scalar != 0:
         terms.append(ScalarOperator(scalar, system))
+
+    for term in terms:
+        assert term.system is system
+
     if proper_local_terms:
         terms.append(sum(proper_local_terms).simplify())
+
+    for term in terms:
+        assert term.system is system
 
     return iterable_to_operator(terms, system)

@@ -11,7 +11,7 @@ from typing import Union
 from qutip import Qobj
 
 import alpsqutip.settings as alpsqutip_settings
-from alpsqutip.operators.arithmetic import SumOperator
+from alpsqutip.operators.arithmetic import SumOperator, iterable_to_operator
 from alpsqutip.operators.basic import (
     Operator,
     ScalarOperator,
@@ -133,7 +133,7 @@ def _commutator_term_worker(entries):
         if acts_over_2 is not None:
             if len(acts_over_2) == 0 or len(acts_over_1.intersection(acts_over_2)) == 0:
                 return None
-    return (op_1 * op_2 - op_2 * op_1).simplify()
+    return (op_1 * op_2 - op_2 * op_1).simplify()._set_system_()
 
 
 def commutator_alps2qutip_parallel(
@@ -142,10 +142,10 @@ def commutator_alps2qutip_parallel(
     """
     The commutator of two Operator objects. Parallel implementation.
     """
-    system = op_1.system or op_2.system
     if op_1 is op_2:
         return ScalarOperator(0, op_1.system)
 
+    system = op_1.system.union(op_2.system)
     op_1 = op_1.flat()
     op_2 = op_2.flat()
     op_1_terms = op_1.terms if isinstance(op_1, SumOperator) else (op_1,)
@@ -169,11 +169,9 @@ def commutator_alps2qutip_parallel(
             )
         )
 
-    if len(terms) == 1:
-        return terms[0]
-    if len(terms) == 0:
-        return ScalarOperator(0, system)
-    return SumOperator(terms, system).simplify()
+    for t in terms:
+        t._set_system_(system)
+    return iterable_to_operator(terms, system).simplify()
 
 
 def commutator_alps2qutip_serial(op_1: Operator, op_2: Operator) -> Operator:
@@ -204,8 +202,9 @@ def commutator_alps2qutip_serial(op_1: Operator, op_2: Operator) -> Operator:
 
 
 anticommutator_alps2qutip = anticommutator_alps2qutip_serial
+
 commutator_alps2qutip = (
     commutator_alps2qutip_parallel
-    if alpsqutip_settings.USE_PARALLEL
+    if False and alpsqutip_settings.USE_PARALLEL
     else commutator_alps2qutip_serial
 )

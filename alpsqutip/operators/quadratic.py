@@ -187,6 +187,13 @@ class QuadraticFormOperator(Operator):
         self.system = system
         for basis_elem in self.basis:
             basis_elem._set_system_(system)
+
+        offset = self.offset
+        linear_term = self.linear_term
+        if offset is not None:
+            offset._set_system_(system)
+        if linear_term is not None:
+            linear_term._set_system_(system)
         return self
 
     def acts_over(self):
