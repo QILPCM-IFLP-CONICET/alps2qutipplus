@@ -90,6 +90,73 @@ def _project_product_operator_to_one_body(full_operator: ProductOperator, sigma_
     return iterable_to_operator(terms, system) + prefactor * (1 - n_sites)
 
 
+def project_qutip_to_one_body(
+    full_operator: QutipOperator,
+    state: Optional[ProductDensityOperator | GibbsProductDensityOperator] = None,
+):
+    """
+    Project `full_operator` over the one-body operator subspace, relative to the state `state`.
+
+
+    The idea is that the projection of a product operator on the one-body operator sector can be written
+    as
+    $$
+    \\Pi(Q_1\\otimes Q_2\\otimes\ldots) = \\sum_i Tr_{\overline i} Q \\sigma_i  - (N-i)\\langle Q\\rangle
+    $\\sigma_i = {\\bf 1}_i \\otimes (Tr_{i} \\sigma_i)$
+    """
+    site_names = full_operator.site_names
+    block_size = len(site_names)
+    if block_size <= 1:
+        return full_operator
+    system = full_operator.system
+    block = sorted(site_names, key=lambda x: site_names[x])
+    operator_qutip = full_operator.to_qutip(block)
+
+    if state is None:
+        dimensions = system.dimensions
+        dimensions = {site: system.dimensions[site] for site in site_names}
+        dimensions_factor = np.prod(list(dimensions.values()))
+        meanvalue = operator_qutip.tr() / dimensions_factor
+        reduced_ops = (
+            [ScalarOperator((1 - block_size) * meanvalue, system)] if meanvalue else []
+        )
+        reduced_ops.extend(
+            [
+                LocalOperator(
+                    site,
+                    operator_qutip.ptrace([site_names[site]])
+                    * (dimensions[site] / dimensions_factor),
+                    system,
+                )
+                for site in dimensions
+            ]
+        )
+
+    else:
+        if hasattr(state, "to_product_state"):
+            state = state.to_product_state()
+        meanvalue = state.expect(full_operator)
+        sites_op_state = state.sites_op
+        sites_op_state = {key: sites_op_state[key] for key in block}
+        reduced_ops = (
+            [ScalarOperator((1 - block_size) * meanvalue, system)] if meanvalue else []
+        )
+        for site in site_names:
+            local_identity = system.site_identity(site)
+            sigma_i = qutip.tensor(
+                [
+                    local_identity if c_site == site else sites_op_state[c_site]
+                    for c_site in block
+                ]
+            )
+            op_qutip_local = (operator_qutip * sigma_i).ptrace(site_names[site])
+            local_term = LocalOperator(site, op_qutip_local, system=system)
+            print(op_qutip_local.dims)
+            reduced_ops.append(local_term)
+
+    return iterable_to_operator(tuple(reduced_ops), system)
+
+
 def _project_product_operator_to_m_body_recursive(
     full_operator: Operator,
     m_max: int,
@@ -141,7 +208,7 @@ def _project_product_operator_to_m_body_recursive(
         result = delta_op * _project_product_operator_to_m_body_recursive(
             rest_prod_operator, m_max - 1, sigma_rest
         )
-    #else:
+    # else:
     #    assert False, "Nunca llegaremos aquí..."
     #    result = delta_op * compute_operator_expectation_value(
     #        rest_prod_operator, sigma_rest
@@ -168,6 +235,8 @@ def _project_qutip_operator_to_m_body_recursive(
             compute_operator_expectation_value(full_operator, sigma_ref),
             full_operator.system,
         )
+    elif n_max == 1:
+        return project_qutip_to_one_body(full_operator, sigma_ref)
     # Reduce a qutip operator
     site_names = full_operator.site_names
     if len(site_names) <= n_max:
