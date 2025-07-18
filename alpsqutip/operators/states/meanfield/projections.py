@@ -5,6 +5,7 @@ Module that implements a meanfield approximation of a Gibbsian state
 import logging
 from typing import Callable, Dict, List, Optional, Tuple, Union, cast
 
+import numpy as np
 import qutip
 from qutip import Qobj
 
@@ -60,6 +61,35 @@ else:
     logging.info("using serial routines to build Gram's matrices.")
 
 
+def _project_product_operator_to_one_body(full_operator: ProductOperator, sigma_0):
+    system = full_operator.system
+    prefactor = full_operator.prefactor
+    if not prefactor:
+        return ScalarOperator(0, system)
+
+    sites_op = full_operator.sites_op
+    n_sites = len(sites_op)
+    if n_sites <= 1:
+        return full_operator
+
+    local_ops = tuple(LocalOperator(site, op, system) for site, op in sites_op.items())
+    if sigma_0 is None:
+        sigma_0 = ProductDensityOperator({}, system=system)
+    local_av = compute_operator_expectation_value(local_ops, sigma_0)
+    zero_pos = [i for i, val in enumerate(local_av) if not val]
+    if zero_pos:
+        if len(zero_pos) > 1:
+            return ScalarOperator(0, system)
+        pos = zero_pos[0]
+
+        prefactor = np.prod(tuple(u for u in local_av if u), initial=prefactor)
+        return local_ops[pos] * prefactor
+    # all the operators have a non-zero average
+    prefactor = np.prod(local_av, initial=prefactor)
+    terms = tuple(op * prefactor / op_av for op, op_av in zip(local_ops, local_av))
+    return iterable_to_operator(terms, system) + prefactor * (1 - n_sites)
+
+
 def _project_product_operator_to_m_body_recursive(
     full_operator: Operator,
     m_max: int,
@@ -82,6 +112,8 @@ def _project_product_operator_to_m_body_recursive(
             compute_operator_expectation_value(full_operator, sigma_0),
             full_operator.system,
         )
+    elif m_max == 1:
+        return _project_product_operator_to_one_body(full_operator, sigma_0)
 
     # m_max>0
     first_site, *rest = tuple(sites_op)
@@ -90,6 +122,8 @@ def _project_product_operator_to_m_body_recursive(
     weight_first = op_first
     sigma_rest = sigma_0
     if sigma_0 is not None:
+        if hasattr(sigma_0, "to_product_state"):
+            sigma_0 = sigma_0.to_product_state()
         sigma_rest = sigma_rest.partial_trace(frozenset(rest))
         sigma_first = sigma_0.partial_trace(frozenset({first_site})).to_qutip()
         weight_first = op_first * sigma_first
@@ -107,10 +141,11 @@ def _project_product_operator_to_m_body_recursive(
         result = delta_op * _project_product_operator_to_m_body_recursive(
             rest_prod_operator, m_max - 1, sigma_rest
         )
-    else:
-        result = delta_op * compute_operator_expectation_value(
-            rest_prod_operator, sigma_rest
-        )
+    #else:
+    #    assert False, "Nunca llegaremos aquí..."
+    #    result = delta_op * compute_operator_expectation_value(
+    #        rest_prod_operator, sigma_rest
+    #    )
 
     if first_av:
         result = result + first_av * _project_product_operator_to_m_body_recursive(
@@ -169,9 +204,7 @@ def _project_qutip_operator_to_m_body_recursive(
     ]
 
     terms = []
-    term_index = 0
     for av, delta, firsts_op in zip(averages, delta_ops, firsts_ops):
-        term_index += 1
         if abs(av) > ALPSQUTIP_TOLERANCE:
             new_term = _project_qutip_operator_to_m_body_recursive(
                 firsts_op, n_max=n_max, sigma_ref=sigma_firsts
