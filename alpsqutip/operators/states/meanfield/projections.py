@@ -157,6 +157,35 @@ def project_qutip_to_one_body(
     return iterable_to_operator(tuple(reduced_ops), system)
 
 
+def _project_product_operator_to_one_body(full_operator: ProductOperator, sigma_0):
+    system = full_operator.system
+    prefactor = full_operator.prefactor
+    if not prefactor:
+        return ScalarOperator(0, system)
+
+    sites_op = full_operator.sites_op
+    n_sites = len(sites_op)
+    if n_sites <= 1:
+        return full_operator
+
+    local_ops = tuple(LocalOperator(site, op, system) for site, op in sites_op.items())
+    if sigma_0 is None:
+        sigma_0 = ProductDensityOperator({}, system=system)
+    local_av = compute_operator_expectation_value(local_ops, sigma_0)
+    zero_pos = [i for i, val in enumerate(local_av) if not val]
+    if zero_pos:
+        if len(zero_pos) > 1:
+            return ScalarOperator(0, system)
+        pos = zero_pos[0]
+
+        prefactor = np.prod(tuple(u for u in local_av if u), initial=prefactor)
+        return local_ops[pos] * prefactor
+    # all the operators have a non-zero average
+    prefactor = np.prod(local_av, initial=prefactor)
+    terms = tuple(op * prefactor / op_av for op, op_av in zip(local_ops, local_av))
+    return iterable_to_operator(terms, system) + prefactor * (1 - n_sites)
+
+
 def _project_product_operator_to_m_body_recursive(
     full_operator: Operator,
     m_max: int,
@@ -336,7 +365,7 @@ def one_body_from_qutip_operator(
 
     av = sigma0.expect(operator)
     scalar_term: ScalarOperator = ScalarOperator(av, system)
-    one_body_term = project_operator_to_m_body(operator - av, 1, sigma0).simplify()
+    one_body_term = one_body_qutip_projection(operator - av, sigma0).simplify()
 
     # If the one_body_term is a SumOperator, but not a OneBodyOperator, reduce it.
     if isinstance(one_body_term, SumOperator) and not isinstance(
@@ -362,8 +391,8 @@ def one_body_from_qutip_operator(
     remainder: Operator = (
         (operator - one_body_term - scalar_term).simplify().to_qutip_operator()
     )
-    return SumOperator(
-        (scalar_term, one_body_term, remainder), operator.system, operator.isherm
+    return iterable_to_operator(
+        (scalar_term, one_body_term, remainder), system, isherm=operator.isherm
     )
 
 
@@ -381,18 +410,17 @@ def project_operator_to_m_body(
             compute_operator_expectation_value(full_operator, sigma_0),
             full_operator.system,
         )
-    if m_max > 0:
-        # Special cases: m_max>0, and the operator is already a one-body
-        # operator.
-        if isinstance(full_operator, (OneBodyOperator, LocalOperator)):
-            return full_operator
+    # Special cases: m_max>0, and the operator is already a one-body
+    # operator.
+    if isinstance(full_operator, (OneBodyOperator, LocalOperator)):
+        return full_operator
 
-        acts_over = full_operator.acts_over()
-        if acts_over is not None:
-            if len(acts_over) <= m_max:
-                return full_operator
-            if sigma_0 is not None:
-                sigma_0 = sigma_0.partial_trace(acts_over)
+    acts_over = full_operator.acts_over()
+    if acts_over is not None:
+        if len(acts_over) <= m_max:
+            return full_operator
+        if sigma_0 is not None:
+            sigma_0 = sigma_0.partial_trace(acts_over)
 
     # Special case: m=0, implies that the operator is reduced to its
     # expectation value.
@@ -443,12 +471,12 @@ def project_quadraticform_operator_as_n_body_operator(
     Project a product operator to the manifold of n-body operators
     """
     if n_max != 2:
-        return n_body_projector(operator.as_sum_of_products(), n_max, sigma)
+        return n_body_projection(operator.as_sum_of_products(), n_max, sigma)
 
     linear_term = operator.linear_term
     offset = operator.offset
     if offset:
-        new_offset = n_body_projector(offset, n_max, sigma) if offset else offset
+        new_offset = n_body_projection(offset, n_max, sigma) if offset else offset
 
     if new_offset is offset:
         return operator
@@ -563,7 +591,7 @@ def projector_dispatch_worker(term, nmax, sigma):
     )
 
 
-def n_body_projector(operator, nmax=1, sigma=None) -> Operator:
+def n_body_projection_(operator, nmax=1, sigma=None) -> Operator:
     """
     Approximate `operator` by a sum of (up to) nmax-body
     terms, relative to the state sigma.
@@ -699,5 +727,8 @@ def n_body_projector(operator, nmax=1, sigma=None) -> Operator:
 
 
 # Benchmarks suggest that in most of the cases, this routine is the faster...
-# n_body_qutip_projection = project_qutip_operator_as_n_body_operator
+n_body_projection = n_body_projection_
 n_body_qutip_projection = _project_qutip_operator_to_m_body_recursive
+n_body_product_projection = _project_product_operator_to_m_body_recursive
+one_body_product_projection = _project_product_operator_to_one_body
+one_body_qutip_projection = project_qutip_to_one_body

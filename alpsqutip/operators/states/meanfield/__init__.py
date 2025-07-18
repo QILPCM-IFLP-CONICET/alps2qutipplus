@@ -1,6 +1,6 @@
 from .meanfield import project_meanfield
 from .projections import (
-    n_body_projector,
+    n_body_projection,
     one_body_from_qutip_operator,
     project_operator_to_m_body,
 )
@@ -9,6 +9,7 @@ from .variational import variational_quadratic_mfa
 
 __all__ = [
     "one_body_from_qutip_operator",
+    "n_body_projection",
     "project_meanfield",
     "project_operator_to_m_body",
     "n_body_projector",

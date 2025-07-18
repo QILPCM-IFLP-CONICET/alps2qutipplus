@@ -41,7 +41,7 @@ from alpsqutip.operators.states.meanfield import (
 )
 from alpsqutip.operators.states.meanfield.projections import (  # project_product_operator_as_n_body_operator,
     _project_qutip_operator_to_m_body_recursive,
-    n_body_projector,
+    n_body_projection,
     project_qutip_operator_as_n_body_operator,
 )
 from alpsqutip.settings import ALPSQUTIP_TOLERANCE
@@ -205,7 +205,7 @@ def test_compare_recursive_and_iterative_n_body_projections(op_name, op_test):
         for n_body in [1]:
             print("   n=", n_body)
             result_m = project_operator_to_m_body(op_test, n_body, sigma0)
-            result_n = n_body_projector(op_test, n_body, sigma0)
+            result_n = n_body_projection(op_test, n_body, sigma0)
             if not check_operator_equality(result_m, result_n, 1.0e-6):
                 failed[
                     (
@@ -313,7 +313,7 @@ def test_compare_iterative_and_recursive_n_body_product_projections(op_name, op_
         (name, proj_name, proj_func)
         for name in TEST_OPERATORS
         for proj_name, proj_func in (
-            ("n_body_projector", n_body_projector),
+            ("n_body_projector", n_body_projection),
             ("project_operator_to_m_body", project_operator_to_m_body),
         )
     ],
@@ -339,7 +339,7 @@ def test_idempotency_nbody_projection(op_name, projection_name, projection_funct
         (state_name, state, proj_name, proj_func)
         for state_name, state in TEST_CASES_STATES.items()
         for proj_name, proj_func in (
-            ("n_body_projector", n_body_projector),
+            ("n_body_projector", n_body_projection),
             ("project_operator_to_m_body", project_operator_to_m_body),
         )
         if isinstance(state, (GibbsProductDensityOperator, ProductDensityOperator))
@@ -435,7 +435,7 @@ def test_compare_meanfield_projection_using_iterative_and_recursive_projections(
         result_m = project_meanfield(
             op_test, sigma0, proj_func=project_operator_to_m_body
         )
-        result_n = project_meanfield(op_test, sigma0, proj_func=n_body_projector)
+        result_n = project_meanfield(op_test, sigma0, proj_func=n_body_projection)
         if not check_operator_equality(result_m.to_qutip(), result_n.to_qutip()):
             failed[state_name] = (
                 f"Result:\n{result_m}\n\n Result n:\n{result_n}\n\nDelta = \n{result_m.to_qutip()-result_n.to_qutip()}"
