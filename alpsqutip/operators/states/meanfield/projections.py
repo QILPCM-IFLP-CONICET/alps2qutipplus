@@ -138,9 +138,9 @@ def _project_qutip_operator_to_m_body_recursive(
     if len(site_names) <= n_max:
         return full_operator
     system = full_operator.system
-    sigma_0: ProductDensityOperator = sigma_ref # or ProductDensityOperator(
+    sigma_0: ProductDensityOperator = sigma_ref  # or ProductDensityOperator(
     #    {}, system=system
-    #)
+    # )
     names = tuple(sorted(site_names, key=lambda s: site_names[s]))
     firsts, last_site = names[:-1], names[-1]
     rest_sitenames = {site: site_names[site] for site in firsts}
@@ -174,14 +174,14 @@ def _project_qutip_operator_to_m_body_recursive(
         term_index += 1
         if abs(av) > ALPSQUTIP_TOLERANCE:
             new_term = _project_qutip_operator_to_m_body_recursive(
-                firsts_op, n_max=n_max, sigma_0=sigma_firsts
+                firsts_op, n_max=n_max, sigma_ref=sigma_firsts
             )
             new_term = new_term * av
             terms.append(new_term)
         if bool(delta):
             if n_max > 1:
                 reduced_op = _project_qutip_operator_to_m_body_recursive(
-                    firsts_op, n_max=n_max - 1, sigma_0=sigma_firsts
+                    firsts_op, n_max=n_max - 1, sigma_ref=sigma_firsts
                 )
             else:
                 reduced_op = compute_operator_expectation_value(firsts_op, sigma_firsts)
@@ -332,7 +332,6 @@ def project_operator_to_m_body(
         return n_body_qutip_projection(full_operator, m_max, sigma_0)
 
     return n_body_qutip_projection(full_operator.to_qutip_operator(), m_max, sigma_0)
-
 
 
 def project_quadraticform_operator_as_n_body_operator(
