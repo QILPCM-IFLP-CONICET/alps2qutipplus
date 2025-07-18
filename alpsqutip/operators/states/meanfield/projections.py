@@ -139,9 +139,9 @@ def _project_qutip_operator_to_m_body_recursive(
         return full_operator
 
     system = full_operator.system
-    sigma_0: ProductDensityOperator = sigma_ref or ProductDensityOperator(
-        {}, system=system
-    )
+    sigma_0: ProductDensityOperator = sigma_ref # or ProductDensityOperator(
+    #    {}, system=system
+    #)
     names = tuple(sorted(site_names, key=lambda s: site_names[s]))
     firsts, last_site = names[:-1], names[-1]
     rest_sitenames = {site: site_names[site] for site in firsts}
@@ -154,12 +154,14 @@ def _project_qutip_operator_to_m_body_recursive(
         averages = [op_loc.tr() / op_loc.dims[0][0] for op_loc in qutip_ops_last]
         sigma_firsts = None
     else:
+        if hasattr(sigma_0, "to_product_state"):
+            sigma_0 = sigma_0.to_product_state()
         sigma_last_qutip = sigma_0.partial_trace(frozenset({last_site})).to_qutip()
         averages = [qutip.expect(sigma_last_qutip, op_loc) for op_loc in qutip_ops_last]
         sigma_firsts = sigma_0.partial_trace(frozenset(rest_sitenames))
 
     firsts_ops = [
-        QutipOperator(op_c.tidyup(), names=rest_sitenames, system=system)
+        QutipOperator(op_c, names=rest_sitenames, system=system)
         for op_c in qutip_ops_firsts
     ]
     delta_ops = [
@@ -661,6 +663,6 @@ def n_body_projector(operator, nmax=1, sigma=None) -> Operator:
     return iterable_to_operator(terms, system)
 
 
-# Benchmarks suggest that in most of the cases, this routine is faster...
-n_body_qutip_projection = project_qutip_operator_as_n_body_operator
-# n_body_qutip_projection = _project_qutip_operator_to_m_body_recursive
+# Benchmarks suggest that in most of the cases, this routine is the faster...
+# n_body_qutip_projection = project_qutip_operator_as_n_body_operator
+n_body_qutip_projection = _project_qutip_operator_to_m_body_recursive
