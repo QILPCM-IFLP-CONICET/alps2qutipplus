@@ -183,6 +183,19 @@ class QuadraticFormOperator(Operator):
             offset,
         )
 
+    def _set_system_(self, system=None):
+        self.system = system
+        for basis_elem in self.basis:
+            basis_elem._set_system_(system)
+
+        offset = self.offset
+        linear_term = self.linear_term
+        if offset is not None:
+            offset._set_system_(system)
+        if linear_term is not None:
+            linear_term._set_system_(system)
+        return self
+
     def acts_over(self):
         """
         Set of sites over the state acts.
@@ -536,7 +549,7 @@ def build_quadratic_form_from_operator(
     """
     Build a QuadraticFormOperator from `operator`
     """
-    # Required for `assert` test below
+    # Required for `assert` test bellow
     # from alpsqutip.operators.states.basic import (
     #    ProductDensityOperator,
     # )
