@@ -104,6 +104,12 @@ class SumOperator(Operator):
             result = " + ".join(term._repr_latex_()[1:-1] for term in terms)
         return f"${result}$"
 
+    def _set_system_(self, system=None):
+        self.system = system
+        for term in self.terms:
+            term._set_system_(system)
+        return self
+
     def acts_over(self):
         result = set()
         system_size = len(self.system.sites)
