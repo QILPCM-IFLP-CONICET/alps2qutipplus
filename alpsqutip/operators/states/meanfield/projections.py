@@ -45,8 +45,6 @@ MAX_WORKERS = alpsqutip_settings.PARALLEL_MAX_WORKERS
 USE_THREADS = alpsqutip_settings.PARALLEL_USE_THREADS
 
 
-
-
 if USE_PARALLEL:
     try:
         from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
@@ -122,7 +120,9 @@ def _project_product_operator_to_m_body_recursive(
 
 
 def _project_qutip_operator_to_m_body_recursive(
-    full_operator: QutipOperator, n_max:int = 1, sigma_ref:Optional[ProductDensityOperator] = None
+    full_operator: QutipOperator,
+    n_max: int = 1,
+    sigma_ref: Optional[ProductDensityOperator] = None,
 ) -> Operator:
     """
     Recursive implementation for the m-body Projection
@@ -139,7 +139,9 @@ def _project_qutip_operator_to_m_body_recursive(
         return full_operator
 
     system = full_operator.system
-    sigma_0:ProductDensityOperator = sigma_ref or ProductDensityOperator({}, system=system)        
+    sigma_0: ProductDensityOperator = sigma_ref or ProductDensityOperator(
+        {}, system=system
+    )
     names = tuple(sorted(site_names, key=lambda s: site_names[s]))
     firsts, last_site = names[:-1], names[-1]
     rest_sitenames = {site: site_names[site] for site in firsts}
@@ -328,9 +330,7 @@ def project_operator_to_m_body(
     if isinstance(full_operator, QutipOperator):
         return n_body_qutip_projection(full_operator, m_max, sigma_0)
 
-    return n_body_qutip_projection(
-        full_operator.to_qutip_operator(), m_max, sigma_0
-    )
+    return n_body_qutip_projection(full_operator.to_qutip_operator(), m_max, sigma_0)
 
 
 def _project_qutip_operator_to_m_body_recursive(
@@ -417,11 +417,14 @@ def project_quadraticform_operator_as_n_body_operator(
         return operator
 
     return QuadraticFormOperator(
-        operator.basis, operator.weights, operator.system, linear_term, new_offset)
+        operator.basis, operator.weights, operator.system, linear_term, new_offset
+    )
 
 
 def project_qutip_operator_as_n_body_operator(
-    full_operator:QutipOperator, n_max: int = 1, sigma_ref: Optional[ProductDensityOperator] = None
+    full_operator: QutipOperator,
+    n_max: int = 1,
+    sigma_ref: Optional[ProductDensityOperator] = None,
 ) -> Operator:
     """
     Project a QutipOperator to the manifold of n-body operators.
@@ -439,7 +442,9 @@ def project_qutip_operator_as_n_body_operator(
         return full_operator
 
     system = full_operator.system
-    sigma: ProductDensityOperator = sigma_ref or ProductDensityOperator({}, system=system)
+    sigma: ProductDensityOperator = sigma_ref or ProductDensityOperator(
+        {}, system=system
+    )
     operator = full_operator.as_sum_of_products()
 
     terms_by_block: Dict[Optional[frozenset], List[Operator]] = {}
@@ -656,5 +661,6 @@ def n_body_projector(operator, nmax=1, sigma=None) -> Operator:
     return iterable_to_operator(terms, system)
 
 
+# Benchmarks suggest that in most of the cases, this routine is faster...
 n_body_qutip_projection = project_qutip_operator_as_n_body_operator
 # n_body_qutip_projection = _project_qutip_operator_to_m_body_recursive
