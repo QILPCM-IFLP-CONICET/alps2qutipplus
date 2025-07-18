@@ -34,5 +34,5 @@ def project_meanfield(
         k_op, sigma0, max_it, proj_func=proj_func
     )[1]
     result = proj_func(k_op, 1, sigma).simplify()
-    # result = project_to_n_body_operator(k_op, 1, sigma0).simplify()
+    # result = n_body_projector(k_op, 1, sigma0).simplify()
     return result

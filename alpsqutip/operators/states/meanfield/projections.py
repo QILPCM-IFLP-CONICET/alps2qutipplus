@@ -7,6 +7,7 @@ from functools import reduce
 from itertools import combinations
 from typing import Callable, Dict, List, Optional, Tuple, Union, cast
 
+import numpy as np
 import qutip
 from qutip import Qobj
 
@@ -18,6 +19,7 @@ from alpsqutip.operators import (
     ScalarOperator,
     SumOperator,
 )
+from alpsqutip.operators.arithmetic import iterable_to_operator
 from alpsqutip.operators.quadratic import QuadraticFormOperator
 from alpsqutip.operators.qutip import QutipOperator
 from alpsqutip.operators.states.basic import (
@@ -39,6 +41,101 @@ from alpsqutip.settings import ALPSQUTIP_TOLERANCE
 ProjectingOperatorFunction = Callable[
     [Operator, int, Optional[DensityOperatorMixin]], Operator
 ]
+
+
+def _project_product_operator_to_one_body(full_operator: ProductOperator, sigma_0):
+    system = full_operator.system
+    prefactor = full_operator.prefactor
+    if not prefactor:
+        return ScalarOperator(0, system)
+
+    sites_op = full_operator.sites_op
+    n_sites = len(sites_op)
+    if n_sites <= 1:
+        return full_operator
+
+    local_ops = tuple(LocalOperator(site, op, system) for site, op in sites_op.items())
+    if sigma_0 is None:
+        sigma_0 = ProductDensityOperator({}, system=system)
+    local_av = compute_operator_expectation_value(local_ops, sigma_0)
+    zero_pos = [i for i, val in enumerate(local_av) if not val]
+    if zero_pos:
+        if len(zero_pos) > 1:
+            return ScalarOperator(0, system)
+        pos = zero_pos[0]
+
+        prefactor = np.prod(tuple(u for u in local_av if u), initial=prefactor)
+        return local_ops[pos] * prefactor
+    # all the operators have a non-zero average
+    prefactor = np.prod(local_av, initial=prefactor)
+    terms = tuple(op * prefactor / op_av for op, op_av in zip(local_ops, local_av))
+    return iterable_to_operator(terms, system) + prefactor * (1 - n_sites)
+
+
+def project_qutip_to_one_body(
+    full_operator: QutipOperator,
+    state: Optional[ProductDensityOperator | GibbsProductDensityOperator] = None,
+):
+    """
+    Project `full_operator` over the one-body operator subspace, relative to the state `state`.
+
+
+    The idea is that the projection of a product operator on the one-body operator sector can be written
+    as
+    $$
+    \\Pi(Q_1\\otimes Q_2\\otimes\ldots) = \\sum_i Tr_{\overline i} Q \\sigma_i - (N-i)\\langle Q\\rangle
+    $\\sigma_i = {\\bf 1}_i \\otimes (Tr_{i} \\sigma_i)$
+    """
+    site_names = full_operator.site_names
+    block_size = len(site_names)
+    if block_size <= 1:
+        return full_operator
+    system = full_operator.system
+    block = sorted(site_names, key=lambda x: site_names[x])
+    operator_qutip = full_operator.to_qutip(block)
+
+    if state is None:
+        dimensions = system.dimensions
+        dimensions = {site: system.dimensions[site] for site in site_names}
+        dimensions_factor = np.prod(list(dimensions.values()))
+        meanvalue = operator_qutip.tr() / dimensions_factor
+        reduced_ops = (
+            [ScalarOperator((1 - block_size) * meanvalue, system)] if meanvalue else []
+        )
+        reduced_ops.extend(
+            [
+                LocalOperator(
+                    site,
+                    operator_qutip.ptrace([site_names[site]])
+                    * (dimensions[site] / dimensions_factor),
+                    system,
+                )
+                for site in dimensions
+            ]
+        )
+    else:
+        if hasattr(state, "to_product_state"):
+            state = state.to_product_state()
+        meanvalue = state.expect(full_operator)
+        sites_op_state = state.sites_op
+        sites_op_state = {key: sites_op_state[key] for key in block}
+        reduced_ops = (
+            [ScalarOperator((1 - block_size) * meanvalue, system)] if meanvalue else []
+        )
+        for site in site_names:
+            local_identity = system.site_identity(site)
+            sigma_i = qutip.tensor(
+                [
+                    local_identity if c_site == site else sites_op_state[c_site]
+                    for c_site in block
+                ]
+            )
+            op_qutip_local = (operator_qutip * sigma_i).ptrace(site_names[site])
+            local_term = LocalOperator(site, op_qutip_local, system=system)
+            print(op_qutip_local.dims)
+            reduced_ops.append(local_term)
+
+    return iterable_to_operator(tuple(reduced_ops), system)
 
 
 def _project_product_operator_to_m_body_recursive(
@@ -226,7 +323,7 @@ def one_body_from_qutip_operator(
 
     av = sigma0.expect(operator)
     scalar_term: ScalarOperator = ScalarOperator(av, system)
-    one_body_term = project_operator_to_m_body(operator - av, 1, sigma0).simplify()
+    one_body_term = one_body_product_projector(operator - av, sigma0).simplify()
 
     # If the one_body_term is a SumOperator, but not a OneBodyOperator, reduce it.
     if isinstance(one_body_term, SumOperator) and not isinstance(
@@ -252,8 +349,8 @@ def one_body_from_qutip_operator(
     remainder: Operator = (
         (operator - one_body_term - scalar_term).simplify().to_qutip_operator()
     )
-    return SumOperator(
-        (scalar_term, one_body_term, remainder), operator.system, operator.isherm
+    return iterable_to_operator(
+        (scalar_term, one_body_term, remainder), system, isherm=operator.isherm
     )
 
 
@@ -271,18 +368,17 @@ def project_operator_to_m_body(
             compute_operator_expectation_value(full_operator, sigma_0),
             full_operator.system,
         )
-    if m_max > 0:
-        # Special cases: m_max>0, and the operator is already a one-body
-        # operator.
-        if isinstance(full_operator, (OneBodyOperator, LocalOperator)):
-            return full_operator
+    # Special cases: m_max>0, and the operator is already a one-body
+    # operator.
+    if isinstance(full_operator, (OneBodyOperator, LocalOperator)):
+        return full_operator
 
-        acts_over = full_operator.acts_over()
-        if acts_over is not None:
-            if len(acts_over) <= m_max:
-                return full_operator
-            if sigma_0 is not None:
-                sigma_0 = sigma_0.partial_trace(acts_over)
+    acts_over = full_operator.acts_over()
+    if acts_over is not None:
+        if len(acts_over) <= m_max:
+            return full_operator
+        if sigma_0 is not None:
+            sigma_0 = sigma_0.partial_trace(acts_over)
 
     # Special case: m=0, implies that the operator is reduced to its
     # expectation value.
@@ -695,3 +791,10 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
     if len(terms) == 1:
         return terms[0]
     return SumOperator(tuple(terms), system)
+
+
+n_body_projector = project_to_n_body_operator
+n_body_qutip_projector = _project_qutip_operator_to_m_body_recursive
+n_body_product_projector = _project_product_operator_to_m_body_recursive
+one_body_product_projector = _project_product_operator_to_one_body
+one_body_qutip_projector = project_qutip_to_one_body
