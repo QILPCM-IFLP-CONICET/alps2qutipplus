@@ -36,11 +36,6 @@ class SumOperator(Operator):
         simplified: Optional[bool] = False,
     ):
         assert system is not None
-        for i, t in enumerate(term_tuple):
-            assert (
-                t.system is system
-            ), f"in the {i}th term, \n{t.system}\n is not\n {system}"
-
         assert isinstance(term_tuple, tuple)
         assert len(term_tuple) > 0
         assert self not in term_tuple, "cannot be a term of myself."
