@@ -18,7 +18,7 @@ from alpsqutip.operators.states import (
     ProductDensityOperator,
 )
 from alpsqutip.operators.states.meanfield import (
-    project_to_n_body_operator,
+    n_body_projection,
     variational_quadratic_mfa,
 )
 from alpsqutip.settings import ALPSQUTIP_TOLERANCE
@@ -91,7 +91,7 @@ def test_variational_meanfield(state_name, state, generator_name, generator):
     sigma_var = variational_quadratic_mfa(
         generator, sigma_ref=state, max_self_consistent_steps=100
     )
-    generator_1b_1st = project_to_n_body_operator(generator, 1, sigma_var)
+    generator_1b_1st = n_body_projection(generator, 1, sigma_var)
     sigma_sc = GibbsProductDensityOperator(generator_1b_1st)
     rel_entropy_var = sigma_var.expect(sigma_var.logm() + generator)
     rel_entropy_sc = sigma_var.expect(sigma_sc.logm() + generator)
