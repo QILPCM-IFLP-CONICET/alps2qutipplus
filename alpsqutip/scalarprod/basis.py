@@ -311,7 +311,6 @@ class HierarchicalOperatorBasis(OperatorBasis):
         sp = self.sp
         generator = self.generator
         errors = np.zeros((dimension,))
-        system = generator.system
 
         for i in range(dimension):
             new_elem = commutator(elements[-1], generator).simplify()
@@ -330,7 +329,6 @@ class HierarchicalOperatorBasis(OperatorBasis):
                 break
             errors[i] = comm_norm
             new_elem = projection_function(new_elem)
-            assert new_elem.system is system
             elements.append(new_elem)
 
         self.operator_basis = tuple(elements[:dimension])
