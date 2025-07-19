@@ -10,7 +10,7 @@ from typing import List
 from alpsqutip.operators import Operator
 from alpsqutip.operators.states import GibbsProductDensityOperator
 from alpsqutip.operators.states.meanfield import (
-    n_body_projector,
+    n_body_projection,
     project_meanfield,
 )
 from alpsqutip.scalarprod import HierarchicalOperatorBasis, fetch_covar_scalar_product
@@ -60,7 +60,7 @@ def projected_evolution(
         ham,
         order,
         sp,
-        n_body_projection=lambda op_b: n_body_projector(
+        n_body_projection=lambda op_b: n_body_projection(
             op_b, nmax=n_body, sigma=sigma_0
         ),
     )
@@ -111,14 +111,14 @@ def adaptative_projected_evolution(
     """
 
     def update_basis(k, sigma):
-        k_ref_new, sigma = project_meanfield(k, sigma, proj_function=n_body_projector)
+        k_ref_new, sigma = project_meanfield(k, sigma, proj_function=n_body_projection)
         return (
             HierarchicalOperatorBasis(
                 k,
                 ham,
                 order,
                 fetch_covar_scalar_product(sigma),
-                n_body_projection=lambda op_b: n_body_projector(
+                n_body_projection=lambda op_b: n_body_projection(
                     op_b, nmax=n_body, sigma=sigma
                 ),
             ),

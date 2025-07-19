@@ -323,7 +323,7 @@ def one_body_from_qutip_operator(
 
     av = sigma0.expect(operator)
     scalar_term: ScalarOperator = ScalarOperator(av, system)
-    one_body_term = one_body_product_projector(operator - av, sigma0).simplify()
+    one_body_term = one_body_qutip_projection(operator - av, sigma0).simplify()
 
     # If the one_body_term is a SumOperator, but not a OneBodyOperator, reduce it.
     if isinstance(one_body_term, SumOperator) and not isinstance(
@@ -793,8 +793,8 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
     return SumOperator(tuple(terms), system)
 
 
-n_body_projector = project_to_n_body_operator
-n_body_qutip_projector = _project_qutip_operator_to_m_body_recursive
-n_body_product_projector = _project_product_operator_to_m_body_recursive
-one_body_product_projector = _project_product_operator_to_one_body
-one_body_qutip_projector = project_qutip_to_one_body
+n_body_projection = project_to_n_body_operator
+n_body_qutip_projection = _project_qutip_operator_to_m_body_recursive
+n_body_product_projection = _project_product_operator_to_m_body_recursive
+one_body_product_projection = _project_product_operator_to_one_body
+one_body_qutip_projection = project_qutip_to_one_body
