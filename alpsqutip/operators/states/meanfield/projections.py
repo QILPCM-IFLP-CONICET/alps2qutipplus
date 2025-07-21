@@ -147,7 +147,6 @@ def _project_qutip_operator_to_one_body(
             )
             op_qutip_local = (operator_qutip * sigma_i).ptrace(site_names[site])
             local_term = LocalOperator(site, op_qutip_local, system=system)
-            print(op_qutip_local.dims)
             reduced_ops.append(local_term)
 
     return iterable_to_operator(tuple(reduced_ops), system)
