@@ -47,9 +47,9 @@ if os.environ.get("BENCHMARKS", 0):
     TEST_SINGLE_TERMS.update(
         {f"{key}_qutip": op.to_qutip_operator for key, op in TEST_SINGLE_TERMS.items()}
     )
-    print("   complex")
+    print("   complex:")
     for i in range(1, 7):
-        print("      i=",i)
+        print(f"       complex_{i+1}")
         TEST_SINGLE_TERMS[f"complex_{i+1}"] = sum(
             sum(
                 SYSTEM.site_operator(op_name, SITES[k])
@@ -91,6 +91,7 @@ if os.environ.get("BENCHMARKS", 0):
         key: (op * op).simplify() for key, op in TEST_OPERATORS.items()
     }
     print("done")
+
 
 @pytest.mark.parametrize(
     [

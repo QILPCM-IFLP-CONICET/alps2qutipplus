@@ -81,6 +81,7 @@ def test_process_add_number(name, operator):
 
     result_worker._set_system_(operator.system)
     result_mine._set_system_(operator.system)
+    p.close()
     assert check_operator_equality(result_worker, result_mine, tolerance=1e-8)
 
 
@@ -118,5 +119,6 @@ def test_process_expect(state_name, operator_name):
     )
     p.join()
     result_worker = my_queue.get()
+    p.close()
     result_mine = state.expect(operator)
     assert abs(result_worker - result_mine) < 1e-9
