@@ -43,13 +43,16 @@ ProjectingOperatorFunction = Callable[
 ]
 
 
-#######    Specialized for one-body   ###################
+# ######    Specialized for one-body   ###################
 
 
-def _project_product_operator_to_one_body(full_operator: ProductOperator, sigma_0):
+def _project_product_operator_to_one_body(
+    full_operator: ProductOperator,
+    sigma_0: Optional[ProductDensityOperator | GibbsProductDensityOperator] = None,
+):
     """
-    Project a Product operator to the algebra of one-body operators, relative to
-    the state `sigma_0`.
+    Project a Product operator to the algebra of one-body operators,
+    relative to the state `sigma_0`.
     """
     system = full_operator.system
     prefactor = full_operator.prefactor
@@ -84,13 +87,14 @@ def _project_qutip_operator_to_one_body(
     state: Optional[ProductDensityOperator | GibbsProductDensityOperator] = None,
 ):
     """
-    Project `full_operator` over the one-body operator subspace, relative to the state `state`.
+    Project `full_operator` over the one-body operator subspace,
+    relative to the state `state`.
 
-
-    The idea is that the projection of a product operator on the one-body operator sector can be written
-    as
+    The idea is that the projection of a product operator on the one-body
+    operator sector can be written as
     $$
-    \\Pi(Q_1\\otimes Q_2\\otimes\ldots) = \\sum_i Tr_{\overline i} Q \\sigma_i - (N-i)\\langle Q\\rangle
+    \\Pi(Q_1\\otimes Q_2\\otimes\\ldots) = \\sum_i Tr_{\\overline i}
+    Q \\sigma_i - (N-i)\\langle Q\\rangle
     $\\sigma_i = {\\bf 1}_i \\otimes (Tr_{i} \\sigma_i)$
     """
     site_names = full_operator.site_names
@@ -145,7 +149,7 @@ def _project_qutip_operator_to_one_body(
     return iterable_to_operator(tuple(reduced_ops), system)
 
 
-######## Specialized for product operators ##############
+# ####### Specialized for product operators ##############
 
 
 def _project_product_operator_combinatorial(
@@ -278,7 +282,7 @@ def _project_product_operator_recursive(
     return result
 
 
-#### Specialized qutip  ###################
+# ########################### Specialized qutip  ###################
 
 
 def _project_qutip_operator_combinatorial(
@@ -378,16 +382,7 @@ def _project_qutip_operator_recursive(
                 new_term = delta * reduced_op
                 terms.append(new_term)
 
-    if terms:
-        if len(terms) == 1:
-            return terms[0]
-        result = SumOperator(tuple(terms), system).simplify()
-        # error_ev = compute_operator_expectation_value(full_operator - result, sigma_0)
-        # assert (
-        #    abs(error_ev) < ALPSQUTIP_TOLERANCE
-        # ), f"The difference should have a vanishing expectation value. Got {error_ev}."
-        return result
-    return ScalarOperator(0, full_operator.system)
+    return iterable_to_operator(terms, system)
 
 
 ####
@@ -411,7 +406,7 @@ def project_quadraticform_operator_as_n_body_operator(
     )
 
 
-######   General routines
+# General routines
 
 
 def one_body_from_qutip_operator(
@@ -458,7 +453,8 @@ def one_body_from_qutip_operator(
     scalar_term: ScalarOperator = ScalarOperator(av, system)
     one_body_term = one_body_qutip_projection(operator - av, sigma0).simplify()
 
-    # If the one_body_term is a SumOperator, but not a OneBodyOperator, reduce it.
+    # If the one_body_term is a SumOperator, but not a OneBodyOperator,
+    # reduce it.
     if isinstance(one_body_term, SumOperator) and not isinstance(
         one_body_term, OneBodyOperator
     ):
@@ -473,7 +469,8 @@ def one_body_from_qutip_operator(
                 local_terms.extend(term.terms)
             else:
                 raise TypeError(
-                    f"Got an unexpected type {type(term)} for a OneBodyOperator term."
+                    f"Got an unexpected type {
+                        type(term)} for a OneBodyOperator term."
                 )
         one_body_term = OneBodyOperator(
             tuple(local_terms), system, one_body_term.isherm
@@ -532,7 +529,8 @@ def project_operator_to_m_body(
                 project_operator_to_m_body(
                     term,
                     m_max,
-                    sigma_0,  # reduced_state_by_block(term, reduced_states_cache)
+                    # reduced_state_by_block(term, reduced_states_cache)
+                    sigma_0,
                 )
                 for term in sorted(full_operator.terms, key=acts_over_order)
             )
@@ -565,7 +563,7 @@ def project_operator_to_m_body(
 def _project_monomial(operator, nmax, sigma):
     """ """
     dispatch_project_method = {
-        ScalarOperator: lambda x,y,z:x,
+        ScalarOperator: lambda x, y, z: x,
         # ProductOperator: project_product_operator_as_n_body_operator,
         ProductOperator: _project_product_operator_to_m_body_recursive,
         QutipOperator: project_qutip_operator_as_n_body_operator,
@@ -575,36 +573,18 @@ def _project_monomial(operator, nmax, sigma):
     return dispatch_project_method[type(operator)](operator, nmax, sigma).simplify()
 
 
-def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
+def project_sum_operator(
+    full_operator: Operator,
+    nmax: int,
+    sigma: Optional[ProductDensityOperator | GibbsProductDensityOperator] = None,
+) -> Operator:
     """
-    Approximate `operator` by a sum of (up to) nmax-body
-    terms, relative to the state sigma.
-    By default, `sigma` is the identity matrix.
-
-    ``operator`` can be a SumOperator or a Product Operator.
+    Project a sum operator
     """
-
-    terms_tuple: Tuple[Operator]
-    system = operator.system
-    # Handle the trivial case
-    if nmax == 0:
-        return ScalarOperator(
-            compute_operator_expectation_value(operator, sigma), system
-        )
-
-    # Special cases: the operator is already a one-body
-    # operator.
-    if isinstance(operator, (OneBodyOperator, LocalOperator)):
-        return operator
-
-    if not isinstance(operator, SumOperator):
-        return _project_monomial(operator, nmax, sigma)
-
-    untouched_operator = operator
-    operator = operator.flat()
-
-    terms_tuple = operator.terms
+    system = full_operator.system
+    terms_tuple: Tuple[Operator] = full_operator.flat().terms
     changed = False
+
     one_body_terms = []
     block_terms: Dict[Optional[frozenset], Operator] = {}
 
@@ -648,10 +628,13 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
                 dispatch_term(sub_term)
         else:
             if not dispatch_term(term):
-                raise TypeError(f"term of type {type(term)} could not be dispatched.")
+                raise TypeError(
+                    f"term of type {type(
+                    term)} could not be dispatched."
+                )
 
     if not changed:
-        return untouched_operator
+        return full_operator
 
     scalar = sum(
         term.prefactor for term in one_body_terms if isinstance(term, ScalarOperator)
@@ -666,11 +649,36 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
     if proper_local_terms:
         terms.append(sum(proper_local_terms).simplify())
 
-    if len(terms) == 0:
-        return ScalarOperator(0, system)
-    if len(terms) == 1:
-        return terms[0]
-    return SumOperator(tuple(terms), system)
+    return iterable_to_operator(terms, system)
+
+
+def project_to_n_body_operator(
+    full_operator: Operator, nmax: int = 1, sigma=None
+) -> Operator:
+    """
+    Approximate `operator` by a sum of (up to) nmax-body
+    terms, relative to the state sigma.
+    By default, `sigma` is the identity matrix.
+
+    ``operator`` can be a SumOperator or a Product Operator.
+    """
+
+    system = full_operator.system
+    # Handle the trivial case
+    if nmax == 0:
+        return ScalarOperator(
+            compute_operator_expectation_value(full_operator, sigma), system
+        )
+
+    # Special cases: the operator is already a one-body
+    # operator.
+    if isinstance(full_operator, (OneBodyOperator, LocalOperator)):
+        return full_operator
+
+    if isinstance(full_operator, SumOperator):
+        return project_sum_operator(full_operator, nmax, sigma)
+
+    return _project_monomial(full_operator, nmax, sigma)
 
 
 n_body_projection = project_to_n_body_operator
