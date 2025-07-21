@@ -173,9 +173,8 @@ def _project_product_operator_combinatorial(
 
     # When we project to a many-body subspace, it is better to use the
     # recursive approach, to discard negligible contributions.
-    if n_max>3:
-        return _project_product_operator_recursive(full_operator, n_max, sigma)
-
+    if nmax > 3:
+        return _project_product_operator_recursive(full_operator, nmax, sigma)
 
     prefactor = src_operator.prefactor
     system = full_operator.system
@@ -238,8 +237,8 @@ def _project_product_operator_recursive(
 
     # When we project to a few-body subspace, it is better to use the
     # combinatorial approach
-    if n_max<=3:
-        return _project_product_operator_combinatorial(full_operator, n_max, sigma)
+    if m_max <= 3:
+        return _project_product_operator_combinatorial(full_operator, m_max, sigma_0)
 
     system = full_operator.system
 
@@ -301,10 +300,9 @@ def _project_qutip_operator_combinatorial(
     num_ops = len(site_names)
     if num_ops <= nmax:
         return full_operator
-    return project_to_n_body_operator(full_operator.as_sum_of_products(),
-                                      nmax,
-                                      sigma_ref
-                                      )
+    return project_to_n_body_operator(
+        full_operator.as_sum_of_products(), nmax, sigma_ref
+    )
 
 
 def _project_qutip_operator_recursive(
@@ -321,7 +319,6 @@ def _project_qutip_operator_recursive(
         )
     if m_max == 1:
         return project_qutip_to_one_body(full_operator, sigma_0)
-
 
     # Reduce a qutip operator
     site_names = full_operator.site_names
@@ -564,11 +561,11 @@ def project_operator_to_m_body(
         full_operator.to_qutip_operator(), m_max, sigma_0
     )
 
-def _project_monomial(operator, nmax, sigma):
-    """
 
-    """
+def _project_monomial(operator, nmax, sigma):
+    """ """
     dispatch_project_method = {
+        ScalarOperator: lambda x,y,z:x,
         # ProductOperator: project_product_operator_as_n_body_operator,
         ProductOperator: _project_product_operator_to_m_body_recursive,
         QutipOperator: project_qutip_operator_as_n_body_operator,
@@ -637,7 +634,6 @@ def project_to_n_body_operator(operator, nmax=1, sigma=None) -> Operator:
                 block_terms[acts_over_t] = t
             return True
         return False
-
 
     for term in terms_tuple:
         if dispatch_term(term):
