@@ -6,7 +6,7 @@ Created on Tue Sep 12 19:07:05 2023
 @author: mmatera <matera@fisica.unlp.edu.ar>
 """
 
-# import os
+import os
 import os.path as osp
 
 # import sys
@@ -31,6 +31,6 @@ VERBOSITY_LEVEL = 2
 ALPSQUTIP_INFER_ARITHMETICS = False
 ALPSQUTIP_ALLOW_OVERWRITE_BINDINGS = False
 ALPSQUTIP_TOLERANCE = 1.0e-14
-USE_PARALLEL = False
-PARALLEL_MAX_WORKERS = 4
+USE_PARALLEL = bool(os.environ.get("USE_PARALLEL", 0))
+PARALLEL_MAX_WORKERS = bool(os.environ.get("ALPSQUTIP_MAX_WORKERS", 8))
 PARALLEL_USE_THREADS = False
