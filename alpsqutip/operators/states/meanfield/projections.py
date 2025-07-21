@@ -171,6 +171,12 @@ def _project_product_operator_combinatorial(
     if n_factors <= nmax:
         return full_operator
 
+    # When we project to a many-body subspace, it is better to use the
+    # recursive approach, to discard negligible contributions.
+    if n_max>3:
+        return _project_product_operator_recursive(full_operator, n_max, sigma)
+
+
     prefactor = src_operator.prefactor
     system = full_operator.system
 
@@ -229,6 +235,11 @@ def _project_product_operator_recursive(
     n_factors = len(sites_op)
     if n_factors <= m_max:
         return full_operator
+
+    # When we project to a few-body subspace, it is better to use the
+    # combinatorial approach
+    if n_max<=3:
+        return _project_product_operator_combinatorial(full_operator, n_max, sigma)
 
     system = full_operator.system
 

@@ -221,7 +221,7 @@ def test_qutip_projectors(benchmark, name, state_name, projector, nbody):
         )
     ],
 )
-def _test_benchmark_nbody_projection(
+def test_benchmark_nbody_projection(
     benchmark, op_name, projection_name, projection_function, state_name, nbody, sigma0
 ):
     """Test the mean field projection over different states,
