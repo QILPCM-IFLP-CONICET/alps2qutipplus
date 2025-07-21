@@ -4,15 +4,27 @@ Parallel routines
 """
 
 import logging
+from functools import partial
+from typing import Optional, Tuple
 
 import alpsqutip.settings as alpsqutip_settings
 from alpsqutip.operators import Operator
 from alpsqutip.operators.arithmetic import iterable_to_operator
 from alpsqutip.operators.simplify import collect_nbody_terms
+from alpsqutip.operators.states.basic import (
+    ProductDensityOperator,
+)
+from alpsqutip.operators.states.gibbs import (
+    GibbsProductDensityOperator,
+)
 
 USE_PARALLEL = alpsqutip_settings.USE_PARALLEL
 MAX_WORKERS = alpsqutip_settings.PARALLEL_MAX_WORKERS
 USE_THREADS = alpsqutip_settings.PARALLEL_USE_THREADS
+
+
+DISPATCH_PROJECTION_METHOD_PARALLEL = {}
+
 
 if alpsqutip_settings.USE_PARALLEL:
     try:
@@ -78,13 +90,19 @@ def commutator_alps2qutip_parallel(
                         yield (term_1, term_2)
 
     terms_pairs = tuple(pair for pair in fetch_terms())
-    # For few terms, use the serial version.
-    if len(terms_pairs) < 100000 or not USE_PARALLEL:
+    len_terms_pairs = len(terms_pairs)
+    # The wall-time estimated for a task can be estimated as
+    # WallTime =   N_TASKS / NUM_PROC * TIME_SINGLE_TASK + NUM_PROC * PARALLELIZING_OVERHEAD_TIME
+    # The optimal number of processes is given by
+    #  NUM_PROC = sqrt( N_TASKS *  TIME_SINGLE_TASK/PARALLELIZING_OVERHEAD_TIME )
+
+    num_workers = min(1, max(num_workers, int((0.001 * len_terms_pairs) ** 0.5)))
+    if num_workers == 1 or not USE_PARALLEL:
         terms = tuple(op_1 * op_2 - op_2 * op_1 for op_1, op_2 in terms_pairs)
         return iterable_to_operator(terms, system).simplify()
 
     executor_cls = ThreadPoolExecutor if use_threads else ProcessPoolExecutor
-    chunksize = max(1, int(len(terms_pairs) / num_workers))
+    chunksize = max(1, int(len_terms_pairs / num_workers))
     with executor_cls(max_workers=num_workers) as executor:
         terms = tuple(
             (
@@ -96,3 +114,47 @@ def commutator_alps2qutip_parallel(
             )
         )
     return iterable_to_operator(terms, system)._set_system_(system).simplify()
+
+
+def _project_monomial_worker(operator, nmax, sigma):
+    """Worker"""
+    return (
+        DISPATCH_PROJECTION_METHOD_PARALLEL[type(operator)](operator, nmax, sigma)
+        .simplify()
+        ._set_system_(None)
+    )
+
+
+def parallel_process_non_dispatched_terms(
+    terms: Tuple[Operator],
+    nmax: int,
+    sigma: Optional[ProductDensityOperator | GibbsProductDensityOperator] = None,
+    use_threads=USE_THREADS,
+    max_workers=MAX_WORKERS,
+) -> Operator:
+    """
+    Project each operator in `terms` to the nmax subspace, relative
+    to the state `sigma`.
+    """
+    system = terms[0].system
+    non_dispatched_length = len(terms)
+    project_worker = partial(_project_monomial_worker, nmax=nmax, sigma=sigma)
+    executor_cls = ThreadPoolExecutor if use_threads else ProcessPoolExecutor
+    # The wall-time estimated for a task can be estimated as
+    # WallTime =   N_TASKS / NUM_PROC * TIME_SINGLE_TASK + NUM_PROC * PARALLELIZING_OVERHEAD_TIME
+    # The optimal number of processes is given by
+    #  NUM_PROC = sqrt( N_TASKS *  TIME_SINGLE_TASK/PARALLELIZING_OVERHEAD_TIME )
+
+    num_workers = min(1, max(max_workers, int((0.1 * non_dispatched_length) ** 0.5)))
+    if num_workers > 1:
+        chunksize = max(1, int(non_dispatched_length / num_workers))
+        with executor_cls(max_workers=num_workers) as executor:
+            terms = tuple(
+                term
+                for term in executor.map(project_worker, terms, chunksize=chunksize)
+            )
+    else:
+        terms = tuple(_project_monomial_worker(term, nmax, sigma) for term in terms)
+    for term in terms:
+        term._set_system_(system)
+    return terms

@@ -127,7 +127,5 @@ def commutator_alps2qutip_serial(op_1: Operator, op_2: Operator) -> Operator:
 anticommutator_alps2qutip = anticommutator_alps2qutip_serial
 
 commutator_alps2qutip = (
-    commutator_alps2qutip_parallel
-    if False and USE_PARALLEL
-    else commutator_alps2qutip_serial
+    commutator_alps2qutip_parallel if USE_PARALLEL else commutator_alps2qutip_serial
 )
