@@ -472,8 +472,10 @@ def one_body_from_qutip_operator(
                 local_terms.extend(term.terms)
             else:
                 raise TypeError(
-                    f"Got an unexpected type {
-                        type(term)} for a OneBodyOperator term."
+                    (
+                        f"Got an unexpected type {type(term)} "
+                        "for a OneBodyOperator term."
+                    )
                 )
         one_body_term = OneBodyOperator(
             tuple(local_terms), system, one_body_term.isherm
