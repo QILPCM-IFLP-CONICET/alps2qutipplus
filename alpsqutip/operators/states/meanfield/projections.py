@@ -2,7 +2,7 @@
 Module that implements a meanfield approximation of a Gibbsian state
 """
 
-# import logging
+import logging
 from functools import reduce
 from itertools import combinations
 from typing import Callable, Dict, List, Optional, Tuple, Union, cast
@@ -11,6 +11,7 @@ import numpy as np
 import qutip
 from qutip import Qobj
 
+import alpsqutip.settings as alpsqutip_settings
 from alpsqutip.operators import (
     LocalOperator,
     OneBodyOperator,
@@ -35,6 +36,28 @@ from alpsqutip.operators.states.utils import (
 )
 from alpsqutip.qutip_tools.tools import schmidt_dec_firsts_last_qutip_operator
 from alpsqutip.settings import ALPSQUTIP_TOLERANCE
+
+USE_PARALLEL = alpsqutip_settings.USE_PARALLEL
+MAX_WORKERS = alpsqutip_settings.PARALLEL_MAX_WORKERS
+USE_THREADS = alpsqutip_settings.PARALLEL_USE_THREADS
+
+if USE_PARALLEL:
+    try:
+        from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+        from functools import partial
+
+        logging.info("using parallel routines to build projections.")
+    except ModuleNotFoundError:
+        USE_PARALLEL = False
+        logging.warning(
+            (
+                "ProcessPoolExecutor/ThreadPoolExecutor cannot be loaded. "
+                "Using serial routines to compute projections."
+            )
+        )
+else:
+    logging.info("Using serial routines to compute projections.")
+
 
 # Alias: the type of the functions that project operators to a n-body sector, relative to a
 # given reference state.
@@ -177,7 +200,7 @@ def _project_product_operator_combinatorial(
 
     # When we project to a many-body subspace, it is better to use the
     # recursive approach, to discard negligible contributions.
-    if nmax > 3:
+    if nmax > 2:
         return _project_product_operator_recursive(full_operator, nmax, sigma)
 
     prefactor = src_operator.prefactor
@@ -241,7 +264,7 @@ def _project_product_operator_recursive(
 
     # When we project to a few-body subspace, it is better to use the
     # combinatorial approach
-    if m_max <= 3:
+    if m_max < 3:
         return _project_product_operator_combinatorial(full_operator, m_max, sigma_0)
 
     system = full_operator.system
@@ -573,6 +596,23 @@ def _project_monomial(operator, nmax, sigma):
     return dispatch_project_method[type(operator)](operator, nmax, sigma).simplify()
 
 
+def _project_monomial_worker(operator, nmax, sigma):
+    """ """
+    dispatch_project_method = {
+        ScalarOperator: lambda x, y, z: x,
+        # ProductOperator: project_product_operator_as_n_body_operator,
+        ProductOperator: _project_product_operator_to_m_body_recursive,
+        QutipOperator: project_qutip_operator_as_n_body_operator,
+        # QutipOperator: _project_qutip_operator_to_m_body_recursive,
+        QuadraticFormOperator: project_quadraticform_operator_as_n_body_operator,
+    }
+    return (
+        dispatch_project_method[type(operator)](operator, nmax, sigma)
+        .simplify()
+        ._set_system_(None)
+    )
+
+
 def project_sum_operator(
     full_operator: Operator,
     nmax: int,
@@ -583,7 +623,6 @@ def project_sum_operator(
     """
     system = full_operator.system
     terms_tuple: Tuple[Operator] = full_operator.flat().terms
-    changed = False
 
     one_body_terms = []
     block_terms: Dict[Optional[frozenset], Operator] = {}
@@ -615,26 +654,35 @@ def project_sum_operator(
             return True
         return False
 
-    for term in terms_tuple:
-        if dispatch_term(term):
-            continue
-        changed = True
-        term = _project_monomial(term, nmax, sigma)
+    non_dispatched_terms = tuple(
+        term for term in terms_tuple if not dispatch_term(term)
+    )
+    if not non_dispatched_terms:
+        return full_operator
 
+    # Process all the terms
+    non_dispatched_length = len(non_dispatched_terms)
+    if USE_PARALLEL and non_dispatched_length > 10:
+        non_dispatched_terms = parallel_process_non_dispatched_terms(
+            non_dispatched_terms, nmax, sigma
+        )
+    else:
+        non_dispatched_terms = tuple(
+            _project_monomial(term, nmax, sigma) for term in non_dispatched_terms
+        )
+
+    terms = list(block_terms.values())
+
+    for term in non_dispatched_terms:
         if isinstance(term, (ScalarOperator, LocalOperator, OneBodyOperator)):
             one_body_terms.append(term)
         elif isinstance(term, SumOperator):
             for sub_term in term.terms:
+                assert sub_term.system is system
                 dispatch_term(sub_term)
         else:
             if not dispatch_term(term):
-                raise TypeError(
-                    f"term of type {type(
-                    term)} could not be dispatched."
-                )
-
-    if not changed:
-        return full_operator
+                raise TypeError(f"term of type {type(term)} could not be dispatched.")
 
     scalar = sum(
         term.prefactor for term in one_body_terms if isinstance(term, ScalarOperator)
@@ -650,6 +698,31 @@ def project_sum_operator(
         terms.append(sum(proper_local_terms).simplify())
 
     return iterable_to_operator(terms, system)
+
+
+def parallel_process_non_dispatched_terms(
+    terms: Tuple[Operator],
+    nmax: int,
+    sigma: Optional[ProductDensityOperator | GibbsProductDensityOperator] = None,
+    use_threads=USE_THREADS,
+    max_workers=MAX_WORKERS,
+) -> Operator:
+    """
+    Project each operator in `terms` to the nmax subspace, relative
+    to the state `sigma`.
+    """
+    system = terms[0].system
+    non_dispatched_length = len(terms)
+    project_worker = partial(_project_monomial_worker, nmax=nmax, sigma=sigma)
+    executor_cls = ThreadPoolExecutor if use_threads else ProcessPoolExecutor
+    chunksize = max(1, int(non_dispatched_length / max_workers))
+    with executor_cls(max_workers=max_workers) as executor:
+        terms = tuple(
+            term for term in executor.map(project_worker, terms, chunksize=chunksize)
+        )
+    for term in terms:
+        term._set_system_(system)
+    return terms
 
 
 def project_to_n_body_operator(
