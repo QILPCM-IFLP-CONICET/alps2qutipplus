@@ -7,6 +7,7 @@ implemented though the class MixtureDensityOperator.
 """
 
 import logging
+import pickle
 from numbers import Number
 from typing import Iterable, Optional, Tuple, Union, cast
 
@@ -174,6 +175,11 @@ class MixtureDensityOperator(DensityOperatorMixin, SumOperator):
     def simplify(self):
         # DensityOperator's are considered "simplified".
         return self
+
+    def __setstate__(self, state):
+        state = pickle.loads(state)
+        self.__dict__.update(state)
+        self._set_system_(self.system)
 
     def to_qutip(self, block: Optional[Tuple[str]] = None):
         """Produce a qutip compatible object"""

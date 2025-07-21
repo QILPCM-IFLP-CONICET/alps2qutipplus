@@ -3,7 +3,7 @@
 """
 Created on Tue Sep 12 19:07:05 2023
 
-@author: mauricio
+@author: mmatera <matera@fisica.unlp.edu.ar>
 """
 
 # import os
@@ -33,4 +33,4 @@ ALPSQUTIP_ALLOW_OVERWRITE_BINDINGS = False
 ALPSQUTIP_TOLERANCE = 1.0e-14
 USE_PARALLEL = False
 PARALLEL_MAX_WORKERS = 4
-PARALLEL_USE_THREADS = True
+PARALLEL_USE_THREADS = False
