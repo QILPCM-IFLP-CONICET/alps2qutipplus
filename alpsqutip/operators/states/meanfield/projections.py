@@ -2,7 +2,6 @@
 Module that implements a meanfield approximation of a Gibbsian state
 """
 
-import logging
 from functools import reduce
 from itertools import combinations
 from typing import Callable, Dict, List, Optional, Tuple, Union, cast
@@ -11,7 +10,6 @@ import numpy as np
 import qutip
 from qutip import Qobj
 
-import alpsqutip.settings as alpsqutip_settings
 from alpsqutip.operators import (
     LocalOperator,
     OneBodyOperator,
@@ -34,30 +32,13 @@ from alpsqutip.operators.states.utils import (
     acts_over_order,
     compute_operator_expectation_value,
 )
+from alpsqutip.parallel import (
+    DISPATCH_PROJECTION_METHOD_PARALLEL,
+    USE_PARALLEL,
+    parallel_process_non_dispatched_terms,
+)
 from alpsqutip.qutip_tools.tools import schmidt_dec_firsts_last_qutip_operator
 from alpsqutip.settings import ALPSQUTIP_TOLERANCE
-
-USE_PARALLEL = alpsqutip_settings.USE_PARALLEL
-MAX_WORKERS = alpsqutip_settings.PARALLEL_MAX_WORKERS
-USE_THREADS = alpsqutip_settings.PARALLEL_USE_THREADS
-
-if USE_PARALLEL:
-    try:
-        from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
-        from functools import partial
-
-        logging.info("using parallel routines to build projections.")
-    except ModuleNotFoundError:
-        USE_PARALLEL = False
-        logging.warning(
-            (
-                "ProcessPoolExecutor/ThreadPoolExecutor cannot be loaded. "
-                "Using serial routines to compute projections."
-            )
-        )
-else:
-    logging.info("Using serial routines to compute projections.")
-
 
 # Alias: the type of the functions that project operators to a n-body sector, relative to a
 # given reference state.
@@ -584,33 +565,10 @@ def project_operator_to_m_body(
 
 
 def _project_monomial(operator, nmax, sigma):
-    """ """
-    dispatch_project_method = {
-        ScalarOperator: lambda x, y, z: x,
-        # ProductOperator: project_product_operator_as_n_body_operator,
-        ProductOperator: _project_product_operator_to_m_body_recursive,
-        QutipOperator: project_qutip_operator_as_n_body_operator,
-        # QutipOperator: _project_qutip_operator_to_m_body_recursive,
-        QuadraticFormOperator: project_quadraticform_operator_as_n_body_operator,
-    }
-    return dispatch_project_method[type(operator)](operator, nmax, sigma).simplify()
-
-
-def _project_monomial_worker(operator, nmax, sigma):
-    """ """
-    dispatch_project_method = {
-        ScalarOperator: lambda x, y, z: x,
-        # ProductOperator: project_product_operator_as_n_body_operator,
-        ProductOperator: _project_product_operator_to_m_body_recursive,
-        QutipOperator: project_qutip_operator_as_n_body_operator,
-        # QutipOperator: _project_qutip_operator_to_m_body_recursive,
-        QuadraticFormOperator: project_quadraticform_operator_as_n_body_operator,
-    }
-    return (
-        dispatch_project_method[type(operator)](operator, nmax, sigma)
-        .simplify()
-        ._set_system_(None)
-    )
+    """
+    Apply the projection function specific for the given type of operator.
+    """
+    return DISPATCH_PROJECTION_METHOD[type(operator)](operator, nmax, sigma).simplify()
 
 
 def project_sum_operator(
@@ -700,31 +658,6 @@ def project_sum_operator(
     return iterable_to_operator(terms, system)
 
 
-def parallel_process_non_dispatched_terms(
-    terms: Tuple[Operator],
-    nmax: int,
-    sigma: Optional[ProductDensityOperator | GibbsProductDensityOperator] = None,
-    use_threads=USE_THREADS,
-    max_workers=MAX_WORKERS,
-) -> Operator:
-    """
-    Project each operator in `terms` to the nmax subspace, relative
-    to the state `sigma`.
-    """
-    system = terms[0].system
-    non_dispatched_length = len(terms)
-    project_worker = partial(_project_monomial_worker, nmax=nmax, sigma=sigma)
-    executor_cls = ThreadPoolExecutor if use_threads else ProcessPoolExecutor
-    chunksize = max(1, int(non_dispatched_length / max_workers))
-    with executor_cls(max_workers=max_workers) as executor:
-        terms = tuple(
-            term for term in executor.map(project_worker, terms, chunksize=chunksize)
-        )
-    for term in terms:
-        term._set_system_(system)
-    return terms
-
-
 def project_to_n_body_operator(
     full_operator: Operator, nmax: int = 1, sigma=None
 ) -> Operator:
@@ -767,3 +700,13 @@ project_product_operator_as_n_body_operator = _project_product_operator_combinat
 _project_product_operator_to_m_body_recursive = _project_product_operator_recursive
 project_qutip_operator_as_n_body_operator = _project_qutip_operator_combinatorial
 _project_qutip_operator_to_m_body_recursive = _project_qutip_operator_recursive
+
+
+DISPATCH_PROJECTION_METHOD = {
+    ScalarOperator: lambda x, y, z: x,
+    ProductOperator: _project_product_operator_to_m_body_recursive,
+    QutipOperator: project_qutip_operator_as_n_body_operator,
+    QuadraticFormOperator: project_quadraticform_operator_as_n_body_operator,
+}
+
+DISPATCH_PROJECTION_METHOD_PARALLEL.update(DISPATCH_PROJECTION_METHOD)
