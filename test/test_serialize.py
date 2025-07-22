@@ -16,6 +16,7 @@ from .helper import (
 
 
 def test_serialize_graph():
+    print("test serialize graph")
     graph = SYSTEM.spec["graph"]
     a = pickle.dumps(graph)
     reconstructed_graph = pickle.loads(a)
@@ -24,6 +25,7 @@ def test_serialize_graph():
 
 
 def test_serialize_system():
+    print("test serialize system")
     a = pickle.dumps(SYSTEM)
     reconstructed_system = pickle.loads(a)
     assert isinstance(reconstructed_system, SystemDescriptor)
@@ -32,20 +34,36 @@ def test_serialize_system():
 
 @pytest.mark.parametrize(["name", "operator"], list(FULL_TEST_CASES.items()))
 def test_serialize_operator(name, operator):
+    print("test serialize", name)
+
     a = pickle.dumps(operator)
     reconstructed_operator = pickle.loads(a)
     assert isinstance(reconstructed_operator, Operator)
+    reconstructed_operator._set_system_(operator.system)
     assert check_operator_equality(operator, reconstructed_operator, tolerance=1e-8)
 
 
 def worker_add_a_number(q):
     op1, number = q.get()
+    if hasattr(op1, "terms"):
+        system = op1.system
+        for t in op1.terms:
+            assert t.system is system, f"{id(t.system)}\n is not {id(system)}."
+            print("* OK")
+
     q.put(op1 + number)
 
 
 @pytest.mark.parametrize(["name", "operator"], list(FULL_TEST_CASES.items()))
 def test_process_add_number(name, operator):
     from multiprocessing import Process, Queue
+
+    print("test process add number", name)
+
+    if hasattr(operator, "terms"):
+        system = operator.system
+        for t in operator.terms:
+            assert t.system is system
 
     my_queue = Queue()
     p = Process(target=worker_add_a_number, args=(my_queue,))
@@ -59,6 +77,11 @@ def test_process_add_number(name, operator):
     p.join()
     result_worker = my_queue.get()
     result_mine = operator + 1.0
+    print(type(result_worker), type(result_mine))
+
+    result_worker._set_system_(operator.system)
+    result_mine._set_system_(operator.system)
+    p.close()
     assert check_operator_equality(result_worker, result_mine, tolerance=1e-8)
 
 
@@ -81,6 +104,8 @@ def worker_expect(q):
 def test_process_expect(state_name, operator_name):
     from multiprocessing import Process, Queue
 
+    print("test process expect", state_name, operator_name)
+
     state = TEST_CASES_STATES[state_name]
     operator = OPERATOR_TYPE_CASES[operator_name]
     my_queue = Queue()
@@ -94,5 +119,6 @@ def test_process_expect(state_name, operator_name):
     )
     p.join()
     result_worker = my_queue.get()
+    p.close()
     result_mine = state.expect(operator)
     assert abs(result_worker - result_mine) < 1e-9

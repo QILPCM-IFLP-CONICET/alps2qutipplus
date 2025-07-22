@@ -21,7 +21,7 @@ from alpsqutip.operators.states import ProductDensityOperator
 from alpsqutip.operators.states.gibbs import GibbsProductDensityOperator
 from alpsqutip.settings import ALPSQUTIP_TOLERANCE
 
-from .projections import project_to_n_body_operator
+from .projections import n_body_projection
 
 
 def compute_rel_entropy(state: GibbsProductDensityOperator, ham: Operator) -> float:
@@ -216,7 +216,7 @@ def self_consistent_mf(
     rel_entropy = compute_rel_entropy(sigma_ref, ham)
     converged = False
     for curr_step in range(max_steps):
-        gen_sc = project_to_n_body_operator(ham, nmax=1, sigma=sigma_ref)
+        gen_sc = n_body_projection(ham, nmax=1, sigma=sigma_ref)
         sigma_sc = GibbsProductDensityOperator(gen_sc)
         new_rel_entropy = compute_rel_entropy(sigma_sc, ham)
         if callback is not None:
@@ -310,7 +310,7 @@ def variational_quadratic_mfa(
         # We start by projecting the generator `ham` to the two-body sector
         # relative to `sigma_0`:
 
-        ham_proj = project_to_n_body_operator(ham, nmax=2, sigma=sigma_0)
+        ham_proj = n_body_projection(ham, nmax=2, sigma=sigma_0)
         if isinstance(ham_proj, OneBodyOperator):
             sigma_0 = GibbsProductDensityOperator(ham_proj)
         else:

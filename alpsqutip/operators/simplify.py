@@ -73,6 +73,9 @@ def collect_nbody_terms(operator: Operator) -> dict:
     scalar_term = 0.0
     system = operator.system
 
+    if not isinstance(operator, SumOperator):
+        return {operator.acts_over(): [operator]}
+
     for term in operator.terms:
         acts_over = term.acts_over()
         if acts_over is None:

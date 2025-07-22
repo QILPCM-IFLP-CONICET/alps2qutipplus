@@ -12,8 +12,7 @@ from alpsqutip.operators.states import DensityOperatorMixin, ProductDensityOpera
 from alpsqutip.operators.states.gibbs import GibbsProductDensityOperator
 from alpsqutip.operators.states.meanfield.projections import (
     ProjectingOperatorFunction,
-    project_operator_to_m_body,
-    project_to_n_body_operator,
+    n_body_projection,
 )
 
 
@@ -22,7 +21,7 @@ def self_consistent_project_meanfield(
     sigma: Optional[ProductDensityOperator | GibbsProductDensityOperator] = None,
     max_it: int = 100,
     tol: float = 1e-12,
-    proj_func: Optional[ProjectingOperatorFunction] = project_operator_to_m_body,
+    proj_func: Optional[ProjectingOperatorFunction] = n_body_projection,
 ) -> Tuple[Operator, DensityOperatorMixin]:
     """
     Iteratively computes the one-body component from a QuTip operator and state
@@ -82,7 +81,7 @@ def self_consistent_project_meanfield(
     converged = False
     for it in range(max_it):
         # k_one_body = project_operator_to_m_body(k_op, 1, sigma)
-        k_one_body = project_to_n_body_operator(k_op, 1, sigma_curr).simplify()
+        k_one_body = n_body_projection(k_op, 1, sigma_curr).simplify()
         sigma_new = GibbsProductDensityOperator(k_one_body)
         rel_s_new = np.real(cast(complex, sigma_curr.expect(k_op + sigma_new.logm())))
         rel_entropy_txt = f"     S(curr||target)={rel_s_new}"

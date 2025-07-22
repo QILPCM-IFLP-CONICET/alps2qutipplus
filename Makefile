@@ -90,7 +90,7 @@ benchmark-commutators:
 	BENCHMARKS=1 ALPSQUTIP_ALLTESTS=1 CHAIN_SIZE=20 pytest --benchmark-enable --benchmark-save="commutators_$(BENCHMARK_FILE)" --benchmark-columns=min test/basic_operators/test_operator_functions_benchmarks.py
 
 benchmark-projections:
-	BENCHMARKS=1 ALPSQUTIP_ALLTESTS=1 CHAIN_SIZE=20 pytest -x --benchmark-enable --benchmark-save="projections_$(BENCHMARK_FILE)" --benchmark-columns=min test/states/test_projections_benchmark.py
+	BENCHMARKS=1 ALPSQUTIP_ALLTESTS=1 CHAIN_SIZE=20 pytest -s --ff -x --benchmark-enable --benchmark-save="projections_$(BENCHMARK_FILE)" --benchmark-columns=min test/states/test_projections_benchmark.py
 
 benchmark-set-reference:
 	python test/set_benchmark_reference.py
