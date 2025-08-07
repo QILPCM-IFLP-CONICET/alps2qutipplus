@@ -37,7 +37,7 @@ from alpsqutip.parallel import (
     USE_PARALLEL,
     parallel_process_non_dispatched_terms,
 )
-from alpsqutip.qutip_tools.tools import schmidt_dec_firsts_last_qutip_operator
+from alpsqutip.qutip_tools.tools import schmidt_dec_rest_last_qutip_operator
 from alpsqutip.settings import ALPSQUTIP_TOLERANCE
 
 # Alias: the type of the functions that project operators to a n-body sector, relative to a
@@ -344,7 +344,7 @@ def _project_qutip_operator_recursive(
     rest_sitenames = {site: site_names[site] for site in firsts}
 
     block_qutip_op = full_operator.to_qutip(names)
-    qutip_ops_firsts, qutip_ops_last = schmidt_dec_firsts_last_qutip_operator(
+    qutip_ops_firsts, qutip_ops_last = schmidt_dec_rest_last_qutip_operator(
         block_qutip_op
     )
     if sigma_0 is None:
