@@ -656,7 +656,7 @@ def build_system(
 
     logging.info("loading model", model_name, " over graph", geometry_name)
 
-    parms = {"L": 4, "J": 1, "Jz0": 1, "Jxy0": 1, "a": 1}
+    parms = {"L": 4, "J": 1, "a": 1}
     parms.update(kwargs)
     model = model_from_alps_xml(models_lib_file, model_name, parms)
     graph = graph_from_alps_xml(lattice_lib_file, geometry_name, parms)
