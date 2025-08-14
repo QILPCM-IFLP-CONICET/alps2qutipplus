@@ -138,6 +138,7 @@ def test_compare_recursive_and_iterative_n_body_projections(op_name, op_test):
     """
     failed = {}
     print(f"projecting <<{op_name}>> in mean field")
+    isherm = op_test.isherm
 
     for state_name, sigma0 in TEST_STATES.items():
         print(f"  = sigma0{state_name}:\n", sigma0)
@@ -149,6 +150,14 @@ def test_compare_recursive_and_iterative_n_body_projections(op_name, op_test):
             print("   n=", n_body)
             result_m = project_operator_to_m_body(op_test, n_body, sigma0)
             result_n = project_to_n_body_operator(op_test, n_body, sigma0)
+            if isherm:
+                assert (
+                    result_m.isherm
+                ), "project_operator_to_m_body should preserve hermiticity"
+                assert (
+                    result_n.isherm
+                ), "project_to_n_body_operator should preserve hermiticity"
+
             if not check_operator_equality(result_m, result_n, 1.0e-6):
                 failed[
                     (
@@ -262,14 +271,29 @@ def test_compare_iterative_and_recursive_n_body_product_projections(op_name, op_
     ],
 )
 def test_idempotency_nbody_projection(op_name, projection_name, projection_function):
-    """Test the mean field projection over different states,
-    and using both implementations"""
+    """
+    Test the mean field projection over different states,
+    and using both implementations.
+    Also check if hermiticity is preserved.
+
+    """
     op_test = TEST_OPERATORS[op_name]
     print("testing the consistency of projection in", op_name)
+    isherm = op_test.isherm
     op_sq = op_test * op_test
+    if isherm:
+        assert op_sq.isherm
+
     proj_sq_3 = projection_function(op_sq, 3)
+    if isherm:
+        assert op_sq.isherm
     proj_sq_2 = projection_function(op_sq, 2)
+    if isherm:
+        assert op_sq.isherm
     proj_sq_3_2 = projection_function(proj_sq_3, 2)
+    if isherm:
+        assert op_sq.isherm
+
     assert check_operator_equality(proj_sq_2, proj_sq_3_2, 5e-7), (
         f"Projections on two-body manifold using {projection_name} does not match for "
         f"{op_name} and {op_name} projected on the three body manyfold"
@@ -288,7 +312,7 @@ def test_idempotency_nbody_projection(op_name, projection_name, projection_funct
         if isinstance(state, (GibbsProductDensityOperator, ProductDensityOperator))
     ],
 )
-def test_2body_to_1body_projection(
+def test_2body_to_1body_product_projection(
     state_name, state, projection_name, projection_function
 ):
     print(

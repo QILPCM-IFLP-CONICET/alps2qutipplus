@@ -701,7 +701,7 @@ def _(y_value: Number, x_op: SumOperator):
 
     terms = tuple(term * y_value for term in x_op.terms)
     isherm = x_op._isherm and (not isinstance(y_value, complex) or y_value.imag == 0)
-    return SumOperator(terms, x_op.system, isherm, simplified=x_op._simplified)
+    return SumOperator(terms, x_op.system, isherm=isherm, simplified=x_op._simplified)
 
 
 # SumOperator times ScalarOperator
@@ -805,8 +805,7 @@ def _(
 
     terms_it = (term * y_op for term in x_op.terms)
     terms = tuple(term for term in terms_it if bool(term))
-    isherm = x_op._isherm and y_op.isherm
-    return iterable_to_operator(terms, system, isherm=isherm)
+    return iterable_to_operator(terms, system)
 
 
 @Operator.register_mul_handler(
@@ -838,8 +837,7 @@ def _(y_op: LocalOperator, x_op: SumOperator):
     system = x_op.system.union(y_op.system)
     terms_it = (y_op * term for term in x_op.terms)
     terms = tuple(term for term in terms_it if bool(term))
-    isherm = x_op._isherm and y_op.isherm
-    return iterable_to_operator(terms, system, isherm=isherm)
+    return iterable_to_operator(terms, system)
 
 
 # SumOperator and any Operator
@@ -940,12 +938,13 @@ def _(x_op: SumOperator, y_op: SumOperator):
     if len(terms) == 1:
         return terms[0]
 
+    isherm = (x_op is y_op and x_op.isherm) or None
     if all(
         acts_over and len(acts_over) < 2
         for acts_over in (term.acts_over() for term in terms)
     ):
-        return OneBodyOperator(terms, system, False)
-    return SumOperator(terms, system)
+        return OneBodyOperator(terms, system, False, isherm=isherm)
+    return SumOperator(terms, system, isherm=isherm)
 
 
 @Operator.register_mul_handler(
@@ -1047,7 +1046,8 @@ def _(x_op: OneBodyOperator, y_op: OneBodyOperator):
         return ScalarOperator(0, system)
     if len(terms) == 1:
         return terms[0]
-    return OneBodyOperator(terms, system)
+    isherm = (x_op is y_op and x_op.isherm) or None
+    return OneBodyOperator(terms, system, isherm=isherm)
 
 
 @Operator.register_add_handler(
