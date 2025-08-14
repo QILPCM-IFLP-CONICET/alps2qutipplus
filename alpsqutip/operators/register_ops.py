@@ -670,7 +670,9 @@ def _(x_op: SumOperator, y_value: Number):
 
     terms = tuple((term * y_value) for term in x_op.terms)
     isherm = x_op._isherm and (not isinstance(y_value, complex) or y_value.imag == 0)
-    return SumOperator(terms, x_op.system, isherm=isherm or None, simplified=x_op._simplified)
+    return SumOperator(
+        terms, x_op.system, isherm=isherm or None, simplified=x_op._simplified
+    )
 
 
 @Operator.register_mul_handler(
@@ -701,7 +703,9 @@ def _(y_value: Number, x_op: SumOperator):
 
     terms = tuple(term * y_value for term in x_op.terms)
     isherm = x_op._isherm and (not isinstance(y_value, complex) or y_value.imag == 0)
-    return SumOperator(terms, x_op.system, isherm=isherm or None, simplified=x_op._simplified)
+    return SumOperator(
+        terms, x_op.system, isherm=isherm or None, simplified=x_op._simplified
+    )
 
 
 # SumOperator times ScalarOperator
@@ -732,7 +736,7 @@ def _(x_op: SumOperator, y_op: ScalarOperator):
     if y_value == 0:
         return ScalarOperator(0, system)
 
-    terms = tuple(term * y_value for term in x_op.terms)    
+    terms = tuple(term * y_value for term in x_op.terms)
     isherm = x_op._isherm and (not isinstance(y_value, complex) or y_value.imag == 0)
     return iterable_to_operator(terms, system, isherm=isherm or None)
 
@@ -1048,7 +1052,7 @@ def _(x_op: OneBodyOperator, y_op: OneBodyOperator):
     if len(terms) == 1:
         return terms[0]
     isherm = (x_op.isherm and y_op.isherm) or None
-    return OneBodyOperator(terms, system,isherm=isherm)
+    return OneBodyOperator(terms, system, isherm=isherm)
 
 
 @Operator.register_add_handler(

@@ -60,7 +60,7 @@ class QuadraticFormOperator(Operator):
                 isinstance(linear_term, OneBodyOperator)
                 or len(linear_term.acts_over()) < 2
             )
-
+        self._isherm = None
         assert isinstance(basis, tuple)
         assert isinstance(weights, tuple)
         assert all(gen.isherm for gen in basis)  # TODO: REMOVE ME
@@ -218,7 +218,7 @@ class QuadraticFormOperator(Operator):
 
     def as_sum_of_products(self, simplify: bool = True) -> SumOperator:
         """Convert to a linear combination of two-body operators"""
-        isherm = self.isherm
+        isherm = self._isherm
         isdiag = self.isdiagonal
         if all(b_op.isherm for b_op in self.basis):
             terms = tuple(
@@ -230,7 +230,7 @@ class QuadraticFormOperator(Operator):
         else:
             terms = tuple(
                 (
-                    ((op_term * op_term) * w)
+                    ((op_term.dag() * op_term) * w)
                     for w, op_term in zip(self.weights, self.basis)
                 )
             )
@@ -281,17 +281,34 @@ class QuadraticFormOperator(Operator):
 
     @property
     def isherm(self):
+        isherm = self._isherm
+        if isherm is not None:
+            return isherm
+
+        # We start assumig that the operator is hermitician
+        isherm = True
         for term in (self.offset, self.linear_term):
             if term is None:
                 continue
-            isherm = term.isherm
-            if not isherm:
-                return isherm
+            isherm = (isherm and term.isherm) or False
 
+        # Now, let's check the weights
         weights = self.weights
         if len(weights) == 0:
-            return True
-        return all(abs(np.imag(weight)) < ALPSQUTIP_TOLERANCE for weight in weights)
+            self._isherm = isherm
+            return isherm
+        if isherm:
+            isherm = all(
+                abs(np.imag(weight)) < ALPSQUTIP_TOLERANCE for weight in weights
+            )
+            if isherm is not None:
+                if isherm or len(weights) == 1:
+                    self._isherm = isherm
+                    return isherm
+        # A more drastic approach: convert it to a sum of products
+        isherm = self.as_sum_of_products().simplify().isherm or False
+        self._isherm = isherm
+        return isherm
 
     def partial_trace(self, sites: Union[tuple, SystemDescriptor]):
 
@@ -870,8 +887,7 @@ def simplify_quadratic_form(
         if hermitic:
             if term is not None:
                 if not term.isherm:
-                    new_term = 0.5 * new_term
-                    new_term = new_term + new_term.dag()
+                    new_term = (new_term + new_term.dag()) * 0.5
                 new_term = new_term.simplify()
         elif term is not None:
             new_term = term.simplify()
