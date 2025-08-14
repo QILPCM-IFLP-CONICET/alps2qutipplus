@@ -134,20 +134,25 @@ class QutipOperator(Operator):
         site_names = self.site_names
         sites = sorted(site_names, key=lambda x: site_names[x])
         if isherm:
-            decomposition = decompose_qutip_operator_hermitician(self.operator.tidyup())
+            decomposition = decompose_qutip_operator_hermitician(
+                self.prefactor * self.operator.tidyup()
+            )
         else:
-            decomposition = decompose_qutip_operator(self.operator.tidyup())
-        prefactor = self.prefactor
+            decomposition = decompose_qutip_operator(
+                self.prefactor * self.operator.tidyup()
+            )
         terms = tuple(
             (
                 ProductOperator(
                     dict(zip(sites, term)),
-                    prefactor=prefactor,
+                    prefactor=1.0,
                     system=self.system,
                 ).simplify()
                 for term in decomposition
             )
         )
+        if isherm:
+            assert all(term.isherm for term in terms)
         if len(terms) == 0:
             terms = tuple((ScalarOperator(0, self.system),))
         return SumOperator(terms, self.system, isherm=isherm)
