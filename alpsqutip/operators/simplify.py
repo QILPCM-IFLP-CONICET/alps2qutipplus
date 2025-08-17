@@ -19,6 +19,7 @@ from alpsqutip.operators.qutip import QutipOperator
 from alpsqutip.qutip_tools.tools import (
     data_is_diagonal,
     decompose_qutip_operator,
+    decompose_qutip_operator_hermitician,
 )
 
 
@@ -92,7 +93,7 @@ def collect_nbody_terms(operator: Operator) -> dict:
 
     # Add a scalar term
     if scalar_term:
-        terms_by_block[tuple()] = [ScalarOperator(scalar_term, system)]
+        terms_by_block[frozenset()] = [ScalarOperator(scalar_term, system)]
     return terms_by_block
 
 
@@ -140,6 +141,7 @@ def group_terms_by_blocks(operator: Operator, fn: Optional[Callable] = None):
     changed = False
     system = operator.system
     operator_flat = operator.flat()
+    isherm = getattr(operator, "_isherm", None)
     if operator is not operator_flat:
         changed = True
     terms_dict = collect_nbody_terms(operator_flat)
@@ -154,7 +156,6 @@ def group_terms_by_blocks(operator: Operator, fn: Optional[Callable] = None):
         op_in: Operator :
 
         fn: Optional[Callable] :
-
 
         Returns
         -------
@@ -178,8 +179,17 @@ def group_terms_by_blocks(operator: Operator, fn: Optional[Callable] = None):
         else:
             if len(terms) == 1:
                 new_term = terms[0]
+                if isherm and not new_term.isherm:
+                    new_term = (
+                        SumOperator(
+                            tuple([new_term, new_term.dag()]),
+                            system=system,
+                            isherm=isherm,
+                        )
+                        * 0.5
+                    )
             else:
-                new_term = SumOperator(tuple(terms), system=system)
+                new_term = SumOperator(tuple(terms), system=system, isherm=isherm)
 
             new_term_simpl = apply_simplification_fn(new_term, fn)
             if new_term_simpl is not new_term:
@@ -191,7 +201,7 @@ def group_terms_by_blocks(operator: Operator, fn: Optional[Callable] = None):
     new_terms = [term for term in new_terms if term]
 
     if one_body_terms:
-        new_term = OneBodyOperator(tuple(one_body_terms), system)
+        new_term = OneBodyOperator(tuple(one_body_terms), system, isherm=isherm)
         new_terms.append(new_term)
         changed = True
 
@@ -207,7 +217,7 @@ def group_terms_by_blocks(operator: Operator, fn: Optional[Callable] = None):
     return sum_operator_sequence(
         new_terms,
         system=system,
-        isherm=getattr(operator, "_isherm", None),
+        isherm=isherm,
         isdiag=getattr(operator, "_isdiagonal", None),
         simplified=True,
     )
@@ -233,6 +243,7 @@ def simplify_qutip_sums(sum_operator: SumOperator) -> Operator:
         return sum_operator
 
     changed = False
+    isherm = sum_operator._isherm
     system = sum_operator.system
     terms = []
     qutip_terms = {}
@@ -277,6 +288,10 @@ def simplify_qutip_sums(sum_operator: SumOperator) -> Operator:
             continue
         changed = True
         new_qterm = sum(q_term.to_qutip(block_tuple) for q_term in q_terms)
+        # Reinforce hermiticity if the operator is hermitician, but the term isn't.
+        if isherm and not new_qterm.isherm:
+            new_qterm = (new_qterm + new_qterm.dag()) * 0.5
+
         if not empty_op(new_qterm):
             terms.append(
                 QutipOperator(
@@ -291,7 +306,7 @@ def simplify_qutip_sums(sum_operator: SumOperator) -> Operator:
 
     if not changed:
         return sum_operator
-    return sum_operator_sequence(terms, system=system, simplified=True)
+    return sum_operator_sequence(terms, system=system, simplified=True, isherm=isherm)
 
 
 def rewrite_nbody_term_using_qutip(
@@ -347,12 +362,17 @@ def rewrite_nbody_term_using_qutip(
         tensor(*(op_or_identity(term, site) for site in block_sites)) * term.prefactor
         for term in operator_list
     )
-    if isherm is None:
+    if isherm and not qutip_subop.isherm:
+        qutip_subop = (qutip_subop + qutip_subop.dag()) * 0.5
+    elif isherm is None:
         isherm = qutip_subop.isherm
     if isdiag is None:
         isdiag = data_is_diagonal(qutip_subop.data)
     # Now, decompose the operator again as a sum of n-body terms
-    factor_terms = decompose_qutip_operator(qutip_subop)
+    if isherm:
+        factor_terms = decompose_qutip_operator(qutip_subop)
+    else:
+        factor_terms = decompose_qutip_operator_hermitician(qutip_subop)
     new_terms = (
         ProductOperator(
             dict(zip(block_sites, factors)),
