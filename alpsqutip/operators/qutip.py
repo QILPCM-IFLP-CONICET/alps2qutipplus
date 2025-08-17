@@ -363,7 +363,7 @@ class QutipOperator(Operator):
         sites = system.sites
         operator_qutip: Qobj = self.operator * self.prefactor
         if block is None:
-            if len(sites) > 8:
+            if len(sites) > 10:
                 logging.warning(
                     (
                         "to_qutip does not received a block. "
