@@ -302,6 +302,13 @@ def data_is_scalar(data) -> bool:
     return scalar_value(data) is not None
 
 
+def hermitician_part(op: Qobj, tol=None) -> Qobj:
+    """Returns the hermitician part of te operator"""
+    if op.isherm:
+        return op
+    return (op + op.dag()).tidyup(tol) * 0.5
+
+
 def is_scalar_op(op: Qobj) -> bool:
     """Check if op is a multiple of the identity operator"""
     return data_is_scalar(op.data)
@@ -483,26 +490,26 @@ def schmidt_dec_first_rest_qutip_operator_hermitician(
     for op_1, op_2 in zip(ops_1, ops_2):
         if op_1.isherm:
             opsh_1.append(op_1)
-            opsh_2.append(op_2)
+            opsh_2.append(hermitician_part(op_2, tol))
             continue
 
-        op_1h = (op_1 + op_1.dag()).tidyup(tol)
+        op_1h = hermitician_part(op_1, tol)
         if data_is_zero(op_1h.data):
             continue
-        op_2h = op_2 + op_2.dag()
-        opsh_1.append(op_1h * 0.5)
-        opsh_2.append(op_2h * 0.5)
+        op_2h = hermitician_part(op_2, tol)
+        opsh_1.append(op_1h)
+        opsh_2.append(op_2h)
 
     # process products of anti-hermitician terms
     for op_1, op_2 in zip(ops_1, ops_2):
         if op_1.isherm:
             continue
-        op_1h = (op_1 - op_1.dag()).tidyup(tol)
+        op_1h = hermitician_part(op_1 * 1j, tol)
         if data_is_zero(op_1h.data):
             continue
-        op_2h = op_2 - op_2.dag()
-        opsh_1.append(op_1h * 0.5j)
-        opsh_2.append(op_2h * (-0.5j))
+        op_2h = hermitician_part(op_2 * (-1j), tol)
+        opsh_1.append(op_1h)
+        opsh_2.append(op_2h)
 
     return opsh_1, opsh_2
 
@@ -571,26 +578,26 @@ def schmidt_dec_rest_last_qutip_operator_hermitician(
 
     for op_1, op_2 in zip(ops_1, ops_2):
         if op_2.isherm:
-            opsh_1.append(op_1)
+            opsh_1.append(hermitician_part(op_1, tol))
             opsh_2.append(op_2)
             continue
 
-        op_2h = (op_2 + op_2.dag()).tidyup(tol)
+        op_2h = hermitician_part(op_2, tol)
         if data_is_zero(op_2h.data):
             continue
-        op_1h = op_1 + op_1.dag()
-        opsh_1.append(op_1h * 0.5)
-        opsh_2.append(op_2h * 0.5)
+        op_1h = hermitician_part(op_1)
+        opsh_1.append(op_1h)
+        opsh_2.append(op_2h)
 
     for op_1, op_2 in zip(ops_1, ops_2):
-        if op_1.isherm:
+        if op_2.isherm:
             continue
-        op_2h = (op_2 - op_2.dag()).tidyup(tol)
+        op_2h = hermitician_part(op_2 * 1j, tol)
         if data_is_zero(op_2h.data):
             continue
-        op_1h = op_1 - op_1.dag()
-        opsh_1.append(op_1h * 0.5j)
-        opsh_2.append(op_2h * (-0.5j))
+        op_1h = hermitician_part(op_1 * (-1j), tol)
+        opsh_1.append(op_1h)
+        opsh_2.append(op_2h)
 
     return opsh_1, opsh_2
 

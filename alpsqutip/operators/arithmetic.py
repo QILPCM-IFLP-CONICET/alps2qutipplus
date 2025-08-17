@@ -315,6 +315,11 @@ class OneBodyOperator(SumOperator):
                 term if isinstance(term, Operator) else ScalarOperator(term, system)
                 for term in terms
             ]
+            if isherm:
+                terms = [
+                    term if term.isherm else (term + term.dag()) * 0.5 for term in terms
+                ]
+
             terms, system = self._simplify_terms(terms, system)
             simplified = True
             if len(terms) == 0:
