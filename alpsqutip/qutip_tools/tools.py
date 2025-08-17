@@ -258,16 +258,28 @@ else:
             data = data.as_scipy()
             if data.nnz == 0:
                 return 0.0
-            if not all(a == b for a, b in zip(*data.nonzero())):
-                return None
-            dim = data.shape[0]
-            data = data.data
-            scalar = data[0]
-            return (
-                scalar
-                if len(data) == dim and all(value == scalar for value in data)
-                else None
-            )
+            try:
+                if not all(a == b for a, b in zip(*data.nonzero())):
+                    return None
+                dim = data.shape[0]
+                data = data.data
+                scalar = data[0]
+                return (
+                    scalar
+                    if len(data) == dim and all(value == scalar for value in data)
+                    else None
+                )
+            except ValueError:
+                a00 = data[0, 0]
+                for i in range(dim1):
+                    for j in range(dim1):
+                        if i == j:
+                            if data[i, i] != a00:
+                                return None
+                        else:
+                            if data[i, i]:
+                                return None
+                return a00
 
         # Must be dense...
         data = data.as_ndarray()
