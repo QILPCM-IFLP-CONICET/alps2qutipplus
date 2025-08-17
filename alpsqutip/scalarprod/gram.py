@@ -205,11 +205,15 @@ def merge_gram_matrices(
     li_indices = find_linearly_independent_rows(gram_full)
     li_1_indices = tuple(i for i in li_indices if i < n_1)
     if len(li_1_indices) != n_1:
+        print(li_1_indices, n_1)
+        print("basis 1 singular")
         raise ValueError("It looks like basis_1 were singular.")
 
     if len(li_indices) != n_total:
+        print("      li indices < ntotal", len(li_indices), n_total)
         n_total = len(li_indices)
         if n_total == n_1:
+            print("      n_total=n1")
             return g11, g11_inv, g11, g11, li_indices
     n_2 = n_total - n_1
     gram_full = gram_full[li_indices, :][:, li_indices]
