@@ -82,6 +82,11 @@ def self_consistent_project_meanfield(
     for it in range(max_it):
         # k_one_body = project_operator_to_m_body(k_op, 1, sigma)
         k_one_body = n_body_projection(k_op, 1, sigma_curr).simplify()
+        if not k_one_body.isherm:
+            k_one_body = (k_one_body + k_one_body.dag()).simplify()
+
+        assert k_one_body.isherm, f"k_one_body is not herm at iteration = {it}"
+
         sigma_new = GibbsProductDensityOperator(k_one_body)
         rel_s_new = np.real(cast(complex, sigma_curr.expect(k_op + sigma_new.logm())))
         rel_entropy_txt = f"     S(curr||target)={rel_s_new}"
