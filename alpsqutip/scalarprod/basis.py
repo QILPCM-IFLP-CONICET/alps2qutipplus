@@ -10,11 +10,13 @@ from numpy.linalg import LinAlgError, cholesky, inv
 from numpy.typing import NDArray
 from scipy.linalg import expm as linalg_expm
 
+from alpsqutip.operators.arithmetic import SumOperator
 from alpsqutip.operators.basic import Operator, ScalarOperator
 from alpsqutip.operators.functions import commutator
 from alpsqutip.scalarprod.build import fetch_HS_scalar_product
 from alpsqutip.scalarprod.gram import gram_matrix, merge_gram_matrices
 from alpsqutip.scalarprod.utils import find_linearly_independent_rows
+from alpsqutip.settings import ALPSQUTIP_TOLERANCE
 
 
 class OperatorBasis:
@@ -126,19 +128,23 @@ class OperatorBasis:
         # G = L . L^\dagger
         while operator_basis:
             try:
+                threshold = 0.25 * max(
+                    ALPSQUTIP_TOLERANCE,
+                    1e-3 * min(row[i] for i, row in enumerate(gram)),
+                )
                 l_gram = cholesky(gram)
-                if all(abs(row[i]) > 1e-6 for i, row in enumerate(l_gram)):
+                if all(abs(row[i]) > threshold for i, row in enumerate(l_gram)):
                     break
             except LinAlgError:
                 pass
-
+            li_indx = find_linearly_independent_rows(gram)
             logging.warning(
                 (
                     "using a non-independent set of operators. "
-                    "Reduce it to a linearly independent set..."
+                    f"Reduce it to a linearly independent set {li_indx}..."
                 )
             )
-            li_indx = find_linearly_independent_rows(gram)
+
             operator_basis_it = (operator_basis[i] for i in li_indx)
             operator_basis = tuple((op_b for op_b in operator_basis_it if op_b))
             gram = np.array([[gram[i, j] for i in li_indx] for j in li_indx])
@@ -300,6 +306,7 @@ class HierarchicalOperatorBasis(OperatorBasis):
         self.generator = generator.simplify()
         self._build_basis(seed, deep, n_body_projection)
         self.build_tensors()
+        assert all(op.isherm for op in self.operator_basis)
 
     def __add__(self, other):
         return OperatorBasis(self.operator_basis, self.generator, self.sp) + other
@@ -313,7 +320,14 @@ class HierarchicalOperatorBasis(OperatorBasis):
         errors = np.zeros((dimension,))
 
         for i in range(dimension):
-            new_elem = commutator(elements[-1], generator).simplify()
+            new_elem = commutator(elements[-1], generator)
+            if not new_elem.isherm:
+                if isinstance(new_elem, SumOperator):
+                    new_elem = SumOperator(
+                        new_elem.terms, system=new_elem.system, isherm=True
+                    )
+                new_elem = new_elem.simplify()
+
             comm_norm = np.abs(sp(new_elem, new_elem))
             if np.abs(comm_norm) < 1e-12:
                 logging.warning(
@@ -478,7 +492,8 @@ def append_basis(basis_1: OperatorBasis, basis_2: OperatorBasis | Iterable[Opera
                 "Trying with full reconstruction"
             )
         )
-        return OperatorBasis(operators, generator, sp)
+        result = OperatorBasis(operators, generator, sp)
+        return result
 
     n1, n2, n = len(g11), len(g22), len(gram)
     if n == n1:
