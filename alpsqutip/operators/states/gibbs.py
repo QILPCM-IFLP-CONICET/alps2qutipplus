@@ -48,7 +48,7 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
             self.normalized = normalized
             self.prefactor = 0
             self.normalized = normalized
-            self.system = k.system.union(system)
+            self.system = system if system is not None else k.system
             return
 
         assert prefactor > 0
@@ -57,7 +57,7 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
         self._free_energy = 0.0
         self.prefactor = prefactor
         self.normalized = normalized
-        self.system = k.system.union(system)
+        self.system = system if system is not None else k.system
 
     def __mul__(self, operand):
         if isinstance(operand, (int, float, np.float64)) and operand >= 0:
@@ -132,7 +132,13 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
         return self
 
     def partial_trace(self, sites: Union[frozenset, SystemDescriptor]):
-        return self.to_qutip_operator().partial_trace(sites)
+        from alpsqutip.operators.states.meanfield.gibbs_partial_trace import (
+            gibbs_meanfield_partial_trace,
+        )
+
+        if isinstance(sites, SystemDescriptor):
+            sites = frozenset(sites.sites)
+        return gibbs_meanfield_partial_trace(self, sites)
 
     def to_qutip(self, block: Optional[Tuple[str]] = None):
         system = self.system
@@ -145,7 +151,7 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
             )
 
         if not self.normalized:
-            rho_qutip, log_prefactor = safe_exp_and_normalize(-self.k.to_qutip())
+            rho_qutip, log_prefactor = safe_exp_and_normalize(-self.k.to_qutip(block))
             self.k = self.k + log_prefactor
             self._free_energy = -log_prefactor
             self.normalized = True
