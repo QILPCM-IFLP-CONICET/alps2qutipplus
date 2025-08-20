@@ -40,6 +40,7 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
         system: Optional[SystemDescriptor] = None,
         prefactor=1.0,
         normalized=False,
+        meanfield=None,
     ):
         if prefactor == 0:
             self.k = ScalarOperator(0, k.system)
@@ -49,6 +50,9 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
             self.prefactor = 0
             self.normalized = normalized
             self.system = system if system is not None else k.system
+            self._meanfield = ProductDensityOperator(
+                {}, system=self.system, prefactor=0
+            )
             return
 
         assert prefactor > 0
@@ -58,6 +62,7 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
         self.prefactor = prefactor
         self.normalized = normalized
         self.system = system if system is not None else k.system
+        self._meanfield = meanfield
 
     def __mul__(self, operand):
         if isinstance(operand, (int, float, np.float64)) and operand >= 0:

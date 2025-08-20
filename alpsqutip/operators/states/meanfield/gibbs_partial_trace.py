@@ -68,7 +68,8 @@ def gibbs_meanfield_partial_trace(
     generator = state.k
     full_acts_over = generator.acts_over()
     environment = frozenset(site for site in full_acts_over if site not in sites)
-    subsystem = state.system.subsystem(sites)
+    system = state.system
+    subsystem = system.subsystem(sites)
 
     if not environment:
         result = GibbsDensityOperator(generator, system=subsystem, prefactor=prefactor)
@@ -93,17 +94,19 @@ def gibbs_meanfield_partial_trace(
         else:
             terms_boundary.append(term_acts_over)
 
-    k_in = iterable_to_operator(terms_in, subsystem, isherm=True)
+    sigma_mf = state._meanfield
     if terms_boundary:
         # If there are boundary terms, project them
-        k_global, sigma_mf = self_consistent_project_meanfield(generator, 1)
-        sigma_mf = sigma_mf.partial_trace(sites)
-        projected_boundary_terms = (
-            project_boundary_term(term, sigma_mf) for term in terms_boundary
+        sigma_mf = (
+            state._meanfield or self_consistent_project_meanfield(generator, 1)[1]
         )
-        k_in = k_in + iterable_to_operator(
-            projected_boundary_terms, subsystem, isherm=True
-        )
-        k_in = k_in.simplify()
 
-    return GibbsDensityOperator(k_in, subsystem, prefactor=prefactor)
+    if sigma_mf:
+        sigma_mf = sigma_mf.partial_trace(sites)
+
+    terms_in.extend((project_boundary_term(term, sigma_mf) for term in terms_boundary))
+
+    k_in = iterable_to_operator(terms_in, system, isherm=True)
+    return GibbsDensityOperator(
+        k_in, subsystem, prefactor=prefactor, meanfield=sigma_mf
+    )
