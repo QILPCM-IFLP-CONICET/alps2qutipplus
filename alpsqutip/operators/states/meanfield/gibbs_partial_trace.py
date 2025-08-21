@@ -2,7 +2,12 @@ import logging
 
 from qutip import tensor as qutip_tensor
 
-from alpsqutip.operators import ProductOperator, QutipOperator, SumOperator
+from alpsqutip.operators import (
+    ProductOperator,
+    QutipOperator,
+    ScalarOperator,
+    SumOperator,
+)
 from alpsqutip.operators.arithmetic import iterable_to_operator
 from alpsqutip.operators.states.basic import (
     DensityOperatorMixin,
@@ -21,8 +26,11 @@ def project_boundary_term(term, sigma: ProductDensityOperator):
     acts_over = term.acts_over()
     environment = frozenset((site for site in sigma.acts_over() if site in acts_over))
     sites = frozenset((site for site in acts_over if site not in environment))
-    local_states = sigma.sites_op
     system = term.system
+    if len(sites) == 0:
+        return ScalarOperator(sigma.expect(term), system)
+
+    local_states = sigma.sites_op
     if isinstance(term, SumOperator):
         return iterable_to_operator(
             (project_boundary_term(sub_term, sigma) for sub_term in term.terms),
@@ -37,7 +45,7 @@ def project_boundary_term(term, sigma: ProductDensityOperator):
         sites_op = {site: sites_op[site] for site in sites}
         return ProductOperator(sites_op, prefactor, system)
     if isinstance(term, QutipOperator):
-        block = list(sites) + list(environment)
+        block = tuple(sites) + tuple(environment)
         qutip_op = term.to_qutip(block)
         qutip_op = qutip_op * qutip_tensor(
             [
@@ -68,7 +76,7 @@ def gibbs_meanfield_partial_trace(
     generator = state.k
     full_acts_over = generator.acts_over()
     environment = frozenset(site for site in full_acts_over if site not in sites)
-    system = state.system
+    system = state.k.system
     subsystem = system.subsystem(sites)
 
     if not environment:
@@ -80,9 +88,9 @@ def gibbs_meanfield_partial_trace(
     if len(full_acts_over) <= 8:
         return state.to_qutip_operator().partial_trace(sites)
 
-    generator = state.k.flatten()
+    generator = state.k.flat()
     all_terms = generator.terms if isinstance(generator, SumOperator) else [generator]
-    terms_in, terms_boundary = [], [], []
+    terms_in, terms_boundary = [], []
     for term in all_terms:
         term_acts_over = term.acts_over()
         if term_acts_over is None:
@@ -92,19 +100,24 @@ def gibbs_meanfield_partial_trace(
         elif term_acts_over.issubset(environment):
             continue
         else:
-            terms_boundary.append(term_acts_over)
+            terms_boundary.append(term)
 
     sigma_mf = state._meanfield
     if terms_boundary:
         # If there are boundary terms, project them
         sigma_mf = (
-            state._meanfield or self_consistent_project_meanfield(generator, 1)[1]
+            state._meanfield
+            or self_consistent_project_meanfield(generator)[1].to_product_state()
         )
 
     if sigma_mf:
         sigma_mf = sigma_mf.partial_trace(sites)
 
-    terms_in.extend((project_boundary_term(term, sigma_mf) for term in terms_boundary))
+    # Project the terms onto the algebra of the local subsystem
+    terms_boundary = (project_boundary_term(term, sigma_mf) for term in terms_boundary)
+    # Remove empty terms
+    terms_boundary = (term for term in terms_boundary if term)
+    terms_in.extend(terms_boundary)
 
     k_in = iterable_to_operator(terms_in, system, isherm=True)
     return GibbsDensityOperator(

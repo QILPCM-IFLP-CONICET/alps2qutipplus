@@ -50,9 +50,7 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
             self.prefactor = 0
             self.normalized = normalized
             self.system = system if system is not None else k.system
-            self._meanfield = ProductDensityOperator(
-                {}, system=self.system, prefactor=0
-            )
+            self._meanfield = ProductDensityOperator({}, system=self.system, weight=0)
             return
 
         assert prefactor > 0
@@ -106,10 +104,10 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
         """
         return self.k.acts_over()
 
-    def expect(
-        self, obs_objs: Union[Operator, Iterable]
-    ) -> Union[np.ndarray, dict, Number]:
-        return self.to_qutip_operator().expect(obs_objs)
+    # def expect(
+    #    self, obs_objs: Union[Operator, Iterable]
+    # ) -> Union[np.ndarray, dict, Number]:
+    #    return self.to_qutip_operator().expect(obs_objs)
 
     @property
     def free_energy(self):
@@ -145,29 +143,41 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
             sites = frozenset(sites.sites)
         return gibbs_meanfield_partial_trace(self, sites)
 
+    def to_qutip_operator(self):
+        from alpsqutip.operators.states import QutipDensityOperator
+
+        block = tuple(sorted(self.system.sites))
+        names = {name: pos for pos, name in enumerate(block)}
+        rho_qutip = self.to_qutip(block)
+        prefactor = getattr(self, "prefactor", 1.0)
+        return QutipDensityOperator(
+            rho_qutip, names=names, system=self.system, prefactor=prefactor
+        )
+
     def to_qutip(self, block: Optional[Tuple[str]] = None):
         system = self.system
         all_sites = tuple(system.sites)
         if block is None:
             block = tuple(sorted(all_sites))
         elif len(block) < len(all_sites):
+            assert all(
+                site in all_sites for site in block
+            ), "sites must be in the (sub)system"
             block = block + tuple(
                 sorted((site for site in all_sites if site not in block))
             )
 
-        if not self.normalized:
-            rho_qutip, log_prefactor = safe_exp_and_normalize(-self.k.to_qutip(block))
+        if self.normalized:
+            result = (-self.k).to_qutip(block).expm()
+        else:
+            result, log_prefactor = safe_exp_and_normalize(-self.k.to_qutip(block))
             self.k = self.k + log_prefactor
             self._free_energy = -log_prefactor
             self.normalized = True
-            if len(block) == 0:
-                return rho_qutip
-            if block == all_sites:
-                return rho_qutip
+            # result = result.permute(tuple((all_sites.index(site) for site in block)))
 
-            return rho_qutip.permute(tuple((all_sites.index(site) for site in block)))
+        result = result.ptrace(tuple(range(len(block))))
 
-        result = (-self.k).to_qutip(block).expm()
         return result
 
 
