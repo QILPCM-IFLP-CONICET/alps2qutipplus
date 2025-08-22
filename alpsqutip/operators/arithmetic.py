@@ -5,7 +5,7 @@ Classes and functions for operator arithmetic.
 """
 
 import logging
-from typing import List, Optional, Tuple, Union
+from typing import Iterable, Optional, Tuple, Union
 
 import numpy as np
 
@@ -40,6 +40,7 @@ class SumOperator(Operator):
         assert len(term_tuple) > 0
         assert self not in term_tuple, "cannot be a term of myself."
         self.terms = term_tuple
+
         if system is None and term_tuple:
             for term in term_tuple:
                 if system is None:
@@ -315,6 +316,10 @@ class OneBodyOperator(SumOperator):
                 term if isinstance(term, Operator) else ScalarOperator(term, system)
                 for term in terms
             ]
+            if isherm:
+                terms = [
+                    term if term.isherm else (term + term.dag()) * 0.5 for term in terms
+                ]
             terms, system = self._simplify_terms(terms, system)
             simplified = True
             if len(terms) == 0:
@@ -375,7 +380,12 @@ class OneBodyOperator(SumOperator):
     def simplify(self):
         if self._simplified:
             return self
-        terms, system = self._simplify_terms(self.terms, self.system)
+        terms = self.terms
+        if self._isherm:
+            terms = (
+                term if term.isherm else (term + term.dag()) * 0.5 for term in terms
+            )
+        terms, system = self._simplify_terms(terms, self.system)
         num_terms = len(terms)
         if num_terms == 0:
             return ScalarOperator(0, system)
@@ -445,12 +455,13 @@ class OneBodyOperator(SumOperator):
         return OneBodyOperator(tidy_terms, self.system, isherm=isherm, isdiag=isdiag)
 
 
-def iterable_to_operator(terms: List[Operator], system, **kwargs) -> Operator:
+def iterable_to_operator(terms: Iterable[Operator], system, **kwargs) -> Operator:
     """
     Convert a tuple or list of operators in an operator.
     """
+    terms = tuple(terms)
     if len(terms) == 0:
         return ScalarOperator(0, system)
     if len(terms) == 1:
         return terms[0]
-    return SumOperator(tuple(terms), system, **kwargs)
+    return SumOperator(terms, system, **kwargs)

@@ -37,7 +37,7 @@ from alpsqutip.parallel import (
     USE_PARALLEL,
     parallel_process_non_dispatched_terms,
 )
-from alpsqutip.qutip_tools.tools import schmidt_dec_firsts_last_qutip_operator
+from alpsqutip.qutip_tools.tools import schmidt_dec_rest_last_qutip_operator
 from alpsqutip.settings import ALPSQUTIP_TOLERANCE
 
 # Alias: the type of the functions that project operators to a n-body sector, relative to a
@@ -48,6 +48,24 @@ ProjectingOperatorFunction = Callable[
 
 
 # ######    Specialized for one-body   ###################
+
+
+def np_prod(a, initial=None):
+    """
+    Return the product of the elements of an array,
+    times an initial value, if given, using numpy.
+
+    If numpy fails, try with reduce. In particular,
+    this happens if `a` is a numpy array with real values,
+    and initial is a complex value.
+    """
+    try:
+        return np.prod(a, initial=initial)
+    except TypeError:
+        pass
+    if initial is not None:
+        return reduce(lambda x, y: x * y, a, initial)
+    return reduce(lambda x, y: x * y, a)
 
 
 def _project_product_operator_to_one_body(
@@ -78,10 +96,10 @@ def _project_product_operator_to_one_body(
             return ScalarOperator(0, system)
         pos = zero_pos[0]
 
-        prefactor = np.prod(tuple(u for u in local_av if u), initial=prefactor)
+        prefactor = np_prod(tuple(u for u in local_av if u), initial=prefactor)
         return local_ops[pos] * prefactor
     # all the operators have a non-zero average
-    prefactor = np.prod(local_av, initial=prefactor)
+    prefactor = np_prod(local_av, initial=prefactor)
     terms = tuple(op * prefactor / op_av for op, op_av in zip(local_ops, local_av))
     return iterable_to_operator(terms, system) + prefactor * (1 - n_sites)
 
@@ -186,9 +204,6 @@ def _project_product_operator_combinatorial(
     prefactor = src_operator.prefactor
     system = full_operator.system
 
-    def mul_func(x, y):
-        return x * y
-
     if sigma is None:
         sigma = ProductDensityOperator({}, system=system)
 
@@ -205,7 +220,7 @@ def _project_product_operator_combinatorial(
         # subterms = terms_by_factors.setdefault(n_factors, [])
         for subcomb in combinations(sites_op, n_factors):
             num_factors = (val for site, val in averages.items() if site not in subcomb)
-            term_prefactor = reduce(mul_func, num_factors, prefactor)
+            term_prefactor = np_prod(num_factors, prefactor)
             if term_prefactor == 0:
                 continue
             sub_site_ops = {site: fluct_op[site] for site in subcomb}
@@ -344,7 +359,7 @@ def _project_qutip_operator_recursive(
     rest_sitenames = {site: site_names[site] for site in firsts}
 
     block_qutip_op = full_operator.to_qutip(names)
-    qutip_ops_firsts, qutip_ops_last = schmidt_dec_firsts_last_qutip_operator(
+    qutip_ops_firsts, qutip_ops_last = schmidt_dec_rest_last_qutip_operator(
         block_qutip_op
     )
     if sigma_0 is None:
@@ -398,8 +413,7 @@ def project_quadraticform_operator_as_n_body_operator(
     Project a product operator to the manifold of n-body operators
     """
     if nmax != 2:
-        project_to_n_body_operator(operator, nmax, sigma)
-
+        return project_to_n_body_operator(operator.as_sum_of_products(), nmax, sigma)
     linear_term = operator.linear_term
     offset = project_to_n_body_operator(operator.offset, nmax, sigma)
     if offset is operator.offset:

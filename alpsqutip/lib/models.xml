@@ -279,6 +279,7 @@
   n(x)*(n(x)-1)/2
 </SITEOPERATOR>
 
+
 <BONDOPERATOR name="exchange" source="x" target="y">
   Sz(x)*Sz(y)+1/2*(Splus(x)*Sminus(y)+Sminus(x)*Splus(y))
 </BONDOPERATOR>
@@ -286,6 +287,11 @@
 <BONDOPERATOR name="exchange_xy" source="x" target="y">
   1/2*(Splus(x)*Sminus(y)+Sminus(x)*Splus(y))
 </BONDOPERATOR>
+
+<BONDOPERATOR name="exchange_x" source="x" target="y">
+  1/2*(Splus(x)*Sminus(y)+Sminus(x)*Splus(y)+Splus(x)*Splus(y)+Sminus(x)*Sminus(y))
+</BONDOPERATOR>
+
 
 <BONDOPERATOR name="biquadratic" source="i" target="j">
   (exchange_xy(i,j)+Sz(i)*Sz(j))*(exchange_xy(i,j)+Sz(i)*Sz(j))
@@ -344,14 +350,18 @@
   <PARAMETER name="J" default="J0"/>
   <PARAMETER name="Jz" default="J"/>
   <PARAMETER name="Jxy" default="J"/>
+  <PARAMETER name="Alpha" default="0"/>
+  <PARAMETER name="Alpha0" default="Alpha"/>
   <PARAMETER name="Jz0" default="Jz"/>
   <PARAMETER name="Jxy0" default="Jxy"/>
   <PARAMETER name="J1" default="0"/>
+  <PARAMETER name="Alpha1" default="Alpha"/>
   <PARAMETER name="J'" default="J1"/>
   <PARAMETER name="Jz'" default="J'"/>
   <PARAMETER name="Jxy'" default="J'"/>
   <PARAMETER name="Jz1" default="Jz'"/>
   <PARAMETER name="Jxy1" default="Jxy'"/>
+  <PARAMETER name="Alpha'" default="Alpha1"/>
   <PARAMETER name="h" default="0"/>
   <PARAMETER name="Gamma" default="0"/>
   <PARAMETER name="D" default="0"/>
@@ -368,7 +378,8 @@
     <PARAMETER name="Jz#" default="J#"/>
     <PARAMETER name="Jxy#" default="J#"/>
     <PARAMETER name="K#" default="0"/>
-    Jz#*Sz(i)*Sz(j)+Jxy#*exchange_xy(i,j)+K#*biquadratic(i,j)
+    <PARAMETER name="Alpha#" default="0"/>
+    Jz#*Sz(i)*Sz(j)+(Jxy#*(1-Alpha#))*exchange_xy(i,j)+(Jxy#*Alpha#)*exchange_x(i,j)+K#*biquadratic(i,j)
   </BONDTERM>
 </HAMILTONIAN>
 <HAMILTONIAN name="boson Hubbard">

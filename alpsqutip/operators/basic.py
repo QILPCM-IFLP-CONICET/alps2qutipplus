@@ -677,9 +677,16 @@ class ProductOperator(Operator):
 
     @property
     def isherm(self) -> bool:
+        # TODO: check if it worth to check that factors are not hermitician
+        # up to a phase factor.
         if not all(loc_op.isherm for loc_op in self.sites_op.values()):
             return False
-        return isinstance(self.prefactor, (int, float))
+        prefactor = self.prefactor
+        if isinstance(prefactor, (int, float, np.float64)):
+            return True
+        if isinstance(prefactor, (complex, np.complex128)):
+            return abs(prefactor.imag) < ALPSQUTIP_TOLERANCE
+        return False
 
     @property
     def isdiagonal(self) -> bool:
