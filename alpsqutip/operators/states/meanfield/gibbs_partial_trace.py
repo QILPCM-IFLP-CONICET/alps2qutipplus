@@ -14,7 +14,9 @@ from alpsqutip.operators.states.basic import (
     ProductDensityOperator,
 )
 from alpsqutip.operators.states.gibbs import GibbsDensityOperator
-from alpsqutip.operators.states.meanfield import self_consistent_project_meanfield
+from alpsqutip.operators.states.meanfield import (
+    variational_quadratic_mfa,
+)
 
 
 def project_boundary_term(term, sigma: ProductDensityOperator):
@@ -85,7 +87,7 @@ def gibbs_meanfield_partial_trace(
 
     # For states in small subsystems, just compute the partial trace
     # *exactly* by exponentiating the state.
-    if len(full_acts_over) <= 8:
+    if len(full_acts_over) <= 2:
         return state.to_qutip_operator().partial_trace(sites)
 
     generator = state.k.flat()
@@ -106,8 +108,7 @@ def gibbs_meanfield_partial_trace(
     if terms_boundary:
         # If there are boundary terms, project them
         sigma_mf = (
-            state._meanfield
-            or self_consistent_project_meanfield(generator)[1].to_product_state()
+            state._meanfield or variational_quadratic_mfa(generator).to_product_state()
         )
 
     if sigma_mf:

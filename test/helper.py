@@ -260,7 +260,7 @@ def check_equality(lhs, rhs, tolerance=1e-10):
     different.
     """
     if isinstance(lhs, Number) and isinstance(rhs, Number):
-        assert abs(lhs - rhs) < tolerance, f"{lhs}!={rhs} + O(10^-10)"
+        assert abs(lhs - rhs) < tolerance, f"{lhs}!={rhs} + O({tolerance})"
         return True
 
     if isinstance(lhs, Operator) and isinstance(rhs, Operator):

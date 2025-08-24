@@ -102,7 +102,7 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
         Return a set with the name of the
         sites where the operator nontrivially acts
         """
-        return self.k.acts_over()
+        return self.k.acts_over().intersection(self.system.sites)
 
     # def expect(
     #    self, obs_objs: Union[Operator, Iterable]

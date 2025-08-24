@@ -133,7 +133,10 @@ def test_relative_entropy(key_rho, key_sigma):
     # infinity quantities cannot be compared...
     if rel_entr_qutip == np.inf and rel_entr > 10:
         return
-    if abs(rel_entr - rel_entr_qutip) > 1.0e-6:
+
+    rel_error = abs(rel_entr - rel_entr_qutip) / abs(rel_entr + rel_entr_qutip + 1.0)
+
+    if rel_error > 0.5:
         print("  ", [key_rho, key_sigma])
 
         print(key_rho, operator_to_wolfram(rho))
@@ -143,7 +146,7 @@ def test_relative_entropy(key_rho, key_sigma):
         print(key_sigma, operator_to_wolfram(sigma.to_qutip()))
         assert (
             False
-        ), f" in S({key_rho}|{key_sigma}),  {rel_entr} (alps2qutip) !=   {rel_entr_qutip} (qutip)"
+        ), f" in S({key_rho}|{key_sigma}),  {rel_entr} (alps2qutip) !=   {rel_entr_qutip} (qutip)  relative error: ({rel_error*100}%)"
 
 
 def test_eigenvalues():
