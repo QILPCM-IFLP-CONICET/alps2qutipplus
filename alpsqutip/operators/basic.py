@@ -109,6 +109,9 @@ class Operator:
 
         return register_func
 
+    def __bool__(self):
+        return not self.is_zero()
+    
     def __add__(self, term):
         # Use multiple dispatch to determine how to add
         dispatch_table = Operator.__add__dispatch__

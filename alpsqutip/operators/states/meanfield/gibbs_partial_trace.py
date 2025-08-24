@@ -3,6 +3,7 @@ import logging
 from qutip import tensor as qutip_tensor
 
 from alpsqutip.operators import (
+    LocalOperator,
     ProductOperator,
     QutipOperator,
     ScalarOperator,
@@ -31,8 +32,11 @@ def project_boundary_term(term, sigma: ProductDensityOperator):
     system = term.system
     if len(sites) == 0:
         return ScalarOperator(sigma.expect(term), system)
+    if len(acts_over)==len(sites):
+        return term
 
     local_states = sigma.sites_op
+
     if isinstance(term, SumOperator):
         return iterable_to_operator(
             (project_boundary_term(sub_term, sigma) for sub_term in term.terms),
@@ -108,7 +112,7 @@ def gibbs_meanfield_partial_trace(
     if terms_boundary:
         # If there are boundary terms, project them
         sigma_mf = (
-            state._meanfield or variational_quadratic_mfa(generator).to_product_state()
+            state._meanfield or variational_quadratic_mfa(-generator).to_product_state()
         )
 
     if sigma_mf:
