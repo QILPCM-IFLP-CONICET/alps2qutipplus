@@ -3,7 +3,6 @@ import logging
 from qutip import tensor as qutip_tensor
 
 from alpsqutip.operators import (
-    LocalOperator,
     ProductOperator,
     QutipOperator,
     ScalarOperator,
@@ -20,26 +19,26 @@ from alpsqutip.operators.states.meanfield import (
 )
 
 
-def project_boundary_term(term, sigma: ProductDensityOperator):
+def project_boundary_term(term, sigma: ProductDensityOperator, sites: frozenset):
     """
     Convert terms of the form O_a Q_b in to O_a <Q_b>
     with <Q_b> the expectation value regarding sigma, and
     Q_b acting on the sub-system associated to sigma.
     """
     acts_over = term.acts_over()
-    environment = frozenset((site for site in sigma.acts_over() if site in acts_over))
-    sites = frozenset((site for site in acts_over if site not in environment))
+    environment = frozenset(site for site in acts_over if site not in sites)
     system = term.system
     if len(sites) == 0:
         return ScalarOperator(sigma.expect(term), system)
-    if len(acts_over)==len(sites):
+    if all(site in sites for site in acts_over):
+        logging.info("acts over in sites.")
         return term
 
     local_states = sigma.sites_op
 
     if isinstance(term, SumOperator):
         return iterable_to_operator(
-            (project_boundary_term(sub_term, sigma) for sub_term in term.terms),
+            (project_boundary_term(sub_term, sigma, sites) for sub_term in term.terms),
             system,
             isherm=True,
         )
@@ -48,7 +47,7 @@ def project_boundary_term(term, sigma: ProductDensityOperator):
         sites_op = term.sites_op
         for site in environment:
             prefactor = prefactor * (sites_op[site] * local_states[site]).tr()
-        sites_op = {site: sites_op[site] for site in sites}
+        sites_op = {site: op for site, op in sites_op.items() if site in sites}
         return ProductOperator(sites_op, prefactor, system)
     if isinstance(term, QutipOperator):
         block = tuple(sites) + tuple(environment)
@@ -62,13 +61,14 @@ def project_boundary_term(term, sigma: ProductDensityOperator):
         qutip_op = qutip_op.ptrace(list(range(len(sites)))) * term.prefactor
         names = {site: pos for pos, site in enumerate(sites)}
         return QutipOperator(qutip_op, system, names)
+    # QuadraticFormOperator
     if hasattr(term, "as_sum_of_products"):
         term = term.as_sum_of_products()
-        return project_boundary_term(term.as_sum_of_products(), sigma)
+        return project_boundary_term(term.as_sum_of_products(), sigma, sites)
     logging.warning(
         f"boundary term is not Product or Qutip ({type(term)}). Converting to QutipOperator"
     )
-    return project_boundary_term(term.to_qutip_operator(), sigma)
+    return project_boundary_term(term.to_qutip_operator(), sigma, sites)
 
 
 def gibbs_meanfield_partial_trace(
@@ -111,20 +111,26 @@ def gibbs_meanfield_partial_trace(
     sigma_mf = state._meanfield
     if terms_boundary:
         # If there are boundary terms, project them
-        sigma_mf = (
-            state._meanfield or variational_quadratic_mfa(-generator).to_product_state()
-        )
+        logging.info("There are boundary terms. We need to project them...")
+        if sigma_mf is None:
+            logging.info("   Build variational meanfield state")
+            sigma_mf = variational_quadratic_mfa(-generator).to_product_state()
+            state._meanfield = sigma_mf
 
+        # Project the terms onto the algebra of the local subsystem
+        terms_boundary = (
+            project_boundary_term(term, sigma_mf, sites) for term in terms_boundary
+        )
+        # Remove empty terms
+        terms_boundary = tuple(term for term in terms_boundary if term)
+        logging.info(f"   Adding {len(terms_boundary)} terms to terms_in.")
+        terms_in.extend(terms_boundary)
+
+    k_in = iterable_to_operator(terms_in, system, isherm=True)
+    # Now, sigma_mf is reduced to the sites
     if sigma_mf:
         sigma_mf = sigma_mf.partial_trace(sites)
 
-    # Project the terms onto the algebra of the local subsystem
-    terms_boundary = (project_boundary_term(term, sigma_mf) for term in terms_boundary)
-    # Remove empty terms
-    terms_boundary = (term for term in terms_boundary if term)
-    terms_in.extend(terms_boundary)
-
-    k_in = iterable_to_operator(terms_in, system, isherm=True)
     return GibbsDensityOperator(
         k_in, subsystem, prefactor=prefactor, meanfield=sigma_mf
     )

@@ -92,11 +92,12 @@ def test_states(name, rho):
         alert(0, "Native", expectation_values)
         alert(0, "QTip", qt_expectation_values)
         try:
-            assert check_equality(
-                expectation_values[obs], qt_expectation_values[obs]
-            )
+            assert check_equality(expectation_values[obs], qt_expectation_values[obs])
         except AssertionError:
-            assert False, f"the expectation value for the observable{obs} relative to {name} do not match ((result)={expectation_values[obs]} !=  {qt_expectation_values[obs]} (qutip))."
+            assert (
+                False
+            ), f"the expectation value for the observable{obs} relative to {name} do not match ((result)={expectation_values[obs]} !=  {qt_expectation_values[obs]} (qutip))."
+
 
 # test_load()
 # test_all()
