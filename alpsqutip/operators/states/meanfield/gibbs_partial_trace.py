@@ -100,7 +100,7 @@ def project_conserved_quantity(gibbs_state, op_name: str):
     """
     rho_qutip = gibbs_state.to_qutip_operator()
     system = rho_qutip.system
-    site_names = rho_qutip.site_names()
+    site_names = rho_qutip.site_names
     block = tuple(sorted(site_names, key=lambda name: site_names[name]))
 
     try:

@@ -179,6 +179,21 @@ class SystemDescriptor:
     def _repr_latex_(self):
         return "System \textbf{" + self.name + "}"
 
+
+    def contains(self, system):
+        if self is system:
+            return True
+        block = frozenset(system.sites())
+        candidate = self._subsystems_cache[block]
+        if system is candidate:
+            return True
+        
+        if system.spec["model"] is self.spec["model"]:
+            
+            return True
+        
+        return False
+
     def union(self, system):
         """Return a SystemDescritor containing system and self"""
         if system is None or system is self:
@@ -197,7 +212,10 @@ class SystemDescriptor:
         sites = self.sites.copy()
         sites.update(system.sites)
         # raise NotImplementedError("Union of disjoint systems are not implemented.")
-        return SystemDescriptor(union_graph, model, parms, sites)
+        result = SystemDescriptor(union_graph, model, parms, sites)
+        result._subsystem_cache[frozenset(self.sites)] = self
+        result._subsystem_cache[frozenset(system.sites)] = system
+        return result
 
     def site_identity(self, site: str):  # -> Qobj
         """
