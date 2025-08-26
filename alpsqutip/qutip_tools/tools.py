@@ -672,6 +672,40 @@ def decompose_qutip_operator_hermitician(
     return []
 
 
+def get_proper_spaces(diagonal_operator: Qobj) -> List[List[int]]:
+    """
+    Given a diagonal operator, find the proper spaces
+    associated to each eigenvalue.
+    """
+    sectors_dict = {}
+    for idx, sector in enumerate(diagonal_operator.diag()):
+        sectors_dict.setdefault(np.real(sector), []).append(idx)
+    return list(sectors_dict.values())
+
+
+def reduce_proper_spaces(operator: Qobj, observable: Qobj) -> Qobj:
+    """
+    Reduce operator to a block diagonal operator
+    on each sector.
+    """
+    # TODO: consider extend for the case of non-diagonal observables
+    full_operator = operator.full()
+    new_data = np.zeros(operator.shape, dtype=full_operator.dtype)
+    for sector in get_proper_spaces(observable):
+        for i in sector:
+            for j in sector:
+                new_data[i, j] = full_operator[i, j]
+
+    return Qobj(
+        new_data,
+        dims=operator._dims,
+        isherm=operator.isherm,
+        isunitary=False,
+        copy=False,
+        dtype=operator.dtype,
+    )
+
+
 def project_qutip_to_m_body(op_qutip: Qobj, m_max=2, local_sigmas=None) -> Qobj:
     """
     Project a qutip operator onto a m_max - body operators sub-algebra
