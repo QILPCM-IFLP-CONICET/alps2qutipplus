@@ -71,7 +71,7 @@ def project_boundary_term(term, sigma: ProductDensityOperator, sites: frozenset)
     # QuadraticFormOperator
     if hasattr(term, "as_sum_of_products"):
         term = term.as_sum_of_products()
-        return project_boundary_term(term.as_sum_of_products(), sigma, sites)
+        return project_boundary_term(term, sigma, sites)
     logging.warning(
         f"boundary term is not Product or Qutip ({type(term)}). Converting to QutipOperator"
     )
