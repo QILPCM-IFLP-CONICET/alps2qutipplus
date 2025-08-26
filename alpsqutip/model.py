@@ -179,19 +179,22 @@ class SystemDescriptor:
     def _repr_latex_(self):
         return "System \textbf{" + self.name + "}"
 
-
     def contains(self, system):
         if self is system:
             return True
-        block = frozenset(system.sites())
+        block = frozenset(system.sites)
         candidate = self._subsystems_cache[block]
         if system is candidate:
             return True
-        
+
+        for subsystem in self._subsystems_cache.values():
+            if subsystem.contains(system):
+                self._subsystems_cache[block] = system
+                return True
+
         if system.spec["model"] is self.spec["model"]:
-            
             return True
-        
+
         return False
 
     def union(self, system):

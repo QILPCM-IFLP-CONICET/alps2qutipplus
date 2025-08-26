@@ -572,17 +572,17 @@ class GraphDescriptor:
     def __add__(self, other):
         return self.union(other)
 
-
     def contains(self, other):
         if self is other:
             return True
+        node_set = frozenset(other.nodes)
         if self.subgraphs[node_set] is other:
             return True
         if all(node in self.nodes for node in other.nodes):
             self.subgraphs[other.nodes] = other
             return True
         return False
-        
+
     def union(self, other):
         """
         Join two graphics
