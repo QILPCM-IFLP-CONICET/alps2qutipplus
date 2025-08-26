@@ -30,17 +30,10 @@ def project_boundary_term(term, sigma: ProductDensityOperator, sites: frozenset)
     environment = frozenset(site for site in acts_over if site not in sites)
     system = term.system
     if len(sites) == 0:
-        logging.info(f"  empty sites. Escalar term from {type(term)}")
         return ScalarOperator(sigma.expect(term), system)
     if all(site in sites for site in acts_over):
-        logging.info("  acts over in sites.")
         return term
-
-    logging.info(f"   acts_over {acts_over}")
-    logging.info(f"   sites {sites}")
-    logging.info(f"   environment {environment}")
-    logging.info(f"   term of type {type(term)}")
-
+ 
     local_states = sigma.sites_op
 
     if isinstance(term, SumOperator):
@@ -118,9 +111,7 @@ def gibbs_meanfield_partial_trace(
     sigma_mf = state._meanfield
     if terms_boundary:
         # If there are boundary terms, project them
-        logging.info("There are boundary terms. We need to project them...")
         if sigma_mf is None:
-            logging.info("   Build variational meanfield state")
             sigma_mf = variational_quadratic_mfa(-generator).to_product_state()
             state._meanfield = sigma_mf
 
@@ -130,7 +121,6 @@ def gibbs_meanfield_partial_trace(
         )
         # Remove empty terms
         terms_boundary = tuple(term for term in terms_boundary if term)
-        logging.info(f"   Adding {len(terms_boundary)} terms to terms_in.")
         terms_in.extend(terms_boundary)
 
     k_in = iterable_to_operator(terms_in, system, isherm=True)
