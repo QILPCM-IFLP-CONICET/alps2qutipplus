@@ -136,7 +136,7 @@ def test_relative_entropy(key_rho, key_sigma):
 
     rel_error = abs(rel_entr - rel_entr_qutip) / abs(rel_entr + rel_entr_qutip + 1.0)
 
-    if rel_error > 0.5:
+    if rel_error > 1e-6:
         print("  ", [key_rho, key_sigma])
 
         print(key_rho, operator_to_wolfram(rho))

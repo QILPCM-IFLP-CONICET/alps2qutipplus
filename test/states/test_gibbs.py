@@ -49,7 +49,7 @@ def do_test_expect(rho, sigma_dict):
 
             abs_error = abs(rho_obs_expect - rho_obs_result)
             rel_error = abs_error / (abs(rho_obs_expect + rho_obs_result) + 1.0)
-            assert rel_error < 0.1, (
+            assert rel_error < 1e-6, (
                 f"Operator {obs_name} gives different results for "
                 f"the reference (={rho_obs_expect})"
                 f" and {name} (={rho_obs_result}). "

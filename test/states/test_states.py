@@ -93,7 +93,7 @@ def test_states(name, rho):
         alert(0, "QTip", qt_expectation_values)
         try:
             assert check_equality(
-                expectation_values[obs], qt_expectation_values[obs], 1e-1
+                expectation_values[obs], qt_expectation_values[obs], 1e-9
             )
         except AssertionError:
             assert (

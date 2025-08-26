@@ -98,7 +98,7 @@ def gibbs_meanfield_partial_trace(
 
     # For states in small subsystems, just compute the partial trace
     # *exactly* by exponentiating the state.
-    if len(full_acts_over) <= 2:
+    if len(full_acts_over) <= 8:
         return state.to_qutip_operator().partial_trace(sites)
 
     generator = state.k.flat()
