@@ -275,7 +275,8 @@ def check_equality(lhs, rhs, tolerance=1e-10):
 
     if isinstance(lhs, np.ndarray) and isinstance(rhs, np.ndarray):
         diff = abs(lhs - rhs)
-        assert (diff < tolerance).all()
+        diff = np.max(diff)
+        assert diff < tolerance, f"diff ={diff} > tolerance={tolerance}"
         return True
 
     if isinstance(lhs, Iterable) and isinstance(rhs, Iterable):
@@ -284,6 +285,11 @@ def check_equality(lhs, rhs, tolerance=1e-10):
             check_equality(lhs_item, rhs_item, tolerance)
             for lhs_item, rhs_item in zip(lhs, rhs)
         )
+        return True
+    if isinstance(lhs, qutip.Qobj) and isinstance(rhs, qutip.Qobj):
+        diff = abs((lhs - rhs).full())
+        diff = np.max(diff)
+        assert diff < tolerance, f"diff ={diff} > tolerance={tolerance}"
         return True
 
     assert lhs == rhs

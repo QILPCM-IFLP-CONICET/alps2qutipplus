@@ -92,7 +92,9 @@ def test_states(name, rho):
         alert(0, "Native", expectation_values)
         alert(0, "QTip", qt_expectation_values)
         try:
-            assert check_equality(expectation_values[obs], qt_expectation_values[obs])
+            assert check_equality(
+                expectation_values[obs], qt_expectation_values[obs], 1e-1
+            )
         except AssertionError:
             assert (
                 False

@@ -26,13 +26,20 @@ def project_boundary_term(term, sigma: ProductDensityOperator, sites: frozenset)
     Q_b acting on the sub-system associated to sigma.
     """
     acts_over = term.acts_over()
+    sites = {site for site in acts_over if site in sites}
     environment = frozenset(site for site in acts_over if site not in sites)
     system = term.system
     if len(sites) == 0:
+        logging.info(f"  empty sites. Escalar term from {type(term)}")
         return ScalarOperator(sigma.expect(term), system)
     if all(site in sites for site in acts_over):
-        logging.info("acts over in sites.")
+        logging.info("  acts over in sites.")
         return term
+
+    logging.info(f"   acts_over {acts_over}")
+    logging.info(f"   sites {sites}")
+    logging.info(f"   environment {environment}")
+    logging.info(f"   term of type {type(term)}")
 
     local_states = sigma.sites_op
 
