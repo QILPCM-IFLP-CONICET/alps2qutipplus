@@ -38,3 +38,16 @@ def test_system_operations():
         == len(set(system_b.sites).union(set(system_c.sites)))
         < 8
     )
+
+    # Contains relation
+    system_1 = system_a.subsystem(frozenset(sites[0:1]))
+    assert system.contains(system)
+    assert system.contains(system_1)
+    assert system.contains(system_a)
+    assert system.contains(cases["system_ac"])
+    assert cases["system_ac"].contains(system_a)
+    assert cases["system_ac"].contains(system_1)
+    assert not system_b.contains(
+        system_a
+    ), f"system {system_b.name} not contains {system_a.name}"
+    assert not system_b.contains(system_1)

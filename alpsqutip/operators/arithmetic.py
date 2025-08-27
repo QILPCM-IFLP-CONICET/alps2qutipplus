@@ -250,7 +250,7 @@ class SumOperator(Operator):
         """Produce a qutip compatible object"""
         terms = self.terms
         system = self.system
-        assert all(t.system is system for t in terms)
+        assert all(system.contains(term.system) for term in terms)
         if block is None:
             block = tuple(sorted(self.acts_over() if system is None else system.sites))
         else:

@@ -24,22 +24,21 @@ QT_TEST_CASES = {
 
 
 @pytest.mark.parametrize(
-    ["name_rho", "rho", "name_sigma", "sigma"],
+    ["name_rho", "name_sigma"],
     [
         (
             name_rho,
-            rho,
             name_sigma,
-            sigma,
         )
-        for name_rho, rho in TEST_CASES_STATES.items()
-        for name_sigma, sigma in TEST_CASES_STATES.items()
+        for name_rho in TEST_CASES_STATES
+        for name_sigma in TEST_CASES_STATES
     ],
 )
-def test_mixtures(name_rho, rho, name_sigma, sigma):
+def test_binary_mixtures(name_rho, name_sigma):
     rho_coeff = 0.99
     sigma_coeff = 0.01
-
+    rho = TEST_CASES_STATES[name_rho]
+    sigma = TEST_CASES_STATES[name_sigma]
     print(
         f"{rho_coeff}*",
         name_rho,
@@ -53,6 +52,52 @@ def test_mixtures(name_rho, rho, name_sigma, sigma):
     )
     assert check_equality(rho.tr(), 1)
     assert check_equality(sigma.tr(), 1)
+    assert check_equality(mixture.tr(), 1)
+    assert check_equality(qutip_mixture.tr(), 1)
+    print("mixture:\n", mixture)
+    print("qutip mixture:\n", qutip_mixture)
+    check_equality(mixture.to_qutip(), qutip_mixture)
+
+
+@pytest.mark.parametrize(
+    ["name_rho", "name_sigma", "name_theta"],
+    [
+        (
+            name_rho,
+            name_sigma,
+            name_theta,
+        )
+        for name_rho in TEST_CASES_STATES
+        for name_sigma in TEST_CASES_STATES
+        for name_theta in TEST_CASES_STATES
+    ],
+)
+def no_test_ternary_mixtures(name_rho, name_sigma, name_theta):
+    rho_coeff = 0.5
+    sigma_coeff = 0.3
+    theta_coeff = 0.2
+    rho = TEST_CASES_STATES[name_rho]
+    sigma = TEST_CASES_STATES[name_sigma]
+    theta = TEST_CASES_STATES[name_theta]
+
+    print(
+        f"{rho_coeff}*",
+        name_rho,
+        f"[{type(rho)}] + {sigma_coeff} * ",
+        name_sigma,
+        f"[{type(sigma)}]",
+        name_theta,
+        f"[{type(theta)}]",
+    )
+    mixture = rho_coeff * rho + sigma_coeff * sigma + theta_coeff * theta
+    qutip_mixture = (
+        rho_coeff * QT_TEST_CASES[name_rho]
+        + sigma_coeff * QT_TEST_CASES[name_sigma]
+        + theta_coeff * QT_TEST_CASES[name_theta]
+    )
+    assert check_equality(rho.tr(), 1)
+    assert check_equality(sigma.tr(), 1)
+    assert check_equality(theta.tr(), 1)
     assert check_equality(mixture.tr(), 1)
     assert check_equality(qutip_mixture.tr(), 1)
     print("mixture:\n", mixture)
@@ -91,9 +136,14 @@ def test_states(name, rho):
         alert(0, "\n     ", 80 * "*", "\n     ", name, " over ", obs)
         alert(0, "Native", expectation_values)
         alert(0, "QTip", qt_expectation_values)
-        assert check_equality(
-            expectation_values[obs], qt_expectation_values[obs]
-        ), f"the expectation value for the observable{obs} do not match."
+        try:
+            assert check_equality(
+                expectation_values[obs], qt_expectation_values[obs], 1e-9
+            )
+        except AssertionError:
+            assert (
+                False
+            ), f"the expectation value for the observable{obs} relative to {name} do not match ((result)={expectation_values[obs]} !=  {qt_expectation_values[obs]} (qutip))."
 
 
 # test_load()
