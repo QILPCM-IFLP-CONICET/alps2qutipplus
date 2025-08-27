@@ -59,16 +59,20 @@ class QutipDensityOperator(DensityOperatorMixin, QutipOperator):
         # TODO: check me again
         assert operand.system is self.system
         block = tuple(sorted(self.system.sites))
+        names = {name: pos for pos, name in enumerate(block)}
 
         if isinstance(operand, DensityOperatorMixin):
-            result_qutip = (
-                self.to_qutip(block) * self.prefactor
-                + operand.to_qutip(block) * operand.prefactor
-            )
-            return QutipDensityOperator(result_qutip, self.system)
+            p1 = self.prefactor
+            p2 = operand.prefactor
+            prefactor = p1 + p2
+
+            result_qutip = self.to_qutip(block) * (p1 / prefactor) + operand.to_qutip(
+                block
+            ) * (p2 / prefactor)
+            return QutipDensityOperator(result_qutip, self.system, names, prefactor)
         result_qutip = self.to_qutip(block) * self.prefactor + operand.to_qutip(block)
 
-        return QutipOperator(result_qutip, self.system)
+        return QutipOperator(result_qutip, self.system, names)
 
     def __mul__(self, operand) -> Operator:
         if isinstance(operand, (int, float, np.float64)):

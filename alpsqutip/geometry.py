@@ -575,11 +575,14 @@ class GraphDescriptor:
     def contains(self, other):
         if self is other:
             return True
-        node_set = frozenset(other.nodes)
-        if self.subgraphs[node_set] is other:
+        other_nodes = other.nodes
+        node_set = frozenset(other_nodes)
+        if self.subgraphs.get(node_set, None) is other:
             return True
-        if all(node in self.nodes for node in other.nodes):
-            self.subgraphs[other.nodes] = other
+        self_nodes = self.nodes
+        if all(self_nodes.get(node, None) is other_nodes[node]
+               for node in node_set):
+            self.subgraphs[node_set] = other
             return True
         return False
 
