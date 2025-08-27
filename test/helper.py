@@ -37,6 +37,9 @@ CHAIN_SIZE = int(os.environ.get("CHAIN_SIZE", 4))
 
 SYSTEM: SystemDescriptor = build_spin_chain(CHAIN_SIZE)
 SITES: tuple = tuple(s for s in SYSTEM.sites.keys())
+# Add Parity to the local operators
+SYSTEM.spec["model"].site_basis["0"]["operators"]["Parity"] = qutip.sigmaz()
+SYSTEM.spec["model"].site_basis["0"]["operators"]["ParityX"] = qutip.sigmax()
 
 
 GLOBAL_IDENTITY: ScalarOperator = ScalarOperator(1.0, SYSTEM)
@@ -275,7 +278,7 @@ def check_equality(lhs, rhs, tolerance=1e-10):
 
     if isinstance(lhs, np.ndarray) and isinstance(rhs, np.ndarray):
         diff = abs(lhs - rhs)
-        assert (diff < tolerance).all()
+        assert (diff < tolerance).all(), f"{lhs} != {rhs}"
         return True
 
     if isinstance(lhs, Iterable) and isinstance(rhs, Iterable):
@@ -305,6 +308,11 @@ def check_operator_equality(op1, op2, tolerance=1.0e-9):
         logging.warning(
             f"distance {distance} larger than {tolerance} for comparison between {type(op1)} and {type(op2)}"
         )
+        if isinstance(op1, qutip.Qobj):
+            print(type(op1), type(op2))
+            print(distance)
+            print(op1)
+            print(op2)
     return distance < tolerance
 
 
