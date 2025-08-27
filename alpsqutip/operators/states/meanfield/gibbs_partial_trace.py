@@ -89,8 +89,8 @@ def project_parity_like(gibbs_state, op_name: str):
     u_gen_dag = u_gen.dag()
     k_flip = u_gen * gibbs_state.k * u_gen_dag
     rho_flip = GibbsDensityOperator(k_flip, system=system).to_qutip_operator()
-    rho = gibbs_state.to_qutip_operator()
-    return 0.5 * rho + 0.5 * rho_flip
+    rho_qutip = gibbs_state.to_qutip_operator()
+    return 0.5 * rho_flip + 0.5 * rho_qutip
 
 
 def project_conserved_quantity(gibbs_state, op_name: str):

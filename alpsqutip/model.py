@@ -216,8 +216,8 @@ class SystemDescriptor:
         sites.update(system.sites)
         # raise NotImplementedError("Union of disjoint systems are not implemented.")
         result = SystemDescriptor(union_graph, model, parms, sites)
-        result._subsystem_cache[frozenset(self.sites)] = self
-        result._subsystem_cache[frozenset(system.sites)] = system
+        result._subsystems_cache[frozenset(self.sites)] = self
+        result._subsystems_cache[frozenset(system.sites)] = system
         return result
 
     def site_identity(self, site: str):  # -> Qobj
