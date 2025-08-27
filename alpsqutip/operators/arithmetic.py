@@ -251,7 +251,7 @@ class SumOperator(Operator):
         """Produce a qutip compatible object"""
         terms = self.terms
         system = self.system
-        assert all(t.system is system for t in terms)
+        assert all(system.contains(term.system) for term in terms)
         if block is None:
             block = tuple(sorted(self.acts_over() if system is None else system.sites))
         else:
@@ -459,9 +459,9 @@ def iterable_to_operator(terms: Iterable[Operator], system, **kwargs) -> Operato
     """
     Convert a tuple or list of operators in an operator.
     """
-    terms = tuple(terms)
-    if len(terms) == 0:
+    terms_tuple = tuple(terms)
+    if len(terms_tuple) == 0:
         return ScalarOperator(0, system)
-    if len(terms) == 1:
-        return terms[0]
-    return SumOperator(terms, system, **kwargs)
+    if len(terms_tuple) == 1:
+        return terms_tuple[0]
+    return SumOperator(terms_tuple, system, **kwargs)
