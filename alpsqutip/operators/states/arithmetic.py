@@ -136,7 +136,6 @@ class MixtureDensityOperator(DensityOperatorMixin, SumOperator):
         sites: set = set()
         for term in self.terms:
             acts_over = cast(Operator, term).acts_over()
-            print(type(term), acts_over)
             if acts_over is None:
                 return None
             sites.update(acts_over)
