@@ -413,11 +413,14 @@ def project_quadraticform_operator_as_n_body_operator(
     Project a product operator to the manifold of n-body operators
     """
     if nmax != 2:
-        project_to_n_body_operator(operator, nmax, sigma)
-
+        return project_to_n_body_operator(operator.as_sum_of_products(), nmax, sigma)
     linear_term = operator.linear_term
-    offset = project_to_n_body_operator(operator.offset, nmax, sigma)
-    if offset is operator.offset:
+    offset = operator.offset
+    if offset is None:
+        return operator
+
+    projected_offset = project_to_n_body_operator(offset, nmax, sigma)
+    if projected_offset is offset:
         return operator
     return QuadraticFormOperator(
         operator.basis, operator.weights, operator.system, linear_term, offset

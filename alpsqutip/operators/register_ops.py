@@ -879,7 +879,7 @@ def _(x_op: SumOperator, y_op: Operator):
     -------
 
     """
-    system = x_op.system or y_op.system
+    system = x_op.system.union(y_op.system)
     terms = x_op.terms + (y_op,)
     if len(terms) == 1:
         return terms[0]

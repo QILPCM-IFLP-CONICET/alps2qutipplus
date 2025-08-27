@@ -5,7 +5,7 @@ Classes and functions for operator arithmetic.
 """
 
 import logging
-from typing import List, Optional, Tuple, Union
+from typing import Iterable, Optional, Tuple, Union
 
 import numpy as np
 
@@ -454,12 +454,13 @@ class OneBodyOperator(SumOperator):
         return OneBodyOperator(tidy_terms, self.system, isherm=isherm, isdiag=isdiag)
 
 
-def iterable_to_operator(terms: List[Operator], system, **kwargs) -> Operator:
+def iterable_to_operator(terms: Iterable[Operator], system, **kwargs) -> Operator:
     """
     Convert a tuple or list of operators in an operator.
     """
-    if len(terms) == 0:
+    terms_tuple = tuple(terms)
+    if len(terms_tuple) == 0:
         return ScalarOperator(0, system)
-    if len(terms) == 1:
-        return terms[0]
-    return SumOperator(tuple(terms), system, **kwargs)
+    if len(terms_tuple) == 1:
+        return terms_tuple[0]
+    return SumOperator(terms_tuple, system, **kwargs)
