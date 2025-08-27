@@ -729,7 +729,7 @@ def reduce_to_proper_spaces(operator: Qobj, observable: Qobj) -> Qobj:
         isherm=operator.isherm,
         isunitary=False,
         copy=False,
-        dtype=operator.dtype,
+        # dtype=operator.dtype, # Not supported in Qutip <5.2
     )
 
 
