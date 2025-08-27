@@ -655,7 +655,7 @@ def project_sum_operator(
             one_body_terms.append(term)
         elif isinstance(term, SumOperator):
             for sub_term in term.terms:
-                assert sub_term.system is system
+                assert system.contains(sub_term.system)
                 dispatch_term(sub_term)
         else:
             if not dispatch_term(term):
