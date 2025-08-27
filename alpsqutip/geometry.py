@@ -580,8 +580,7 @@ class GraphDescriptor:
         if self.subgraphs.get(node_set, None) is other:
             return True
         self_nodes = self.nodes
-        if all(self_nodes.get(node, None) is other_nodes[node]
-               for node in node_set):
+        if all(self_nodes.get(node, None) is other_nodes[node] for node in node_set):
             self.subgraphs[node_set] = other
             return True
         return False

@@ -47,6 +47,7 @@ def test_system_operations():
     assert system.contains(cases["system_ac"])
     assert cases["system_ac"].contains(system_a)
     assert cases["system_ac"].contains(system_1)
-    assert not system_b.contains(system_a), f"system {system_b.name} not contains {system_a.name}"
+    assert not system_b.contains(
+        system_a
+    ), f"system {system_b.name} not contains {system_a.name}"
     assert not system_b.contains(system_1)
-    

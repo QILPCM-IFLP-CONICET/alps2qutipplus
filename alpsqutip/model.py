@@ -191,9 +191,11 @@ class SystemDescriptor:
                 self._subsystems_cache[block] = system
                 return True
 
-        if (self.spec["model"] is system.spec["model"] and
-            self.spec["graph"].contains(system.spec["graph"]) and
-            all(site in self.sites for site in system.sites)):
+        if (
+            self.spec["model"] is system.spec["model"]
+            and self.spec["graph"].contains(system.spec["graph"])
+            and all(site in self.sites for site in system.sites)
+        ):
             self._subsystems_cache[block] = system
             return True
         return False
@@ -219,7 +221,7 @@ class SystemDescriptor:
         result = SystemDescriptor(union_graph, model, parms, sites)
         result._subsystems_cache[frozenset(self.sites)] = self
         result._subsystems_cache[frozenset(system.sites)] = system
-        
+
         return result
 
     def site_identity(self, site: str):  # -> Qobj
