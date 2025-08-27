@@ -4,10 +4,11 @@ Functions for basic interface with qutip objects.
 
 from functools import reduce
 from itertools import combinations
-from typing import Iterator, List, Optional, Tuple
+from typing import Iterable, Iterator, List, Optional, Tuple
 
 import numpy as np
 from numpy import ndarray, zeros as np_zeros
+from numpy.linalg import eigh
 from qutip import (  # type: ignore[import-untyped]
     Qobj,
     __version__ as qutip_version,
@@ -672,29 +673,55 @@ def decompose_qutip_operator_hermitician(
     return []
 
 
-def get_proper_spaces(diagonal_operator: Qobj) -> List[List[int]]:
+def get_proper_spaces(spectrum: Iterable) -> List[List[int]]:
     """
     Given a diagonal operator, find the proper spaces
     associated to each eigenvalue.
     """
     sectors_dict = {}
-    for idx, sector in enumerate(diagonal_operator.diag()):
+    for idx, sector in enumerate(spectrum):
         sectors_dict.setdefault(np.real(sector), []).append(idx)
     return list(sectors_dict.values())
 
 
-def reduce_proper_spaces(operator: Qobj, observable: Qobj) -> Qobj:
+def reduce_to_proper_spaces(operator: Qobj, observable: Qobj) -> Qobj:
     """
     Reduce operator to a block diagonal operator
     on each sector.
+
+    If `observable` is of the form
+    ```
+    Q =  sum_i  lambda_i Pi_i
+    ```
+    with `Pi_i` a set of orthogonal projectors,
+    for an `operator` `T`, this function returns
+    ```
+    Delta(T) = sum_i  Pi_i T P_i
+    ```
+
     """
     # TODO: consider extend for the case of non-diagonal observables
+    assert observable.isherm
+
+    def build_proj_data(old_data, spectrum):
+        proj_data = np.zeros(operator.shape, dtype=full_operator.dtype)
+        for sector in get_proper_spaces(spectrum):
+            for i in sector:
+                for j in sector:
+                    proj_data[i, j] = old_data[i, j]
+        return proj_data
+
+    is_diag = data_is_diagonal(observable.data)
     full_operator = operator.full()
-    new_data = np.zeros(operator.shape, dtype=full_operator.dtype)
-    for sector in get_proper_spaces(observable):
-        for i in sector:
-            for j in sector:
-                new_data[i, j] = full_operator[i, j]
+    if is_diag:
+        spectrum = observable.diag()
+        new_data = build_proj_data(full_operator, spectrum)
+    else:
+        spectrum, unitary = eigh(observable.full())
+        unitary_dag = unitary.T.conj()
+        full_operator = unitary_dag @ full_operator @ unitary
+        new_data = build_proj_data(full_operator, spectrum)
+        new_data = unitary @ new_data @ unitary_dag
 
     return Qobj(
         new_data,
@@ -702,7 +729,6 @@ def reduce_proper_spaces(operator: Qobj, observable: Qobj) -> Qobj:
         isherm=operator.isherm,
         isunitary=False,
         copy=False,
-        dtype=operator.dtype,
     )
 
 

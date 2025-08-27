@@ -4,7 +4,7 @@ Basic unit test.
 
 import numpy as np
 import pytest
-from qutip import Qobj, create, jmat, qeye, tensor
+from qutip import Qobj, create, jmat, qeye, sigmax, sigmay, sigmaz, tensor
 
 from alpsqutip.operators import Operator, ProductOperator, QutipOperator, ScalarOperator
 from alpsqutip.qutip_tools.tools import (
@@ -16,6 +16,7 @@ from alpsqutip.qutip_tools.tools import (
     decompose_qutip_operator,
     decompose_qutip_operator_hermitician,
     norm,
+    reduce_to_proper_spaces,
     schmidt_dec_first_rest_qutip_operator,
     schmidt_dec_first_rest_qutip_operator_hermitician,
     schmidt_dec_rest_last_qutip_operator,
@@ -30,6 +31,7 @@ from .helper import (
     SX_A as LOCAL_SX_A,
     SY_B,
     SZ_C,
+    check_equality,
     check_operator_equality,
 )
 
@@ -553,3 +555,39 @@ def test_to_qutip_operator():
         assert isinstance(
             op_tqo, expected_type
         ), f"<<{name}>> to qutip operator results in {type(op_tqo)} instead of {expected_type}"
+
+
+def test_reduce_to_proper_spaces():
+    """
+    Test the projections to proper spaces.
+    """
+    observable_x = tensor(sigmax(), ID_2_QUTIP) + tensor(ID_2_QUTIP, sigmax())
+    observable_z = tensor(sigmaz(), ID_2_QUTIP) + tensor(ID_2_QUTIP, sigmaz())
+    observable_h = observable_x + observable_z  # Hadamard
+    corr_x = tensor(sigmax(), sigmax())
+    corr_y = tensor(sigmay(), sigmay())
+
+    global_id = tensor(ID_2_QUTIP, ID_2_QUTIP)
+    full_mixture = 0.25 * global_id
+
+    state = 0.25 * (global_id + corr_x)
+    # The state and the observable are diagonalizable in the same basis (sx_total):
+    reduced_state = reduce_to_proper_spaces(state, observable_x)
+    assert check_operator_equality(reduced_state, state, 1e-9)
+
+    # The observable is diagonal, and not in the same basis (sz_total)
+    reduced_state = reduce_to_proper_spaces(state, observable_z)
+    expected = full_mixture + 0.125 * corr_x + 0.125 * corr_y
+    assert check_operator_equality(reduced_state, expected, 1e-9)
+
+    # Non diagonal observable which does not commute with the state (Hadamard)
+    reduced_state = reduce_to_proper_spaces(state, observable_h)
+    # the reduced state should commute with the observable:
+    assert check_operator_equality(
+        reduced_state * observable_h, observable_h * reduced_state, 1e-9
+    )
+    # the spectrum for this case is 0, 1/4, 1/4, 1/2
+    spectrum = reduced_state.eigenenergies()
+    assert check_equality(
+        spectrum, np.array([0, 0.25, 0.375, 0.375])
+    ), f"{reduced_state.eigenenergies()}"
