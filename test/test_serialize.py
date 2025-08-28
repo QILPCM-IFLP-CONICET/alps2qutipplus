@@ -15,6 +15,8 @@ from .helper import (
     check_operator_equality,
 )
 
+MP_CONTEXT_TYPE = "fork"
+
 
 def test_serialize_graph():
     print("test serialize graph")
@@ -44,20 +46,21 @@ def test_serialize_operator(name, operator):
     assert check_operator_equality(operator, reconstructed_operator, tolerance=1e-8)
 
 
-def worker_add_a_number(q):
-    op1, number = q.get()
+def worker_add_a_number(conn):
+    op1, number = conn.recv()
     if hasattr(op1, "terms"):
         system = op1.system
         for t in op1.terms:
             assert t.system is system, f"{id(t.system)}\n is not {id(system)}."
             print("* OK")
 
-    q.put(op1 + number)
+    conn.send(op1 + number)
+    conn.close()
 
 
 @pytest.mark.parametrize(["name", "operator"], list(FULL_TEST_CASES.items()))
 def test_process_add_number(name, operator):
-    ctx = mp.get_context("fork")
+    ctx = mp.get_context(MP_CONTEXT_TYPE)
 
     print("test process add number", name)
 
@@ -66,29 +69,32 @@ def test_process_add_number(name, operator):
         for t in operator.terms:
             assert t.system is system
 
-    my_queue = ctx.Queue()
-    p = ctx.Process(target=worker_add_a_number, args=(my_queue,))
+    parent_conn, child_conn = ctx.Pipe()
+    p = ctx.Process(target=worker_add_a_number, args=(child_conn,))
     p.start()
-    my_queue.put(
+    parent_conn.send(
         (
             operator,
             1.0,
         )
     )
+
+    result_worker = parent_conn.recv()
     p.join()
-    result_worker = my_queue.get()
+    p.close()
+
     result_mine = operator + 1.0
     print(type(result_worker), type(result_mine))
-
     result_worker._set_system_(operator.system)
     result_mine._set_system_(operator.system)
     p.close()
     assert check_operator_equality(result_worker, result_mine, tolerance=1e-8)
 
 
-def worker_expect(q):
-    state, obs = q.get()
-    q.put(state.expect(obs))
+def worker_expect(conn):
+    state, obs = conn.recv()
+    conn.send(state.expect(obs))
+    conn.close()
 
 
 @pytest.mark.parametrize(
@@ -103,23 +109,18 @@ def worker_expect(q):
     ],
 )
 def test_process_expect(state_name, operator_name):
-    ctx = mp.get_context("fork")
+    ctx = mp.get_context(MP_CONTEXT_TYPE)
 
     print("test process expect", state_name, operator_name)
 
     state = TEST_CASES_STATES[state_name]
     operator = OPERATOR_TYPE_CASES[operator_name]
-    my_queue = ctx.Queue()
-    p = ctx.Process(target=worker_expect, args=(my_queue,))
+    parent_conn, child_conn = ctx.Pipe()
+    p = ctx.Process(target=worker_expect, args=(child_conn,))
     p.start()
-    my_queue.put(
-        (
-            state,
-            operator,
-        )
-    )
+    parent_conn.send((state, operator))
+    result_worker = parent_conn.recv()
     p.join()
-    result_worker = my_queue.get()
     p.close()
     result_mine = state.expect(operator)
     assert abs(result_worker - result_mine) < 1e-9
