@@ -1,3 +1,4 @@
+import multiprocessing as mp
 import pickle
 
 import pytest
@@ -56,7 +57,7 @@ def worker_add_a_number(q):
 
 @pytest.mark.parametrize(["name", "operator"], list(FULL_TEST_CASES.items()))
 def test_process_add_number(name, operator):
-    from multiprocessing import Process, Queue
+    ctx = mp.get_context("fork")
 
     print("test process add number", name)
 
@@ -65,8 +66,8 @@ def test_process_add_number(name, operator):
         for t in operator.terms:
             assert t.system is system
 
-    my_queue = Queue()
-    p = Process(target=worker_add_a_number, args=(my_queue,))
+    my_queue = ctx.Queue()
+    p = ctx.Process(target=worker_add_a_number, args=(my_queue,))
     p.start()
     my_queue.put(
         (
@@ -102,14 +103,14 @@ def worker_expect(q):
     ],
 )
 def test_process_expect(state_name, operator_name):
-    from multiprocessing import Process, Queue
+    ctx = mp.get_context("fork")
 
     print("test process expect", state_name, operator_name)
 
     state = TEST_CASES_STATES[state_name]
     operator = OPERATOR_TYPE_CASES[operator_name]
-    my_queue = Queue()
-    p = Process(target=worker_expect, args=(my_queue,))
+    my_queue = ctx.Queue()
+    p = ctx.Process(target=worker_expect, args=(my_queue,))
     p.start()
     my_queue.put(
         (
