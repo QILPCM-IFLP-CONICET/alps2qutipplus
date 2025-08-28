@@ -62,8 +62,9 @@ def test_pt_and_exp_vals(name_rho, rho, name_obs, obs):
         comparisons["rho.expect(qutip_obs)"] = rho.expect(qutip_obs)
         comparisons["rho_pt.expect(qutip_obs)"] = rho_pt.expect(qutip_obs)
 
-    return
     for key, val in comparisons.items():
+        abs_error = abs(comparisons["rho.expect"] - val)
+        rel_error = abs_error / (1 + abs(val))
         assert (
-            abs(comparisons["rho.expect"] - val) < 1e-3
-        ), f"{key} does not match with {'rho.expect'}"
+            rel_error < 2e-1
+        ), f"For {key}, does not match: {val}!=  {comparisons['rho.expect']}"

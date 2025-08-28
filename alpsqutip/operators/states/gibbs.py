@@ -4,7 +4,7 @@ Classes to represent density operators as Gibbs states $rho=e^{-k}$.
 """
 
 from numbers import Number
-from typing import Dict, Iterable, Optional, Tuple, Union, cast
+from typing import Callable, Dict, Iterable, Optional, Tuple, Union, cast
 
 import numpy as np
 
@@ -41,7 +41,9 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
         prefactor=1.0,
         normalized=False,
         meanfield=None,
+        symmetry_projections: Tuple[Callable] = tuple(),
     ):
+        self.symmetry_projections = symmetry_projections
         if prefactor == 0:
             self.k = ScalarOperator(0, k.system)
             self.f_global = 0.0
@@ -141,7 +143,14 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
 
         if isinstance(sites, SystemDescriptor):
             sites = frozenset(sites.sites)
-        return gibbs_meanfield_partial_trace(self, sites)
+
+        result = gibbs_meanfield_partial_trace(self, sites)
+        if isinstance(result, ScalarOperator):
+            return result
+        # Now, force all the symmetries
+        for projection in self.symmetry_projections:
+            result = projection(result)
+        return result
 
     def to_qutip_operator(self):
         from alpsqutip.operators.states import QutipDensityOperator

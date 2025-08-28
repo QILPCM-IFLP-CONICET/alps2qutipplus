@@ -27,6 +27,10 @@ from alpsqutip.operators.states import (
     GibbsProductDensityOperator,
     ProductDensityOperator,
 )
+from alpsqutip.operators.states.meanfield.symmetries import (
+    project_conserved_quantity,
+    project_parity_like,
+)
 from alpsqutip.settings import VERBOSITY_LEVEL
 
 np.set_printoptions(
@@ -197,6 +201,14 @@ if os.environ.get("ALPSQUTIP_ALLTESTS"):
     )
 
 
+def sz_symmetry_projection(state):
+    return project_conserved_quantity(state, "Sz")
+
+
+def sz_parity_projection(state):
+    return project_parity_like(state, "Parity")
+
+
 TEST_CASES_STATES = {}
 
 TEST_CASES_STATES["fully mixed"] = ProductDensityOperator({}, system=SYSTEM)
@@ -235,7 +247,9 @@ TEST_CASES_STATES["gibbs_sz_as_product"] = GibbsProductDensityOperator(
 TEST_CASES_STATES["gibbs_sz_bar"] = GibbsProductDensityOperator(
     SZ_TOTAL * (-1), system=SYSTEM
 )
-TEST_CASES_STATES["gibbs_H"] = GibbsDensityOperator(HAMILTONIAN, system=SYSTEM)
+TEST_CASES_STATES["gibbs_H"] = GibbsDensityOperator(
+    HAMILTONIAN, system=SYSTEM, symmetry_projections=[sz_symmetry_projection]
+)
 TEST_CASES_STATES["gibbs_H"] = (
     TEST_CASES_STATES["gibbs_H"] / TEST_CASES_STATES["gibbs_H"].tr()
 )
@@ -352,10 +366,18 @@ PRODUCT_GIBBS_GENERATOR_TESTS = {
     key: val for key, val in GIBBS_GENERATOR_TESTS.items() if is_one_body_operator(val)
 }
 
+GIBBS_SYMMETRY_PROJECTIONS = {
+    "sum operator, hermitician": (sz_parity_projection,),
+    "sum two-body qutip operators": (sz_symmetry_projection,),
+    "qutip operator": (sz_symmetry_projection,),
+    "hermitician quadratic operator": (sz_symmetry_projection,),
+}
 
 for key, val in GIBBS_GENERATOR_TESTS.items():
     name = "Gibbs from " + key
-    TEST_CASES_STATES[name] = GibbsDensityOperator(val, SYSTEM)
+    TEST_CASES_STATES[name] = GibbsDensityOperator(
+        val, SYSTEM, symmetry_projections=GIBBS_SYMMETRY_PROJECTIONS.get(key, tuple())
+    )
 
 for key, val in PRODUCT_GIBBS_GENERATOR_TESTS.items():
     name = "ProductGibbs from " + key
