@@ -8,7 +8,7 @@ from functools import reduce
 from typing import Dict, List, Optional, Tuple, Union
 
 from numpy import imag, log as np_log
-from qutip import Qobj, tensor  # type: ignore[import-untyped]
+from qutip import Qobj, qeye, tensor  # type: ignore[import-untyped]
 
 from alpsqutip.alpsmodels import qutip_model_from_dims
 from alpsqutip.geometry import GraphDescriptor
@@ -55,10 +55,20 @@ class QutipOperator(Operator):
         names: Optional[Dict[str, int]] = None,
         prefactor=1,
     ):
-        assert isinstance(
-            qoperator, Qobj
-        ), f"qoperator should be a Qutip Operator. Was {type(qoperator)}"
-        if system is None:
+        if not isinstance(qoperator, Qobj):
+            if names or system is None:
+                assert ValueError(
+                    f"qoperator should be a Qutip Operator. Was {type(qoperator)}"
+                )
+            dimensions = system.dimensions
+            if dimensions:
+                (site, dim), *_ = dimensions.items()
+                names = {site: 0}
+                qoperator = qeye(dim)
+            else:
+                names = {}
+                qoperator = qeye(1)
+        elif system is None:
             dims = qoperator.dims[0]
             model = qutip_model_from_dims(dims)
             if names is None:
@@ -73,15 +83,19 @@ class QutipOperator(Operator):
                 {},
             )
             system = SystemDescriptor(graph, model, sites=sites)
+
+        # Ensure that names points to each factor of qoperator, if qoperator is nontrivial.
+        dims = qoperator.dims[0]
         if names is None:
             names = {s: i for i, s in enumerate(system.sites)}
+        elif len(names) not in (0, len(dims)):
+            raise ValueError(
+                f"dimensions {qoperator.dims[0]} and name dictionary {names} do not match."
+            )
+        elif any(pos >= len(dims) for pos in names.values()):
+            raise ValueError(f"names {names} points out of dims {dims}")
 
         self.system = system
-        assert len(qoperator.dims[0]) == len(
-            names
-        ), f"{qoperator.dims[0]} and {names} have different lengths"
-        assert all(pos < len(names) for pos in names.values())
-
         self.operator = qoperator
         self.site_names = names
         self.prefactor = prefactor

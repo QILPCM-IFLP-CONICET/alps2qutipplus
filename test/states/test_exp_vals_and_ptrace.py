@@ -3,6 +3,7 @@ Basic unit test for states.
 """
 
 from test.helper import (
+    EXPECTATION_VALUE_TOLERANCE,
     OPERATOR_TYPE_CASES,
     TEST_CASES_STATES,
 )
@@ -66,5 +67,5 @@ def test_pt_and_exp_vals(name_rho, rho, name_obs, obs):
         abs_error = abs(comparisons["rho.expect"] - val)
         rel_error = abs_error / (1 + abs(val))
         assert (
-            rel_error < 2e-1
-        ), f"For {key}, does not match: {val}!=  {comparisons['rho.expect']}"
+            rel_error < EXPECTATION_VALUE_TOLERANCE
+        ), f"For {key}, does not match: {val}!=  {comparisons['rho.expect']} + O({EXPECTATION_VALUE_TOLERANCE})"

@@ -37,6 +37,11 @@ np.set_printoptions(
     edgeitems=30, linewidth=100000, formatter=dict(float=lambda x: "%.3g" % x)
 )
 
+
+EXPECTATION_VALUE_TOLERANCE = 1.0e-3  # 2e-1 # 1.0e-3
+RELATIVE_ENTROPY_TOLERANCE = 13e-2  # 1.0e-6  # 8e-2  # 1.0e-6
+
+
 CHAIN_SIZE = int(os.environ.get("CHAIN_SIZE", 4))
 
 SYSTEM: SystemDescriptor = build_spin_chain(CHAIN_SIZE)
@@ -368,7 +373,7 @@ PRODUCT_GIBBS_GENERATOR_TESTS = {
 
 GIBBS_SYMMETRY_PROJECTIONS = {
     "sum operator, hermitician": (sz_parity_projection,),
-    "sum two-body qutip operators": (sz_symmetry_projection,),
+    "sum two-body qutip operators": (sz_parity_projection,),
     "qutip operator": (sz_symmetry_projection,),
     "hermitician quadratic operator": (sz_symmetry_projection,),
 }

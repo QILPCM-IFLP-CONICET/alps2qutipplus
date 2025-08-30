@@ -7,6 +7,7 @@ from numbers import Number
 from typing import Callable, Dict, Iterable, Optional, Tuple, Union, cast
 
 import numpy as np
+import qutip
 
 from alpsqutip.model import SystemDescriptor
 from alpsqutip.operators.arithmetic import OneBodyOperator
@@ -150,6 +151,7 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
         # Now, force all the symmetries
         for projection in self.symmetry_projections:
             result = projection(result)
+
         return result
 
     def to_qutip_operator(self):
@@ -157,7 +159,7 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
 
         block = tuple(sorted(self.system.sites))
         names = {name: pos for pos, name in enumerate(block)}
-        rho_qutip = self.to_qutip(block)
+        rho_qutip = self.to_qutip(block) if block else 1
         prefactor = getattr(self, "prefactor", 1.0)
         return QutipDensityOperator(
             rho_qutip, names=names, system=self.system, prefactor=prefactor
@@ -179,14 +181,16 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
         if self.normalized:
             result = (-self.k).to_qutip(block).expm()
         else:
-            result, log_prefactor = safe_exp_and_normalize(-self.k.to_qutip(block))
+            k_qutip = self.k.to_qutip(block)
+            if not isinstance(k_qutip, qutip.Qobj):
+                return 1.0
+            result, log_prefactor = safe_exp_and_normalize(-k_qutip)
             self.k = self.k + log_prefactor
             self._free_energy = -log_prefactor
             self.normalized = True
-            # result = result.permute(tuple((all_sites.index(site) for site in block)))
-
-        result = result.ptrace(tuple(range(len(block))))
-
+            if block:
+                result = result.permute(tuple(all_sites.index(site) for site in block))
+            result = result.ptrace(tuple(range(len(block))))
         return result
 
 

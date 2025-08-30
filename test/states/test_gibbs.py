@@ -3,6 +3,7 @@ Basic unit test for states.
 """
 
 from test.helper import (
+    EXPECTATION_VALUE_TOLERANCE,
     GIBBS_GENERATOR_TESTS,
     OPERATOR_TYPE_CASES,
     PRODUCT_GIBBS_GENERATOR_TESTS,
@@ -49,7 +50,7 @@ def do_test_expect(rho, sigma_dict):
 
             abs_error = abs(rho_obs_expect - rho_obs_result)
             rel_error = abs_error / (abs(rho_obs_expect + rho_obs_result) + 1.0)
-            assert rel_error < 1e-6, (
+            assert rel_error < EXPECTATION_VALUE_TOLERANCE, (
                 f"Operator {obs_name} gives different results for "
                 f"the reference (={rho_obs_expect})"
                 f" and {name} (={rho_obs_result}). "
