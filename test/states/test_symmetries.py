@@ -15,10 +15,13 @@ from test.helper import (
     check_operator_equality,
 )
 
+import pytest
+
 from alpsqutip.operators.states.meanfield.symmetries import (
     project_conserved_quantity,
     project_parity_like,
 )
+from alpsqutip.settings import ALPSQUTIP_TOLERANCE
 
 TEST_STATES = {}
 
@@ -82,3 +85,16 @@ def test_parity_projection():
         expected_averages["sy_total"] = 0.0
         expected_averages["sx_A"] = 0.0
         projected_averages = projected_state.expect(observables)
+
+
+@pytest.mark.parametrize(["name"], ((name,) for name in TEST_CASES_STATES))
+def test_symmetry_compatibility(name):
+    state = TEST_CASES_STATES[name]
+    symmetries = getattr(state, "symmetry_projections", None)
+    if not symmetries:
+        return
+    state_qutip = state.to_qutip_operator()
+    assert check_operator_equality(state, state_qutip, ALPSQUTIP_TOLERANCE)
+    for symm in symmetries:
+        print("checking ", symm, "on", name)
+        assert check_operator_equality(symm(state), state_qutip, ALPSQUTIP_TOLERANCE)
