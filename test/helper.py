@@ -27,7 +27,24 @@ from alpsqutip.operators.states import (
     GibbsProductDensityOperator,
     ProductDensityOperator,
 )
+from alpsqutip.operators.states.meanfield.symmetries import (
+    project_conserved_quantity,
+    project_parity_like,
+)
 from alpsqutip.settings import VERBOSITY_LEVEL
+
+
+def sz_symmetry_projection(state):
+    return project_conserved_quantity(state, "Sz")
+
+
+def sz_parity_projection(state):
+    return project_parity_like(state, "Parity")
+
+
+EXPECTATION_VALUE_TOLERANCE = 1.0e-3  # 2e-1 # 1.0e-3
+RELATIVE_ENTROPY_TOLERANCE = 1.0e-6  # 1.0e-6  # 8e-2  # 1.0e-6
+
 
 np.set_printoptions(
     edgeitems=30, linewidth=100000, formatter=dict(float=lambda x: "%.3g" % x)
@@ -235,9 +252,8 @@ TEST_CASES_STATES["gibbs_sz_as_product"] = GibbsProductDensityOperator(
 TEST_CASES_STATES["gibbs_sz_bar"] = GibbsProductDensityOperator(
     SZ_TOTAL * (-1), system=SYSTEM
 )
-TEST_CASES_STATES["gibbs_H"] = GibbsDensityOperator(HAMILTONIAN, system=SYSTEM)
-TEST_CASES_STATES["gibbs_H"] = (
-    TEST_CASES_STATES["gibbs_H"] / TEST_CASES_STATES["gibbs_H"].tr()
+TEST_CASES_STATES["gibbs_H"] = GibbsDensityOperator(
+    HAMILTONIAN, system=SYSTEM, symmetry_projections=[sz_symmetry_projection]
 )
 TEST_CASES_STATES["mixture"] = (
     0.6 * TEST_CASES_STATES["gibbs_H"]
@@ -263,7 +279,7 @@ def check_equality(lhs, rhs, tolerance=1e-10):
     different.
     """
     if isinstance(lhs, Number) and isinstance(rhs, Number):
-        assert abs(lhs - rhs) < tolerance, f"{lhs}!={rhs} + O(10^-10)"
+        assert abs(lhs - rhs) < tolerance, f"{lhs}!={rhs} + O({tolerance})"
         return True
 
     if isinstance(lhs, Operator) and isinstance(rhs, Operator):
@@ -287,6 +303,12 @@ def check_equality(lhs, rhs, tolerance=1e-10):
             check_equality(lhs_item, rhs_item, tolerance)
             for lhs_item, rhs_item in zip(lhs, rhs)
         )
+        return True
+
+    if isinstance(lhs, qutip.Qobj) and isinstance(rhs, qutip.Qobj):
+        diff = abs((lhs - rhs).full())
+        diff = np.max(diff)
+        assert diff < tolerance, f"diff ={diff} > tolerance={tolerance}"
         return True
 
     assert lhs == rhs
@@ -347,10 +369,19 @@ PRODUCT_GIBBS_GENERATOR_TESTS = {
     key: val for key, val in GIBBS_GENERATOR_TESTS.items() if is_one_body_operator(val)
 }
 
+GIBBS_SYMMETRY_PROJECTIONS = {
+    "sum operator, hermitician": (sz_parity_projection,),
+    "sum two-body qutip operators": (sz_parity_projection,),
+    "qutip operator": (sz_symmetry_projection,),
+    "hermitician quadratic operator": (sz_symmetry_projection,),
+}
+
 
 for key, val in GIBBS_GENERATOR_TESTS.items():
     name = "Gibbs from " + key
-    TEST_CASES_STATES[name] = GibbsDensityOperator(val, SYSTEM)
+    TEST_CASES_STATES[name] = GibbsDensityOperator(
+        val, SYSTEM, symmetry_projections=GIBBS_SYMMETRY_PROJECTIONS.get(key, tuple())
+    )
 
 for key, val in PRODUCT_GIBBS_GENERATOR_TESTS.items():
     name = "ProductGibbs from " + key

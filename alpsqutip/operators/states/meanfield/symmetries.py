@@ -36,6 +36,8 @@ def project_conserved_quantity(state, op_name: str):
     system = rho_qutip.system
     site_names = rho_qutip.site_names
     block = tuple(sorted(site_names, key=lambda name: site_names[name]))
+    if not block:
+        return state
 
     try:
         conserved = reduce(

@@ -40,7 +40,9 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
         system: Optional[SystemDescriptor] = None,
         prefactor=1.0,
         normalized=False,
+        symmetry_projections=tuple(),
     ):
+        self.symmetry_projections = symmetry_projections
         if prefactor == 0:
             self.k = ScalarOperator(0, k.system)
             self.f_global = 0.0
