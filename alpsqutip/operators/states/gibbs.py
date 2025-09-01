@@ -144,15 +144,7 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
 
         if isinstance(sites, SystemDescriptor):
             sites = frozenset(sites.sites)
-
-        result = gibbs_meanfield_partial_trace(self, sites)
-        if isinstance(result, ScalarOperator):
-            return result
-        # Now, force all the symmetries
-        for projection in self.symmetry_projections:
-            result = projection(result)
-
-        return result
+        return gibbs_meanfield_partial_trace(self, sites)
 
     def to_qutip_operator(self):
         from alpsqutip.operators.states import QutipDensityOperator

@@ -39,7 +39,7 @@ np.set_printoptions(
 
 
 EXPECTATION_VALUE_TOLERANCE = 1.0e-3  # 2e-1 # 1.0e-3
-RELATIVE_ENTROPY_TOLERANCE = 13e-2  # 1.0e-6  # 8e-2  # 1.0e-6
+RELATIVE_ENTROPY_TOLERANCE = 1e-2  # 1.0e-6  # 8e-2  # 1.0e-6
 
 
 CHAIN_SIZE = int(os.environ.get("CHAIN_SIZE", 4))
@@ -89,10 +89,10 @@ SX_TOTAL: OneBodyOperator = sum(SYSTEM.site_operator("Sx", s) for s in SITES)
 SY_TOTAL: OneBodyOperator = sum(SYSTEM.site_operator("Sy", s) for s in SITES)
 HAMILTONIAN: SumOperator = SYSTEM.global_operator("Hamiltonian")
 
+
 # assert HAMILTONIAN is not None
 if HAMILTONIAN is None:
     HAMILTONIAN = SY_TOTAL
-
 
 assert (SMINUS_A * SMINUS_B) is not None
 

@@ -140,7 +140,11 @@ def test_relative_entropy(key_rho, key_sigma):
     rel_error = abs(rel_entr - rel_entr_qutip) / abs(rel_entr + rel_entr_qutip + 1.0)
 
     if rel_error > RELATIVE_ENTROPY_TOLERANCE:
+
         print("  ", [key_rho, key_sigma])
+        print("Hamiltonian:\n", operator_to_wolfram(HAMILTONIAN))
+        print("log rho:\n", operator_to_wolfram(rho.logm()))
+        print("log sigma:\n", operator_to_wolfram(sigma.logm()))
 
         print(key_rho, operator_to_wolfram(rho))
         print(key_rho, operator_to_wolfram(rho.to_qutip()))
