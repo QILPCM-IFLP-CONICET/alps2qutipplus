@@ -50,11 +50,6 @@ np.set_printoptions(
     edgeitems=30, linewidth=100000, formatter=dict(float=lambda x: "%.3g" % x)
 )
 
-
-EXPECTATION_VALUE_TOLERANCE = 1.0e-3  # 2e-1 # 1.0e-3
-RELATIVE_ENTROPY_TOLERANCE = 1e-2  # 1.0e-6  # 8e-2  # 1.0e-6
-
-
 CHAIN_SIZE = int(os.environ.get("CHAIN_SIZE", 4))
 
 SYSTEM: SystemDescriptor = build_spin_chain(CHAIN_SIZE)
@@ -102,10 +97,10 @@ SX_TOTAL: OneBodyOperator = sum(SYSTEM.site_operator("Sx", s) for s in SITES)
 SY_TOTAL: OneBodyOperator = sum(SYSTEM.site_operator("Sy", s) for s in SITES)
 HAMILTONIAN: SumOperator = SYSTEM.global_operator("Hamiltonian")
 
-
 # assert HAMILTONIAN is not None
 if HAMILTONIAN is None:
     HAMILTONIAN = SY_TOTAL
+
 
 assert (SMINUS_A * SMINUS_B) is not None
 
@@ -219,14 +214,6 @@ if os.environ.get("ALPSQUTIP_ALLTESTS"):
     )
 
 
-def sz_symmetry_projection(state):
-    return project_conserved_quantity(state, "Sz")
-
-
-def sz_parity_projection(state):
-    return project_parity_like(state, "Parity")
-
-
 TEST_CASES_STATES = {}
 
 TEST_CASES_STATES["fully mixed"] = ProductDensityOperator({}, system=SYSTEM)
@@ -317,11 +304,6 @@ def check_equality(lhs, rhs, tolerance=1e-10):
             for lhs_item, rhs_item in zip(lhs, rhs)
         )
         return True
-    if isinstance(lhs, qutip.Qobj) and isinstance(rhs, qutip.Qobj):
-        diff = abs((lhs - rhs).full())
-        diff = np.max(diff)
-        assert diff < tolerance, f"diff ={diff} > tolerance={tolerance}"
-        return True
 
     if isinstance(lhs, qutip.Qobj) and isinstance(rhs, qutip.Qobj):
         diff = abs((lhs - rhs).full())
@@ -393,6 +375,7 @@ GIBBS_SYMMETRY_PROJECTIONS = {
     "qutip operator": (sz_symmetry_projection,),
     "hermitician quadratic operator": (sz_symmetry_projection,),
 }
+
 
 for key, val in GIBBS_GENERATOR_TESTS.items():
     name = "Gibbs from " + key
