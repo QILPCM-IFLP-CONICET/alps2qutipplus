@@ -591,3 +591,17 @@ def test_reduce_to_proper_spaces():
     assert check_equality(
         spectrum, np.array([0, 0.25, 0.375, 0.375])
     ), f"{reduced_state.eigenenergies()}"
+
+
+def test_trivial_QutipOperator():
+    b = QutipOperator(sigmax(), prefactor=0.5)
+    system = b.system
+    a = QutipOperator(1, prefactor=2, system=system)
+    ab = a * b
+    print("a:", a)
+    print("b:", b)
+    print("ab:", ab)
+    check_equality(ab, 2 * b)
+    check_equality(a.tr(), 4.0)
+    check_equality((a * a).tr(), 8.0)
+    check_equality((b * b).tr(), 0.5)
