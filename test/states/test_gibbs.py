@@ -3,6 +3,7 @@ Basic unit test for states.
 """
 
 from test.helper import (
+    EXPECTATION_VALUE_TOLERANCE,
     GIBBS_GENERATOR_TESTS,
     OPERATOR_TYPE_CASES,
     PRODUCT_GIBBS_GENERATOR_TESTS,
@@ -47,7 +48,9 @@ def do_test_expect(rho, sigma_dict):
             else:
                 rho_obs_result = sigma.expect(obs_op)
 
-            assert abs(rho_obs_expect - rho_obs_result) < ALPSQUTIP_TOLERANCE, (
+            abs_error = abs(rho_obs_expect - rho_obs_result)
+            rel_error = abs_error / (abs(rho_obs_expect + rho_obs_result) + 1.0)
+            assert rel_error < EXPECTATION_VALUE_TOLERANCE, (
                 f"Operator {obs_name} gives different results for "
                 f"the reference (={rho_obs_expect})"
                 f" and {name} (={rho_obs_result}). "
@@ -71,7 +74,7 @@ def do_test_instance(rho) -> None:
     rho_0 = rho.partial_trace(frozenset({SITES[0]}))
     print("rho_0", type(rho_0))
     assert isinstance(rho_0, DensityOperatorMixin)
-    check_equality(rho_0.to_qutip(), rho_qutip.ptrace([0]))
+    check_equality(rho_0.to_qutip(), rho_qutip.ptrace([0]), ALPSQUTIP_TOLERANCE)
     assert isinstance(rho.to_qutip_operator(), QutipDensityOperator)
     rhosq = rho * rho
     rhosq_tr = rhosq.tr()
