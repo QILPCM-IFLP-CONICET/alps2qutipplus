@@ -43,7 +43,7 @@ def sz_parity_projection(state):
 
 
 EXPECTATION_VALUE_TOLERANCE = 1.0e-3  # 2e-1 # 1.0e-3
-RELATIVE_ENTROPY_TOLERANCE = 1.0e-6  # 1.0e-6  # 8e-2  # 1.0e-6
+RELATIVE_ENTROPY_TOLERANCE = 1.0e-8  # 1.0e-6  # 8e-2  # 1.0e-6
 
 
 np.set_printoptions(

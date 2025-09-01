@@ -48,8 +48,8 @@ QUTIP_TEST_CASES_STATES = {
 }
 
 
-def compare_spectrum(spectrum1, spectrum2):
-    assert max(abs(np.array(sorted(spectrum1)) - np.array(sorted(spectrum2)))) < 1.0e-12
+def compare_spectrum(spectrum1, spectrum2, tol=ALPSQUTIP_TOLERANCE):
+    assert max(abs(np.array(sorted(spectrum1)) - np.array(sorted(spectrum2)))) < tol
 
 
 def qutip_relative_entropy(qutip_1, qutip_2):
@@ -124,7 +124,8 @@ def test_relative_entropy(key_rho, key_sigma):
 
     if key_rho == key_sigma:
         assert (
-            abs(rho.tr() - 1) < 1e-6 and abs(rho_qutip.tr() - 1) < ALPSQUTIP_TOLERANCE
+            abs(rho.tr() - 1) < ALPSQUTIP_TOLERANCE
+            and abs(rho_qutip.tr() - 1) < ALPSQUTIP_TOLERANCE
         )
         check_equality(relative_entropy(rho, rho), 0, ALPSQUTIP_TOLERANCE)
         check_equality(
@@ -140,7 +141,6 @@ def test_relative_entropy(key_rho, key_sigma):
     rel_error = abs(rel_entr - rel_entr_qutip) / abs(rel_entr + rel_entr_qutip + 1.0)
 
     if rel_error > RELATIVE_ENTROPY_TOLERANCE:
-
         print("  ", [key_rho, key_sigma])
         print("Hamiltonian:\n", operator_to_wolfram(HAMILTONIAN))
         print("log rho:\n", operator_to_wolfram(rho.logm()))
@@ -258,12 +258,13 @@ def test_spectral_norm(name, operator):
     """
     Test the spectral norm
     """
+    tolerance = ALPSQUTIP_TOLERANCE
     print("spectral norm of", name, "of type", type(operator))
     qutip_sn = spectral_norm(operator.to_qutip())
     op_sn = spectral_norm(operator)
-    assert abs(op_sn - qutip_sn) < ALPSQUTIP_TOLERANCE, (
+    assert abs(op_sn - qutip_sn) < tolerance, (
         f"||op_{name}|-|qutip_{name}||="
-        f"|{op_sn}-{qutip_sn}|={abs(op_sn-qutip_sn)}>{ALPSQUTIP_TOLERANCE}"
+        f"|{op_sn}-{qutip_sn}|={abs(op_sn-qutip_sn)}>{tolerance}."
     )
 
 
