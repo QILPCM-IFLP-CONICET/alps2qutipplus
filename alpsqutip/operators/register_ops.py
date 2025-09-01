@@ -1767,9 +1767,19 @@ def mul_qutip_operator_qutip_operator(x_op: QutipOperator, y_op: QutipOperator):
     -------
 
     """
-    system = x_op.system.union(y_op.system)
+
     x_names = x_op.site_names
     y_names = y_op.site_names
+    if not x_names:
+        if not y_names:
+            system = x_op.system.union(y_op.system)
+            prefactor = x_op.prefactor * y_op.prefactor
+            return QutipOperator(1, names=x_names, prefactor=prefactor, system=system)
+        return y_op * x_op.prefactor
+    if not y_names:
+        return x_op * y_op.prefactor
+
+    system = x_op.system.union(y_op.system)
     if x_names == y_names:
         return QutipOperator(
             x_op.operator * y_op.operator,

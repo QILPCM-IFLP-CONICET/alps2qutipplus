@@ -50,24 +50,19 @@ class QutipOperator(Operator):
 
     def __init__(
         self,
-        qoperator: Qobj,
+        qoperator,
         system: Optional[SystemDescriptor] = None,
         names: Optional[Dict[str, int]] = None,
         prefactor=1,
     ):
         if not isinstance(qoperator, Qobj):
-            if names or system is None:
-                assert ValueError(
-                    f"qoperator should be a Qutip Operator. Was {type(qoperator)}"
-                )
-            dimensions = system.dimensions
-            if dimensions:
-                (site, dim), *_ = dimensions.items()
-                names = {site: 0}
-                qoperator = qeye(dim)
-            else:
-                names = {}
-                qoperator = qeye(1)
+            prefactor = prefactor * qoperator
+            names = {}
+            if system is None:
+                graph = GraphDescriptor("Empty graph", {}, {}, {})
+                model = qutip_model_from_dims({})
+                system = SystemDescriptor(graph, model, sites={})
+            qoperator = qeye(1)
         elif system is None:
             dims = qoperator.dims[0]
             model = qutip_model_from_dims(dims)
@@ -83,17 +78,17 @@ class QutipOperator(Operator):
                 {},
             )
             system = SystemDescriptor(graph, model, sites=sites)
-
-        # Ensure that names points to each factor of qoperator, if qoperator is nontrivial.
-        dims = qoperator.dims[0]
-        if names is None:
-            names = {s: i for i, s in enumerate(system.sites)}
-        elif len(names) not in (0, len(dims)):
-            raise ValueError(
-                f"dimensions {qoperator.dims[0]} and name dictionary {names} do not match."
-            )
-        elif any(pos >= len(dims) for pos in names.values()):
-            raise ValueError(f"names {names} points out of dims {dims}")
+        else:
+            # If qoperator is nontrivial, ensure that names points to each factor of qoperator.
+            dims = qoperator.dims[0]
+            if names is None:
+                names = {s: i for i, s in enumerate(system.sites)}
+            elif len(names) != len(dims):
+                raise ValueError(
+                    f"dimensions {qoperator.dims[0]} and name dictionary {names} do not match."
+                )
+            elif any(pos >= len(dims) for pos in names.values()):
+                raise ValueError(f"names {names} points out of dims {dims}")
 
         self.system = system
         self.operator = qoperator
@@ -401,7 +396,11 @@ class QutipOperator(Operator):
                 {site: next_index + i for i, site in enumerate(out_sites)}
             )
             extra_identities = (sites[site]["identity"] for site in out_sites)
-            operator_qutip = tensor(operator_qutip, *extra_identities)
+            operator_qutip = (
+                tensor(operator_qutip, *extra_identities)
+                if site_names
+                else tensor(*extra_identities)
+            )
 
         # Add sites which are in site_names, but not in block
         block = block + tuple((site for site in site_names if site not in block))
@@ -414,13 +413,13 @@ class QutipOperator(Operator):
         return operator_qutip.permute(shuffle)
 
     def tr(self):
-        """ """
+        """Compute the trace"""
         prefactor = self.prefactor
         if prefactor == 0:
             return prefactor
 
         site_names: Dict[str, int] = self.site_names
-        op_tr = self.operator.tr() if site_names else 0.0
+        op_tr = self.operator.tr() if site_names else 1.0
         if op_tr == 0.0:
             return op_tr
 
@@ -429,8 +428,6 @@ class QutipOperator(Operator):
         if len(site_names) < len(dimensions):
             names = set(site_names)
             dims_other = (dim for site, dim in dimensions.items() if site not in names)
-            prefactor = reduce(lambda x, y: x * y, dims_other, self.prefactor)
-        else:
-            prefactor = self.prefactor
+            prefactor = reduce(lambda x, y: x * y, dims_other, prefactor)
         result = op_tr * prefactor
         return result
