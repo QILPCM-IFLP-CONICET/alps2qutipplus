@@ -31,9 +31,6 @@ from alpsqutip.operators.functions import (
 from alpsqutip.settings import ALPSQUTIP_TOLERANCE
 from alpsqutip.utils import operator_to_wolfram
 
-# from alpsqutip.settings import VERBOSITY_LEVEL
-
-
 splus0 = SYSTEM.site_operator(f"Splus@{SITES[0]}")
 splus1 = SYSTEM.site_operator(f"Splus@{SITES[1]}")
 
@@ -140,8 +137,14 @@ def test_relative_entropy(key_rho, key_sigma):
     # infinity quantities cannot be compared...
     if rel_entr_qutip == np.inf and rel_entr > 10:
         return
-    if abs(rel_entr - rel_entr_qutip) > RELATIVE_ENTROPY_TOLERANCE:
+
+    rel_error = abs(rel_entr - rel_entr_qutip) / abs(rel_entr + rel_entr_qutip + 1.0)
+
+    if rel_error > RELATIVE_ENTROPY_TOLERANCE:
         print("  ", [key_rho, key_sigma])
+        print("Hamiltonian:\n", operator_to_wolfram(HAMILTONIAN))
+        print("log rho:\n", operator_to_wolfram(rho.logm()))
+        print("log sigma:\n", operator_to_wolfram(sigma.logm()))
 
         print(key_rho, operator_to_wolfram(rho))
         print(key_rho, operator_to_wolfram(rho.to_qutip()))
@@ -150,7 +153,7 @@ def test_relative_entropy(key_rho, key_sigma):
         print(key_sigma, operator_to_wolfram(sigma.to_qutip()))
         assert (
             False
-        ), f" in S({key_rho}|{key_sigma}),  {rel_entr} (alps2qutip) !=   {rel_entr_qutip} (qutip)"
+        ), f" in S({key_rho}|{key_sigma}),  {rel_entr} (alps2qutip) !=   {rel_entr_qutip} (qutip)  relative error: ({rel_error*100}%)"
 
 
 def test_eigenvalues():
