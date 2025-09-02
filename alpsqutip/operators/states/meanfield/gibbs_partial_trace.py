@@ -86,14 +86,17 @@ def gibbs_meanfield_partial_trace(
     system = state.k.system
     subsystem = system.subsystem(sites)
 
-    if not environment:
-        result = GibbsDensityOperator(generator, system=subsystem, prefactor=prefactor)
-        return result
-
     # For states in small subsystems, just compute the partial trace
     # *exactly* by exponentiating the state.
     if len(full_acts_over) <= 4:
         result = state.to_qutip_operator().partial_trace(sites)
+        return result
+
+    sigma_mf = state._meanfield
+    if not environment:
+        result = GibbsDensityOperator(
+            generator, system=subsystem, prefactor=prefactor, meanfield=sigma_mf
+        )
         return result
 
     generator = state.k.flat()
@@ -110,7 +113,6 @@ def gibbs_meanfield_partial_trace(
         else:
             terms_boundary.append(term)
 
-    sigma_mf = state._meanfield
     if terms_boundary:
         # If there are boundary terms, project them
         if sigma_mf is None:
