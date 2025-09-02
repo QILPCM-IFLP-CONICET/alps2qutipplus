@@ -4,9 +4,10 @@ Classes to represent density operators as Gibbs states $rho=e^{-k}$.
 """
 
 from numbers import Number
-from typing import Dict, Iterable, Optional, Tuple, Union, cast
+from typing import Callable, Dict, Iterable, Optional, Tuple, Union, cast
 
 import numpy as np
+import qutip
 
 from alpsqutip.model import SystemDescriptor
 from alpsqutip.operators.arithmetic import OneBodyOperator
@@ -40,7 +41,8 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
         system: Optional[SystemDescriptor] = None,
         prefactor=1.0,
         normalized=False,
-        symmetry_projections=tuple(),
+        meanfield=None,
+        symmetry_projections: Tuple[Callable] = tuple(),
     ):
         self.symmetry_projections = symmetry_projections
         if prefactor == 0:
@@ -50,7 +52,8 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
             self.normalized = normalized
             self.prefactor = 0
             self.normalized = normalized
-            self.system = k.system.union(system)
+            self.system = system if system is not None else k.system
+            self._meanfield = ProductDensityOperator({}, system=self.system, weight=0)
             return
 
         assert prefactor > 0
@@ -59,7 +62,8 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
         self._free_energy = 0.0
         self.prefactor = prefactor
         self.normalized = normalized
-        self.system = k.system.union(system)
+        self.system = system if system is not None else k.system
+        self._meanfield = meanfield
 
     def __mul__(self, operand):
         if isinstance(operand, (int, float, np.float64)) and operand >= 0:
@@ -101,12 +105,12 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
         Return a set with the name of the
         sites where the operator nontrivially acts
         """
-        return self.k.acts_over()
+        return self.k.acts_over().intersection(self.system.sites)
 
-    def expect(
-        self, obs_objs: Union[Operator, Iterable]
-    ) -> Union[np.ndarray, dict, Number]:
-        return self.to_qutip_operator().expect(obs_objs)
+    # def expect(
+    #    self, obs_objs: Union[Operator, Iterable]
+    # ) -> Union[np.ndarray, dict, Number]:
+    #    return self.to_qutip_operator().expect(obs_objs)
 
     @property
     def free_energy(self):
@@ -134,7 +138,24 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
         return self
 
     def partial_trace(self, sites: Union[frozenset, SystemDescriptor]):
-        return self.to_qutip_operator().partial_trace(sites)
+        from alpsqutip.operators.states.meanfield.gibbs_partial_trace import (
+            gibbs_meanfield_partial_trace,
+        )
+
+        if isinstance(sites, SystemDescriptor):
+            sites = frozenset(sites.sites)
+        return gibbs_meanfield_partial_trace(self, sites)
+
+    def to_qutip_operator(self):
+        from alpsqutip.operators.states import QutipDensityOperator
+
+        block = tuple(sorted(self.system.sites))
+        names = {name: pos for pos, name in enumerate(block)}
+        rho_qutip = self.to_qutip(block) if block else 1
+        prefactor = getattr(self, "prefactor", 1.0)
+        return QutipDensityOperator(
+            rho_qutip, names=names, system=self.system, prefactor=prefactor
+        )
 
     def to_qutip(self, block: Optional[Tuple[str]] = None):
         system = self.system
@@ -142,23 +163,26 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
         if block is None:
             block = tuple(sorted(all_sites))
         elif len(block) < len(all_sites):
+            assert all(
+                site in all_sites for site in block
+            ), "sites must be in the (sub)system"
             block = block + tuple(
                 sorted((site for site in all_sites if site not in block))
             )
 
-        if not self.normalized:
-            rho_qutip, log_prefactor = safe_exp_and_normalize(-self.k.to_qutip())
+        if self.normalized:
+            result = (-self.k).to_qutip(block).expm()
+        else:
+            k_qutip = self.k.to_qutip(block)
+            if not isinstance(k_qutip, qutip.Qobj):
+                return 1.0
+            result, log_prefactor = safe_exp_and_normalize(-k_qutip)
             self.k = self.k + log_prefactor
             self._free_energy = -log_prefactor
             self.normalized = True
-            if len(block) == 0:
-                return rho_qutip
-            if block == all_sites:
-                return rho_qutip
-
-            return rho_qutip.permute(tuple((all_sites.index(site) for site in block)))
-
-        result = (-self.k).to_qutip(block).expm()
+            if block:
+                result = result.permute(tuple(all_sites.index(site) for site in block))
+            result = result.ptrace(tuple(range(len(block))))
         return result
 
 

@@ -210,10 +210,13 @@ class DensityOperatorMixin:
     def to_qutip_operator(self):
         from alpsqutip.operators.states import QutipDensityOperator
 
+        prefactor = getattr(self, "prefactor", 1.0)
         block = tuple(sorted(self.system.sites))
+        if not block:
+            return QutipDensityOperator(1, system=self.system, prefactor=prefactor)
+
         names = {name: pos for pos, name in enumerate(block)}
         rho_qutip = self.to_qutip(block)
-        prefactor = getattr(self, "prefactor", 1.0)
         return QutipDensityOperator(
             rho_qutip, names=names, system=self.system, prefactor=prefactor
         )
