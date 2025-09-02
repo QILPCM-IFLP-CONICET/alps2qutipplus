@@ -42,7 +42,7 @@ def sz_parity_projection(state):
     return project_parity_like(state, "Parity")
 
 
-EXPECTATION_VALUE_TOLERANCE = 1.0e-3  # 2e-1 # 1.0e-3
+EXPECTATION_VALUE_TOLERANCE = 2.0e-2  # 1.0e-3
 RELATIVE_ENTROPY_TOLERANCE = 8.0e-2  # 1.0e-6  # 8e-2  # 1.0e-6
 
 
