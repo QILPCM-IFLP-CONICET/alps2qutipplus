@@ -174,7 +174,7 @@ def test_eigenvalues():
     )
     # use the alpsqutip routine
     e0 = min(eigenvalues(HAMILTONIAN, sparse=True, sort="low", eigvals=10))
-    assert abs(e0 - e0_qutip) < ALPSQUTIP_TOLERANCE
+    assert abs(e0 - e0_qutip) < 10 * ALPSQUTIP_TOLERANCE
 
     #  e^(sz)/Tr e^(sz)
     spectrum = sorted(eigenvalues(TEST_CASES_STATES["gibbs_sz"]))

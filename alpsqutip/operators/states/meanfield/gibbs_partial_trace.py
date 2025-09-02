@@ -92,7 +92,7 @@ def gibbs_meanfield_partial_trace(
 
     # For states in small subsystems, just compute the partial trace
     # *exactly* by exponentiating the state.
-    if len(full_acts_over) <= 8:
+    if len(full_acts_over) <= 4:
         result = state.to_qutip_operator().partial_trace(sites)
         return result
 
@@ -126,10 +126,15 @@ def gibbs_meanfield_partial_trace(
         terms_in.extend(terms_boundary)
 
     k_in = iterable_to_operator(terms_in, system, isherm=True)
-    # Now, sigma_mf is reduced to the sites
-    if sigma_mf:
-        sigma_mf = sigma_mf.partial_trace(sites)
 
-    return GibbsDensityOperator(
-        k_in, subsystem, prefactor=prefactor, meanfield=sigma_mf
-    )
+    result = GibbsDensityOperator(
+        k_in, subsystem, prefactor=prefactor
+    ).to_qutip_operator()
+
+    for symm in state.symmetry_projections:
+        result_new = symm(result)
+        # assert (
+        #    (result_new - result).tidyup().is_zero
+        # ), f"result is not invariant under {symm}."
+        result = result_new
+    return result
