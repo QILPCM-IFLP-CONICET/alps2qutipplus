@@ -15,6 +15,7 @@ from test.helper import (
 import pytest
 
 from alpsqutip.operators import OneBodyOperator
+from alpsqutip.settings import ALPSQUTIP_TOLERANCE
 
 # from alpsqutip.settings import VERBOSITY_LEVEL
 
@@ -95,14 +96,14 @@ def no_test_ternary_mixtures(name_rho, name_sigma, name_theta):
         + sigma_coeff * QT_TEST_CASES[name_sigma]
         + theta_coeff * QT_TEST_CASES[name_theta]
     )
-    assert check_equality(rho.tr(), 1)
-    assert check_equality(sigma.tr(), 1)
-    assert check_equality(theta.tr(), 1)
-    assert check_equality(mixture.tr(), 1)
-    assert check_equality(qutip_mixture.tr(), 1)
+    assert check_equality(rho.tr(), 1, ALPSQUTIP_TOLERANCE)
+    assert check_equality(sigma.tr(), 1, ALPSQUTIP_TOLERANCE)
+    assert check_equality(theta.tr(), 1, ALPSQUTIP_TOLERANCE)
+    assert check_equality(mixture.tr(), 1, ALPSQUTIP_TOLERANCE)
+    assert check_equality(qutip_mixture.tr(), 1, ALPSQUTIP_TOLERANCE)
     print("mixture:\n", mixture)
     print("qutip mixture:\n", qutip_mixture)
-    check_equality(mixture.to_qutip(), qutip_mixture)
+    check_equality(mixture.to_qutip(), qutip_mixture, ALPSQUTIP_TOLERANCE)
 
 
 @pytest.mark.parametrize(["name", "rho"], list(TEST_CASES_STATES.items()))
@@ -138,7 +139,7 @@ def test_states(name, rho):
         alert(0, "QTip", qt_expectation_values)
         try:
             assert check_equality(
-                expectation_values[obs], qt_expectation_values[obs], 1e-9
+                expectation_values[obs], qt_expectation_values[obs], ALPSQUTIP_TOLERANCE
             )
         except AssertionError:
             assert (

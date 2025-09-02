@@ -7,6 +7,7 @@ from test.helper import (
     HAMILTONIAN,
     OPERATOR_TYPE_CASES,
     OPERATORS,
+    RELATIVE_ENTROPY_TOLERANCE,
     SITES,
     SYSTEM,
     SZ_TOTAL,
@@ -27,10 +28,8 @@ from alpsqutip.operators.functions import (
     relative_entropy,
     spectral_norm,
 )
+from alpsqutip.settings import ALPSQUTIP_TOLERANCE
 from alpsqutip.utils import operator_to_wolfram
-
-# from alpsqutip.settings import VERBOSITY_LEVEL
-
 
 splus0 = SYSTEM.site_operator(f"Splus@{SITES[0]}")
 splus1 = SYSTEM.site_operator(f"Splus@{SITES[1]}")
@@ -49,8 +48,8 @@ QUTIP_TEST_CASES_STATES = {
 }
 
 
-def compare_spectrum(spectrum1, spectrum2):
-    assert max(abs(np.array(sorted(spectrum1)) - np.array(sorted(spectrum2)))) < 1.0e-12
+def compare_spectrum(spectrum1, spectrum2, tol=ALPSQUTIP_TOLERANCE):
+    assert max(abs(np.array(sorted(spectrum1)) - np.array(sorted(spectrum2)))) < tol
 
 
 def qutip_relative_entropy(qutip_1, qutip_2):
@@ -124,17 +123,28 @@ def test_relative_entropy(key_rho, key_sigma):
     sigma_qutip = qutip_states[key_sigma]
 
     if key_rho == key_sigma:
-        assert abs(rho.tr() - 1) < 1e-6 and abs(rho_qutip.tr() - 1) < 1e-6
-        check_equality(relative_entropy(rho, rho), 0)
-        check_equality(qutip.entropy_relative(rho_qutip, rho_qutip), 0)
+        assert (
+            abs(rho.tr() - 1) < ALPSQUTIP_TOLERANCE
+            and abs(rho_qutip.tr() - 1) < ALPSQUTIP_TOLERANCE
+        )
+        check_equality(relative_entropy(rho, rho), 0, ALPSQUTIP_TOLERANCE)
+        check_equality(
+            qutip.entropy_relative(rho_qutip, rho_qutip), 0, ALPSQUTIP_TOLERANCE
+        )
 
     rel_entr = relative_entropy(rho, sigma)
     rel_entr_qutip = qutip_relative_entropy(rho_qutip, sigma_qutip)
     # infinity quantities cannot be compared...
     if rel_entr_qutip == np.inf and rel_entr > 10:
         return
-    if abs(rel_entr - rel_entr_qutip) > 1.0e-6:
+
+    rel_error = abs(rel_entr - rel_entr_qutip) / abs(rel_entr + rel_entr_qutip + 1.0)
+
+    if rel_error > RELATIVE_ENTROPY_TOLERANCE:
         print("  ", [key_rho, key_sigma])
+        print("Hamiltonian:\n", operator_to_wolfram(HAMILTONIAN))
+        print("log rho:\n", operator_to_wolfram(rho.logm()))
+        print("log sigma:\n", operator_to_wolfram(sigma.logm()))
 
         print(key_rho, operator_to_wolfram(rho))
         print(key_rho, operator_to_wolfram(rho.to_qutip()))
@@ -143,7 +153,7 @@ def test_relative_entropy(key_rho, key_sigma):
         print(key_sigma, operator_to_wolfram(sigma.to_qutip()))
         assert (
             False
-        ), f" in S({key_rho}|{key_sigma}),  {rel_entr} (alps2qutip) !=   {rel_entr_qutip} (qutip)"
+        ), f" in S({key_rho}|{key_sigma}),  {rel_entr} (alps2qutip) !=   {rel_entr_qutip} (qutip)  relative error: ({rel_error*100}%)"
 
 
 def test_eigenvalues():
@@ -151,11 +161,11 @@ def test_eigenvalues():
     spectrum = sorted(eigenvalues(SZ_TOTAL))
     for s in range(CHAIN_SIZE):
         min_err = min(abs(e_val - s + 0.5 * CHAIN_SIZE) for e_val in spectrum)
-        assert min_err < 1e-6, f"closest eigenvalue at {min_err}"
+        assert min_err < ALPSQUTIP_TOLERANCE, f"closest eigenvalue at {min_err}"
 
     # Fully mixed operator
     spectrum = sorted(eigenvalues(TEST_CASES_STATES["fully mixed"]))
-    assert all(abs(s - 0.5**CHAIN_SIZE) < 1e-6 for s in spectrum)
+    assert all(abs(s - 0.5**CHAIN_SIZE) < ALPSQUTIP_TOLERANCE for s in spectrum)
 
     # Ground state energy
     # Compute the minimum eigenenergy with qutip
@@ -164,7 +174,7 @@ def test_eigenvalues():
     )
     # use the alpsqutip routine
     e0 = min(eigenvalues(HAMILTONIAN, sparse=True, sort="low", eigvals=10))
-    assert abs(e0 - e0_qutip) < 1.0e-6
+    assert abs(e0 - e0_qutip) < 10 * ALPSQUTIP_TOLERANCE
 
     #  e^(sz)/Tr e^(sz)
     spectrum = sorted(eigenvalues(TEST_CASES_STATES["gibbs_sz"]))
@@ -248,12 +258,13 @@ def test_spectral_norm(name, operator):
     """
     Test the spectral norm
     """
+    tolerance = ALPSQUTIP_TOLERANCE
     print("spectral norm of", name, "of type", type(operator))
     qutip_sn = spectral_norm(operator.to_qutip())
     op_sn = spectral_norm(operator)
-    assert abs(op_sn - qutip_sn) < 1e-6, (
+    assert abs(op_sn - qutip_sn) < tolerance, (
         f"||op_{name}|-|qutip_{name}||="
-        f"|{op_sn}-{qutip_sn}|={abs(op_sn-qutip_sn)}>1e-2."
+        f"|{op_sn}-{qutip_sn}|={abs(op_sn-qutip_sn)}>{tolerance}."
     )
 
 

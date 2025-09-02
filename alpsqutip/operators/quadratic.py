@@ -263,7 +263,7 @@ class QuadraticFormOperator(Operator):
         return result
 
     def flat(self):
-        return self
+        return self.as_sum_of_products().flat()
 
     @property
     def isdiagonal(self):

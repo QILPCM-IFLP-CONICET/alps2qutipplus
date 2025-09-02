@@ -169,7 +169,6 @@ class SumOperator(Operator):
             if not hasattr(nh_sum, "terms"):
                 self._isherm = nh_sum.isherm
                 return self._isherm
-
             # Hermitician until the opposite is shown:
             isherm = True
             for term in nh_sum.terms:

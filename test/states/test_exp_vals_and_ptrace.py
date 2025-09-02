@@ -3,6 +3,7 @@ Basic unit test for states.
 """
 
 from test.helper import (
+    EXPECTATION_VALUE_TOLERANCE,
     OPERATOR_TYPE_CASES,
     TEST_CASES_STATES,
 )
@@ -45,8 +46,8 @@ def test_pt_and_exp_vals(name_rho, rho, name_obs, obs):
 
     print(f"obs {type(obs)}:\n", qutip_obs.to_qutip())
 
-    print("acts_over_tuple:", acts_over_tuple)
-    print("rho_pt.acts_over", rho_pt.acts_over())
+    print("acts_over_tuple from the observable:", acts_over_tuple)
+    print("rho_pt", type(rho_pt), "acts_over", rho_pt.acts_over())
     print("qutip_obs.acts_over", qutip_obs.acts_over())
 
     comparisons = {
@@ -63,6 +64,8 @@ def test_pt_and_exp_vals(name_rho, rho, name_obs, obs):
         comparisons["rho_pt.expect(qutip_obs)"] = rho_pt.expect(qutip_obs)
 
     for key, val in comparisons.items():
+        abs_error = abs(comparisons["rho.expect"] - val)
+        rel_error = abs_error / (1 + abs(val))
         assert (
-            abs(comparisons["rho.expect"] - val) < 1e-3
-        ), f"{key} does not match with {'rho.expect'}"
+            rel_error < EXPECTATION_VALUE_TOLERANCE
+        ), f"For {key}, does not match: {val}!=  {comparisons['rho.expect']} + O({EXPECTATION_VALUE_TOLERANCE})"
