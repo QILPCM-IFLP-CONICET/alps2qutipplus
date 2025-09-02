@@ -77,6 +77,7 @@ def collect_nbody_terms(operator: Operator) -> dict:
     if not isinstance(operator, SumOperator):
         return {operator.acts_over(): [operator]}
 
+    full_acts_over = frozenset()
     for term in operator.terms:
         acts_over = term.acts_over()
         if acts_over is None:
@@ -89,7 +90,11 @@ def collect_nbody_terms(operator: Operator) -> dict:
         if not acts_over_key:
             scalar_term += term.prefactor
         else:
+            full_acts_over = full_acts_over.union(acts_over_key)
             terms_by_block.setdefault(acts_over_key, []).append(term)
+
+    if None in terms_by_block:
+        terms_by_block.setdefault(full_acts_over, []).extend(terms_by_block.pop(None))
 
     # Add a scalar term
     if scalar_term:
@@ -140,11 +145,16 @@ def group_terms_by_blocks(operator: Operator, fn: Optional[Callable] = None):
 
     changed = False
     system = operator.system
+    acts_over = operator.acts_over()
     operator_flat = operator.flat()
     isherm = getattr(operator, "_isherm", None)
     if operator is not operator_flat:
         changed = True
     terms_dict = collect_nbody_terms(operator_flat)
+
+    if any(isinstance(t, QutipOperator) for t in terms_dict.get(acts_over, [])):
+        return operator.to_qutip_operator()
+
     new_terms = []
     one_body_terms = []
 
