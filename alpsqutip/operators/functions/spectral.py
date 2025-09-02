@@ -4,6 +4,7 @@ Spectral-related functions for operators.
 
 # from collections.abc import Iterable
 # from typing import Callable, List, Optional, Tuple
+import logging
 
 from numpy import ndarray, real
 
@@ -78,6 +79,8 @@ def relative_entropy(rho: Operator, sigma: Operator) -> float:
 
     log_rho = log_op(rho)
     log_sigma = log_op(sigma)
-    delta_log = log_rho - log_sigma
-
-    return real(rho.expect(delta_log))
+    delta_log = (log_rho - log_sigma).simplify()
+    result = real(rho.expect(delta_log))
+    if result < 0:
+        logging.warning(f"S(rho|sigma)={result}<0")
+    return max(0, result)
