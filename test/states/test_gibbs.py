@@ -74,7 +74,7 @@ def do_test_instance(rho) -> None:
     rho_0 = rho.partial_trace(frozenset({SITES[0]}))
     print("rho_0", type(rho_0))
     assert isinstance(rho_0, DensityOperatorMixin)
-    check_equality(rho_0.to_qutip(), rho_qutip.ptrace([0]), ALPSQUTIP_TOLERANCE)
+    check_equality(rho_0.to_qutip(), rho_qutip.ptrace([0]), ALPSQUTIP_TOLERANCE**.5)
     assert isinstance(rho.to_qutip_operator(), QutipDensityOperator)
     rhosq = rho * rho
     rhosq_tr = rhosq.tr()

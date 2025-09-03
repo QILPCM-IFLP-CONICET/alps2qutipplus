@@ -116,7 +116,7 @@ def gibbs_meanfield_partial_trace(
     if terms_boundary:
         # If there are boundary terms, project them
         if sigma_mf is None:
-            sigma_mf = variational_quadratic_mfa(-generator).to_product_state()
+            sigma_mf = variational_quadratic_mfa(-generator, numfields=3).to_product_state()
             state._meanfield = sigma_mf
 
         # Project the terms onto the algebra of the local subsystem
