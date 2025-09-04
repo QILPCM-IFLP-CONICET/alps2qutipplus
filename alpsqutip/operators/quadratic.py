@@ -452,15 +452,6 @@ def classify_terms(operator, sigma_ref):
         }
     )
 
-    local_sigmas = (
-        sigma_ref.sites_op
-        if sigma_ref is not None
-        else {
-            site: 1 / dimension
-            for site, dimension in operator.system.dimensions.items()
-        }
-    )
-
     def decompose_two_body_product_operator(prod_op):
         prefactor = prod_op.prefactor
         system = prod_op.system
