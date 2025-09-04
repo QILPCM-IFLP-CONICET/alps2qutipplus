@@ -108,12 +108,16 @@ def qutip_me_solve(
         elif isinstance(c_ops, (tuple, list)):
             c_ops = [val if isinstance(val, Qobj) else val.to_qutip() for val in c_ops]
 
+    system = None
     if isinstance(H, Operator):
+        system = H.system
         H = H.to_qutip()
+    if isinstance(rho0, Operator):
+        rho0 = rho0.to_qutip()
 
     result = qutip.mesolve(
         H,
-        rho0.to_qutip(),
+        rho0,
         tlist,
         c_ops=c_ops,
         e_ops=e_ops,
@@ -125,4 +129,6 @@ def qutip_me_solve(
     if isinstance(e_ops, (dict)):
         return {key: val for key, val in zip(e_ops.keys(), result.expect)}
 
-    return [QutipOperator(state, system=rho0.system) for state in result.states]
+    if system is None:
+        return result.states
+    return [QutipOperator(state, system=system) for state in result.states]

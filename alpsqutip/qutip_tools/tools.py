@@ -2,6 +2,7 @@
 Functions for basic interface with qutip objects.
 """
 
+import logging
 from functools import reduce
 from itertools import combinations
 from typing import Iterable, Iterator, List, Optional, Tuple
@@ -16,6 +17,7 @@ from qutip import (  # type: ignore[import-untyped]
     tensor as qutip_tensor,
 )
 from scipy.linalg import norm as scipy_norm, svd  # type: ignore[import-untyped]
+from scipy.sparse.linalg import ArpackNoConvergence
 
 if int(qutip_version[0]) < 5:
 
@@ -797,9 +799,22 @@ def safe_exp_and_normalize(operator: Qobj) -> Tuple[Qobj, float]:
     """
     assert isinstance(operator, Qobj)
     num_eigvals = min(3, operator.shape[0])
-    k_0 = max(
-        np.real(operator.eigenenergies(sparse=True, sort="high", eigvals=num_eigvals))
-    )
+    try:
+        k_0 = max(
+            np.real(
+                operator.eigenenergies(sparse=True, sort="high", eigvals=num_eigvals)
+            )
+        )
+    except ArpackNoConvergence as err_arpack:
+        logging.warning(
+            f"Convergence failed. try with {type(err_arpack.eigenvalues)}-> {err_arpack.eigenvalues}"
+        )
+        k_0 = (
+            max([np.real(x) for x in err_arpack.eigenvalues])
+            if err_arpack.eigenvalues
+            else 0.0
+        )
+
     op_exp = (operator - k_0).expm()
     op_exp_tr = op_exp.tr()
     op_exp = op_exp * (1.0 / op_exp_tr)

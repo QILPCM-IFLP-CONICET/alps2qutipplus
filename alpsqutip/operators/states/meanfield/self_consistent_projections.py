@@ -62,7 +62,7 @@ def self_consistent_project_meanfield(
     assert isinstance(k_op, Operator)
     assert sigma is None or isinstance(
         sigma, (ProductDensityOperator, GibbsProductDensityOperator)
-    )
+    ), f"sigma of type {type(sigma)}, not ProductDensityOperator or GibbsProductDensityOperator."
     assert tol > 0
 
     if sigma is None:
