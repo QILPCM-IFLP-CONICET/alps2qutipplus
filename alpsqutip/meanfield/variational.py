@@ -19,9 +19,8 @@ from alpsqutip.operators.quadratic import (
 )
 from alpsqutip.operators.states import ProductDensityOperator
 from alpsqutip.operators.states.gibbs import GibbsProductDensityOperator
+from alpsqutip.projections import n_body_projection
 from alpsqutip.settings import ALPSQUTIP_TOLERANCE
-
-from .projections import n_body_projection
 
 
 def compute_rel_entropy(state: GibbsProductDensityOperator, ham: Operator) -> float:

@@ -2,6 +2,9 @@ import logging
 
 from qutip import tensor as qutip_tensor
 
+from alpsqutip.meanfield import (
+    variational_quadratic_mfa,
+)
 from alpsqutip.operators import (
     ProductOperator,
     QutipOperator,
@@ -14,9 +17,6 @@ from alpsqutip.operators.states.basic import (
     ProductDensityOperator,
 )
 from alpsqutip.operators.states.gibbs import GibbsDensityOperator
-from alpsqutip.operators.states.meanfield import (
-    variational_quadratic_mfa,
-)
 
 
 def project_boundary_term(term, sigma: ProductDensityOperator, sites: frozenset):

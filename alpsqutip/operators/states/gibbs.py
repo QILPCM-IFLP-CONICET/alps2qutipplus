@@ -138,7 +138,7 @@ class GibbsDensityOperator(DensityOperatorMixin, Operator):
         return self
 
     def partial_trace(self, sites: Union[frozenset, SystemDescriptor]):
-        from alpsqutip.operators.states.meanfield.gibbs_partial_trace import (
+        from alpsqutip.meanfield.gibbs_partial_trace import (
             gibbs_meanfield_partial_trace,
         )
 
