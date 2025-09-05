@@ -11,16 +11,16 @@ from alpsqutip import (
     graph_from_alps_xml,
     model_from_alps_xml,
 )
+from alpsqutip.meanfield import (
+    variational_quadratic_mfa,
+)
 from alpsqutip.model import SystemDescriptor
 from alpsqutip.operators import ScalarOperator
 from alpsqutip.operators.states import (
     GibbsProductDensityOperator,
     ProductDensityOperator,
 )
-from alpsqutip.operators.states.meanfield import (
-    n_body_projection,
-    variational_quadratic_mfa,
-)
+from alpsqutip.projections import n_body_projection
 from alpsqutip.settings import ALPSQUTIP_TOLERANCE
 
 TEST_STATES = {"None": None}

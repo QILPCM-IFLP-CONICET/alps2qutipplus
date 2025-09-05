@@ -4,13 +4,13 @@ Module that implements a meanfield approximation of a Gibbsian state
 
 from typing import Callable, Optional
 
+from alpsqutip.meanfield.self_consistent_projections import (
+    self_consistent_project_meanfield,
+)
 from alpsqutip.operators import Operator
 from alpsqutip.operators.states import DensityOperatorMixin, ProductDensityOperator
 from alpsqutip.operators.states.gibbs import GibbsProductDensityOperator
-from alpsqutip.operators.states.meanfield.projections import project_operator_to_m_body
-from alpsqutip.operators.states.meanfield.self_consistent_projections import (
-    self_consistent_project_meanfield,
-)
+from alpsqutip.projections import project_operator_to_m_body
 
 
 def project_meanfield(

@@ -14,10 +14,10 @@ from test.helper import (
 import pytest
 
 from alpsqutip.operators import ProductOperator
-from alpsqutip.operators.states.meanfield import (
+from alpsqutip.projections import (
     project_operator_to_m_body,
 )
-from alpsqutip.operators.states.meanfield.projections import (  # Product; Qutip; One body
+from alpsqutip.projections.nbody import (  # Product; Qutip; One body
     _project_product_operator_to_m_body_recursive,
     _project_product_operator_to_one_body,
     _project_qutip_operator_to_m_body_recursive,

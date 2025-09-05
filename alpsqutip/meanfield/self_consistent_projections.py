@@ -10,7 +10,7 @@ import numpy as np
 from alpsqutip.operators import Operator
 from alpsqutip.operators.states import DensityOperatorMixin, ProductDensityOperator
 from alpsqutip.operators.states.gibbs import GibbsProductDensityOperator
-from alpsqutip.operators.states.meanfield.projections import (
+from alpsqutip.projections import (
     ProjectingOperatorFunction,
     n_body_projection,
 )
