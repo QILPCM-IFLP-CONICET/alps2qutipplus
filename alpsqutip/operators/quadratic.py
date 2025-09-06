@@ -223,7 +223,7 @@ class QuadraticFormOperator(Operator):
         if all(b_op.isherm for b_op in self.basis):
             terms = tuple(
                 (
-                    ((op_term * op_term) * w)
+                    ((op_term.dag() * op_term) * w)
                     for w, op_term in zip(self.weights, self.basis)
                 )
             )
@@ -377,7 +377,7 @@ class QuadraticFormOperator(Operator):
             )
 
         result = sum(
-            (w * op_term.dag() * op_term).to_qutip(block)
+            (op_term.dag() * op_term * w).to_qutip(block)
             for w, op_term in zip(self.weights, self.basis)
         )
         for term in (self.offset, self.linear_term):
