@@ -27,7 +27,7 @@ from alpsqutip.operators.states import (
     GibbsProductDensityOperator,
     ProductDensityOperator,
 )
-from alpsqutip.operators.states.meanfield.symmetries import (
+from alpsqutip.projections.symmetries import (
     project_conserved_quantity,
     project_parity_like,
 )

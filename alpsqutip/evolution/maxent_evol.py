@@ -7,12 +7,10 @@ from __future__ import annotations
 import logging
 from typing import List
 
+from alpsqutip.meanfield import project_meanfield
 from alpsqutip.operators import Operator
 from alpsqutip.operators.states import GibbsProductDensityOperator
-from alpsqutip.operators.states.meanfield import (
-    n_body_projection,
-    project_meanfield,
-)
+from alpsqutip.projections import n_body_projection
 from alpsqutip.scalarprod import HierarchicalOperatorBasis, fetch_covar_scalar_product
 
 # function used to safely and robustly map K-states to states

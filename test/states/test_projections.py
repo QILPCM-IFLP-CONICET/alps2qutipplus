@@ -18,6 +18,7 @@ from test.helper import (
 
 import pytest
 
+from alpsqutip.meanfield import project_meanfield
 from alpsqutip.operators import (
     LocalOperator,
     OneBodyOperator,
@@ -30,12 +31,11 @@ from alpsqutip.operators.states import (
     GibbsProductDensityOperator,
     ProductDensityOperator,
 )
-from alpsqutip.operators.states.meanfield import (
+from alpsqutip.projections import (
     one_body_from_qutip_operator,
-    project_meanfield,
     project_operator_to_m_body,
 )
-from alpsqutip.operators.states.meanfield.projections import (
+from alpsqutip.projections.nbody import (
     _project_qutip_operator_to_m_body_recursive,
     project_product_operator_as_n_body_operator,
     project_qutip_operator_as_n_body_operator,

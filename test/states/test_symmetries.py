@@ -17,7 +17,7 @@ from test.helper import (
 
 import pytest
 
-from alpsqutip.operators.states.meanfield.symmetries import (
+from alpsqutip.projections.symmetries import (
     project_conserved_quantity,
     project_parity_like,
 )
