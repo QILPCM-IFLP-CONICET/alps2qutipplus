@@ -20,19 +20,15 @@ from time import time
 from typing import Callable, Optional, Tuple, Union
 
 import numpy as np
-from numpy.linalg import eigh
 from numpy.random import random
-from qutip import Qobj
 
 from alpsqutip.model import SystemDescriptor
 from alpsqutip.operators.arithmetic import OneBodyOperator, SumOperator
 from alpsqutip.operators.basic import (
     LocalOperator,
     Operator,
-    ProductOperator,
     ScalarOperator,
 )
-from alpsqutip.operators.qutip import QutipOperator
 from alpsqutip.settings import ALPSQUTIP_TOLERANCE
 
 # from typing import Union
@@ -223,7 +219,7 @@ class QuadraticFormOperator(Operator):
         if all(b_op.isherm for b_op in self.basis):
             terms = tuple(
                 (
-                    ((op_term * op_term) * w)
+                    ((op_term.dag() * op_term) * w)
                     for w, op_term in zip(self.weights, self.basis)
                 )
             )
@@ -377,354 +373,13 @@ class QuadraticFormOperator(Operator):
             )
 
         result = sum(
-            (w * op_term.dag() * op_term).to_qutip(block)
+            (op_term.dag() * op_term * w).to_qutip(block)
             for w, op_term in zip(self.weights, self.basis)
         )
         for term in (self.offset, self.linear_term):
             if term is not None:
                 result += term.to_qutip(block)
         return result
-
-
-def build_local_basis(terms_by_block):
-    """
-    Build a local basis of operators from
-    a list of two-body operators on each
-    pair of sites
-    """
-    basis_by_site = {}
-    # First, collect the one-body factors
-    for sites, terms_list in terms_by_block.items():
-        assert len(sites) == 2, sites
-        for term in terms_list:
-            site1, site2 = sites
-            basis_by_site.setdefault(site1, []).append(term.sites_op[site1])
-            basis_by_site.setdefault(site2, []).append(term.sites_op[site2])
-
-    return orthonormal_hs_local_basis(basis_by_site)
-
-
-def orthonormal_hs_local_basis(local_generators_dict: dict):
-    """
-    From a set of operators associated to each site,
-    build an orthonormalized basis of hermitian operators
-    regarding the HS scalar product on each site.
-    """
-    basis_dict = {}
-    for site, generators in local_generators_dict.items():
-        basis = []
-        for generator in generators:
-            components = (
-                (generator,)
-                if generator.isherm
-                else (
-                    generator + generator.dag(),
-                    generator * 1j - generator.dag() * 1j,
-                )
-            )
-            for hcomponent in components:
-                hcomponent = hcomponent - hcomponent.tr() / hcomponent.dims[0][0]
-                hcomponent = hcomponent - sum(
-                    (hcomponent * b_op).tr() * b_op for b_op in basis
-                )
-                normsq = (hcomponent * hcomponent).tr()
-                if abs(normsq) < ALPSQUTIP_TOLERANCE:
-                    continue
-                basis.append(hcomponent * normsq ** (-0.5))
-        basis_dict[site] = basis
-    return basis_dict
-
-
-def classify_terms(operator, sigma_ref):
-    """
-    Decompose `operator` as list of terms
-    associated to each pairs of sites,
-    and offset terms
-    operator = sum_{ij} sum_a q_ija +  sum_{b} offset_{b}.
-    """
-
-    local_sigmas = (
-        sigma_ref.sites_op
-        if sigma_ref is not None
-        else {
-            site: 1 / dimension
-            for site, dimension in operator.system.dimensions.items()
-        }
-    )
-
-    def decompose_two_body_product_operator(prod_op):
-        prefactor = prod_op.prefactor
-        system = prod_op.system
-        sites_op = operator.sites_op
-        assert len(sites_op) == 2
-        averages = {
-            site: (
-                (loc_op * local_sigmas[site]).tr()
-                if isinstance(loc_op, Qobj)
-                else loc_op
-            )
-            for site, loc_op in sites_op.items()
-        }
-        sites_op = {
-            site: (loc_op - averages[site]) for site, loc_op in sites_op.items()
-        }
-        site1, site2 = sites_op
-        one_body_term = (
-            OneBodyOperator(
-                (
-                    LocalOperator(
-                        site1, sites_op[site1] * (averages[site2] * prefactor), system
-                    ),
-                    LocalOperator(
-                        site2, sites_op[site2] * (averages[site1] * prefactor), system
-                    ),
-                ),
-                system,
-            )
-            + averages[site1] * averages[site2] * prefactor
-        )
-        one_body_term = one_body_term.simplify()
-        return ProductOperator(sites_op, prefactor, system).simplify(), one_body_term
-
-    terms_by_block = {}
-    offset_terms = []
-    linear_terms = []
-
-    if isinstance(operator, OneBodyOperator):
-        return terms_by_block, [operator], offset_terms
-
-    if not isinstance(operator, SumOperator):
-        acts_over = operator.acts_over()
-        if acts_over is None or len(acts_over) > 2:
-            return terms_by_block, linear_terms, [operator]
-        elif len(acts_over) < 2:
-            return terms_by_block, [operator], offset_terms
-
-        # operator acts exactly on two sites
-        if isinstance(operator, QutipOperator):
-            operator = operator.as_sum_of_products()
-        if isinstance(operator, ProductOperator):
-            operator, linear_term = decompose_two_body_product_operator(operator)
-            terms_by_block[tuple(sorted(acts_over))] = [operator]
-            assert len(operator.acts_over()) == 2
-            return terms_by_block, ([] if linear_term.is_zero else [linear_term]), []
-
-    assert isinstance(operator, SumOperator)
-    for term in operator.terms:
-        sub_terms_by_block, sub_linear_terms, sub_offset_terms = classify_terms(
-            term, sigma_ref
-        )
-        linear_terms.extend(sub_linear_terms)
-        offset_terms.extend(sub_offset_terms)
-        for key, val in sub_terms_by_block.items():
-            assert len(key) == 2
-            terms_by_block.setdefault(key, []).extend(val)
-
-    return terms_by_block, linear_terms, offset_terms
-
-
-def build_quadratic_form_matrix(terms_by_block, local_basis):
-    sizes = {site: len(local_base) for site, local_base in local_basis.items()}
-    sorted_sites = sorted(sizes)
-    positions = {
-        site: sum(sizes[site_] for site_ in sorted_sites[:pos])
-        for pos, site in enumerate(sorted_sites)
-    }
-    full_size = sum(sizes.values())
-    result_array = np.zeros(
-        (
-            full_size,
-            full_size,
-        )
-    )
-    for block, terms in terms_by_block.items():
-        site1, site2 = block
-        position_1 = positions[site1]
-        position_2 = positions[site2]
-        basis1 = local_basis[site1]
-        basis2 = local_basis[site2]
-        for term in terms:
-            prefactor = term.prefactor
-            op1, op2 = (term.sites_op[site] for site in block)
-            for mu, b1 in enumerate(basis1):
-                for nu, b2 in enumerate(basis2):
-                    i = position_1 + mu
-                    j = position_2 + nu
-                    result_array[i, j] += np.real(
-                        prefactor * (op1 * b1).tr() * (op2 * b2).tr()
-                    )
-                    result_array[j, i] = result_array[i, j]
-    return result_array, positions
-
-
-def build_quadratic_form_from_operator(
-    operator: Operator,
-    simplify=True,
-    isherm=None,
-    sigma_ref=None,
-) -> QuadraticFormOperator:
-    """
-    Build a QuadraticFormOperator from `operator`
-    """
-    # Required for `assert` test below
-    # from alpsqutip.operators.states.basic import (
-    #    ProductDensityOperator,
-    # )
-
-    def force_hermitic_t(t):
-        if t is None:
-            return t
-        if not t.isherm:
-            t = (t + t.dag()).simplify()
-            t = t * 0.5
-        return t
-
-    def spectral_norm(ob_op):
-        if isinstance(ob_op, ScalarOperator):
-            return ob_op.prefactor
-        if isinstance(ob_op, OneBodyOperator):
-            return sum(spectral_norm(term) for term in ob_op.simplify().terms)
-        if isinstance(ob_op, LocalOperator):
-            return max((ob_op.operator**2).eigenenergies()) ** 0.5
-        raise TypeError(f"spectral_norm can not be computed for {type(ob_op)}")
-
-    if simplify:
-        operator = operator.simplify()
-
-    if sigma_ref is not None:
-        if hasattr(sigma_ref, "to_product_state"):
-            sigma_ref = sigma_ref.to_product_state()
-        # assert isinstance(
-        #    sigma_ref, ProductDensityOperator
-        # ), f"sigma_ref must be a ProductDensityOperator. Got {type(sigma_ref)}"
-
-    system = operator.system
-    # Trivial cases
-    if isinstance(operator, ScalarOperator):
-        if isherm and not operator.isherm:
-            operator = ScalarOperator(operator.prefactor.real, system)
-        assert (
-            isherm or operator.isherm == operator.isherm
-        ), f"{operator} -> {isherm}!={operator.isherm}"
-        return QuadraticFormOperator(tuple(), tuple(), system, operator, None)
-
-    if (
-        isinstance(operator, (LocalOperator, OneBodyOperator))
-        or len(operator.acts_over()) < 2
-    ):
-        if isherm and not operator.isherm:
-            operator = operator + operator.dag()
-        return QuadraticFormOperator(
-            tuple(), tuple(), system, operator.simplify(), None
-        )
-
-    # Already a quadratic form:
-    if isinstance(operator, QuadraticFormOperator):
-        if isherm and not operator.isherm:
-            operator = QuadraticFormOperator(
-                operator.basis,
-                tuple((np.real(w) for w in operator.weights)),
-                system,
-                force_hermitic_t(operator.linear_term),
-                force_hermitic_t(operator.offset),
-            )
-        return operator
-
-    # SumOperators, and operators acting on at least size 2 blocks:
-    isherm = isherm or operator.isherm
-
-    if not isherm:
-        real_part = (
-            build_quadratic_form_from_operator(
-                operator + operator.dag(),
-                simplify=True,
-                isherm=True,
-                sigma_ref=sigma_ref,
-            )
-            * 0.5
-        )
-        imag_part = (
-            build_quadratic_form_from_operator(
-                operator.dag() * 1j - operator * 1j,
-                simplify=True,
-                isherm=True,
-                sigma_ref=sigma_ref,
-            )
-            * 0.5j
-        )
-        return real_part + imag_part
-
-    # Process hermitician operators
-    # Classify terms
-    system = operator.system
-    terms_by_2body_block, linear_terms, offset_terms = classify_terms(
-        operator, sigma_ref
-    )
-    linear_term = sum(linear_terms).simplify() if linear_terms else None
-    offset = sum(offset_terms).simplify() if offset_terms else None
-
-    if isherm:
-        linear_term = force_hermitic_t(linear_term)
-        offset = force_hermitic_t(offset)
-
-    # Build the basis
-    local_basis = build_local_basis(terms_by_2body_block)
-    # Build the matrix of the quadratic form
-    qf_array, local_basis_offsets = build_quadratic_form_matrix(
-        terms_by_2body_block, local_basis
-    )
-
-    # Decompose the matrix in the eigenbasis, and build the generators
-    e_vals, e_vecs = eigh(qf_array)
-
-    qf_basis = sorted(
-        [
-            (
-                0.5 * e_val,
-                OneBodyOperator(
-                    tuple(
-                        [
-                            LocalOperator(
-                                site,
-                                sum(
-                                    local_op * e_vec[mu + local_basis_offsets[site]]
-                                    for mu, local_op in enumerate(local_base)
-                                ),
-                                system,
-                            )
-                            for site, local_base in local_basis.items()
-                        ]
-                    ),
-                    system,
-                ),
-            )
-            for e_val, e_vec in zip(e_vals, e_vecs.T)
-            if abs(e_val) > ALPSQUTIP_TOLERANCE
-        ],
-        key=lambda x: x[0],
-    )
-
-    # Normalize the generators in the spectral norm.
-    spectral_norms = (
-        spectral_norm(weight_generator[1]) for weight_generator in qf_basis
-    )
-    qf_basis = tuple(
-        (
-            weight_generator[0] * sn**2,
-            weight_generator[1] / sn,
-        )
-        for sn, weight_generator in zip(spectral_norms, qf_basis)
-    )
-    weights = tuple((weight_generator[0] for weight_generator in qf_basis))
-    qf_basis = tuple((weight_generator[1] for weight_generator in qf_basis))
-
-    return QuadraticFormOperator(
-        basis=qf_basis,
-        weights=weights,
-        system=operator.system,
-        linear_term=linear_term,
-        offset=offset,
-    )
 
 
 def quadratic_form_expect(sq_op, state):
@@ -787,60 +442,6 @@ def selfconsistent_meanfield_from_quadratic_form(
     return rho
 
 
-def ensure_hermitician_basis(self: QuadraticFormOperator):
-    """
-    Ensure that the quadratic form is expanded using a
-    basis of hermitician operators.
-    """
-    basis = self.basis
-    if all(b.isherm for b in basis):
-        return self
-
-    coeffs = self.weights
-    system = self.system
-    offset = self.offset
-
-    # Reduce the basis to an hermitician basis
-    new_basis = []
-    new_coeffs = []
-    local_terms = []
-    for la_coeff, b_op in zip(coeffs, basis):
-        if b_op.isherm:
-            new_basis.append(b_op)
-            new_coeffs.append(la_coeff)
-            continue
-        # Not hermitician. Decompose as two hermitician terms
-        # and an offset
-        if la_coeff == 0:
-            continue
-        b_h = ((b_op + b_op.dag()) * 0.5).simplify()
-        b_a = ((b_op - b_op.dag()) * 0.5j).simplify()
-        if b_h:
-            new_basis.append(b_h)
-            new_coeffs.append(la_coeff)
-            if b_a:
-                new_basis.append(b_a)
-                new_coeffs.append(la_coeff)
-                comm = ((b_h * b_a - b_a * b_h) * (1j * la_coeff)).simplify()
-                if comm:
-                    local_terms.append(comm)
-        elif b_a:
-            new_basis.append(b_a)
-            new_coeffs.append(la_coeff)
-
-    local_terms = [term for term in local_terms if term]
-    if offset is not None:
-        local_terms = [offset] + local_terms
-    if local_terms:
-        new_offset = sum(local_terms).simplify()
-
-    if not bool(new_offset):
-        new_offset = None
-    return QuadraticFormOperator(
-        tuple(new_basis), tuple(new_coeffs), system, new_offset
-    )
-
-
 def one_body_operator_hermitician_hs_sp(x_op: OneBodyOperator, y_op: OneBodyOperator):
     """
     Hilbert Schmidt scalar product optimized for OneBodyOperators
@@ -876,6 +477,8 @@ def simplify_quadratic_form(
     such that the original operator is
     sum(w * op**2 for w,op in zip(weights,ops))
     """
+    from .build import build_quadratic_form_from_operator
+
     changed = False
     system = operator.system
     if not operator.isherm and hermitic:
@@ -883,14 +486,12 @@ def simplify_quadratic_form(
 
     def simplify_other_terms(term):
         nonlocal changed
+        if term is None:
+            return term
         new_term = term
-        if hermitic:
-            if term is not None:
-                if not term.isherm:
-                    new_term = (new_term + new_term.dag()) * 0.5
-                new_term = new_term.simplify()
-        elif term is not None:
-            new_term = term.simplify()
+        if hermitic and not term.isherm:
+            new_term = (new_term + new_term.dag()) * 0.5
+        new_term = new_term.simplify()
         if term is not new_term:
             changed = True
         return new_term
