@@ -157,6 +157,7 @@ def group_terms_by_blocks(operator: Operator, fn: Optional[Callable] = None):
 
     new_terms = []
     one_body_terms = []
+    scalar_terms = []
 
     def apply_simplification_fn(op_in: Operator, fn: Optional[Callable]):
         """
@@ -182,14 +183,20 @@ def group_terms_by_blocks(operator: Operator, fn: Optional[Callable] = None):
             return op_in
 
     for block, terms in terms_dict.items():
-        if not block:
+        if block is None:
             new_terms.extend(terms)
+        elif len(block) == 0:
+            assert all(
+                isinstance(term, ScalarOperator) for term in terms
+            ), "Should be a scalar term..."
+            scalar_terms.extend(terms)
         elif len(block) == 1:
             one_body_terms.extend(terms)
         else:
             if len(terms) == 1:
                 new_term = terms[0]
                 if isherm and not new_term.isherm:
+                    changed = True
                     new_term = (
                         SumOperator(
                             tuple([new_term, new_term.dag()]),
@@ -209,15 +216,29 @@ def group_terms_by_blocks(operator: Operator, fn: Optional[Callable] = None):
             new_terms.append(new_term)
 
     new_terms = [term for term in new_terms if term]
+    if len(scalar_terms) > 1:
+        scalar_terms = [sum(scalar_terms)]
+
+    if not new_terms:
+        if one_body_terms:
+            result = OneBodyOperator(
+                tuple(one_body_terms + scalar_terms), system, isherm=isherm
+            ).simplify()
+            return result
+        return scalar_terms[0] if scalar_terms else ScalarOperator(0.0, system)
+
+    if not changed:
+        setattr(operator, "_simplified", True)
+        if isherm:
+            setattr(operator, "_isherm", True)
+        return operator
+
+    new_terms = new_terms + scalar_terms
 
     if one_body_terms:
         new_term = OneBodyOperator(tuple(one_body_terms), system, isherm=isherm)
         new_terms.append(new_term)
         changed = True
-
-    if not changed:
-        setattr(operator, "_simplified", True)
-        return operator
 
     if not new_terms:
         return ScalarOperator(0, system)
