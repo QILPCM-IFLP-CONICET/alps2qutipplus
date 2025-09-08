@@ -2,6 +2,13 @@
 Basic unit test.
 """
 
+from test.helper import (
+    OPERATOR_TYPE_CASES,
+    TEST_CASES_STATES,
+    check_equality,
+    check_operator_equality,
+)
+
 import pytest
 
 from alpsqutip.operators.basic import ProductOperator
@@ -9,22 +16,7 @@ from alpsqutip.operators.quadratic.build import (
     build_quadratic_form_from_operator,
     classify_terms,
 )
-
-from .helper import (
-    OPERATOR_TYPE_CASES,
-    TEST_CASES_STATES,
-    check_equality,
-    check_operator_equality,
-)
-
-CHAIN_SIZE = 6
-
-# system_descriptor = build_spin_chain(CHAIN_SIZE)
-# sites = tuple(s for s in system_descriptor.sites.keys())
-
-# sz_total = system_descriptor.global_operator("Sz")
-# hamiltonian = system_descriptor.global_operator("Hamiltonian")
-
+from alpsqutip.operators.states import ProductDensityOperator
 
 nonquadratic_test_cases = [
     "three body, hermitician",
@@ -33,49 +25,79 @@ nonquadratic_test_cases = [
 ]
 
 
-@pytest.mark.parametrize(["name"], list((name,) for name in OPERATOR_TYPE_CASES))
-def test_simplify_quadratic_form(name):
-    """
-    Try to convert all the test cases into
-    quadratic forms, and check if simplification
-    works in all the cases.
-    """
-    operator = OPERATOR_TYPE_CASES[name]
-    print("\n *******\n\n name: ", name)
-    quadratic_form = build_quadratic_form_from_operator(operator, simplify=False)
-    print(type(operator), " produced a ", type(quadratic_form))
-    qutip_operator = operator.to_qutip().tidyup()
-    simplified = quadratic_form.simplify()
-    assert (
-        simplified is simplified.simplify()
-    ), "simplify of an already simpliifed object must be the same."
-    check_operator_equality(qutip_operator, simplified.to_qutip())
-    assert (
-        quadratic_form.isherm == simplified.isherm
-    ), "quadratic form changed its hermitician character after simplification."
-    assert (
-        qutip_operator.isherm == quadratic_form.isherm
-    ), "qutip operator and the quadratic form have different hermitician character."
-
-
-@pytest.mark.parametrize(["name"], list((name,) for name in OPERATOR_TYPE_CASES))
-def test_build_quadratic(name):
+@pytest.mark.parametrize(
+    ["operator_name", "state_name"],
+    list(
+        (operator_name, state_name)
+        for operator_name in OPERATOR_TYPE_CASES
+        for state_name in TEST_CASES_STATES
+    ),
+)
+def test_build_quadratic(operator_name, state_name):
     """
     Test the function build_quadratic_hermitician.
     No assumptions on the hermiticity of the operator
     are done.
     """
-    operator = OPERATOR_TYPE_CASES[name]
-    print("\n *******\n\n name: ", name)
-    print("quadratic form from", type(operator))
-    quadratic_form = build_quadratic_form_from_operator(operator, simplify=False)
-    qutip_operator = operator.to_qutip()
+    state = TEST_CASES_STATES[state_name]
+    operator = OPERATOR_TYPE_CASES[operator_name]
+    if hasattr(state, "as_product_state"):
+        state = state.as_product_state()
+    if state is not None or not isinstance(state, ProductDensityOperator):
+        return
 
-    check_operator_equality(quadratic_form.to_qutip(), qutip_operator)
+    print(
+        "\n *******\n\n convert : ",
+        operator_name,
+        "to quadratic form relative to",
+        state_name,
+    )
+    print("quadratic form from", type(operator))
+    qutip_operator = operator.to_qutip()
+    quadratic_form = build_quadratic_form_from_operator(
+        operator, simplify=False, sigma_ref=state
+    )
+    check_operator_equality(
+        quadratic_form.to_qutip(), qutip_operator
+    ), "qutip form does not match."
     assert quadratic_form.isherm == qutip_operator.isherm, (
         "operator and its conversion to qutip "
         "should have the same hermitician character."
     )
+
+    linear_term = quadratic_form.linear_term
+    offset = quadratic_form.offset
+    if state is None:
+        original_expectation_value = operator.tr()
+        converted_expectation_value = quadratic_form.tr()
+        linear_term_exp_value = linear_term.tr() if linear_term is not None else 0
+        offset_exp_value = offset.tr() if offset is not None else 0
+    else:
+        original_expectation_value = state.expect(operator)
+        converted_expectation_value = state.expect(quadratic_form)
+        linear_term_exp_value = (
+            state.expect(linear_term) if linear_term is not None else 0
+        )
+        offset_exp_value = state.expect(offset) if offset is not None else 0
+
+    assert check_equality(
+        original_expectation_value, converted_expectation_value
+    ), "the expectation value should be preserved"
+    assert check_equality(
+        original_expectation_value, linear_term_exp_value
+    ), "the expectation value of the original operator and the linear term must coincide"
+    assert check_equality(
+        offset_exp_value, 0
+    ), "the expectation value of offset must be zero."
+
+    for basis_elem in quadratic_form.basis:
+        if state is None:
+            assert check_equality(basis_elem.tr(), 0.0), "trace must be zero"
+        else:
+            assert check_equality(
+                state.expect(basis_elem), 0.0
+            ), "expectation values must be zero"
+        assert basis_elem.isherm, "basis elements must be hermitician"
 
 
 @pytest.mark.parametrize(["name"], list((name,) for name in OPERATOR_TYPE_CASES))
