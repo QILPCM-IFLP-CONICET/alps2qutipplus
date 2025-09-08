@@ -2,14 +2,6 @@
 Basic unit test.
 """
 
-import pytest
-
-from alpsqutip.operators.basic import ProductOperator
-from alpsqutip.operators.quadratic.build import (
-    build_quadratic_form_from_operator,
-    classify_terms,
-)
-
 from test.helper import (
     OPERATOR_TYPE_CASES,
     TEST_CASES_STATES,
@@ -17,7 +9,14 @@ from test.helper import (
     check_operator_equality,
 )
 
+import pytest
 
+from alpsqutip.operators.basic import ProductOperator
+from alpsqutip.operators.quadratic.build import (
+    build_quadratic_form_from_operator,
+    classify_terms,
+)
+from alpsqutip.operators.states import ProductDensityOperator
 
 nonquadratic_test_cases = [
     "three body, hermitician",
@@ -26,9 +25,14 @@ nonquadratic_test_cases = [
 ]
 
 
-@pytest.mark.parametrize(["operator_name", "state_name"], list((operator_name, state_name )
-                                        for operator_name in OPERATOR_TYPE_CASES
-                                        for state_name in TEST_CASES_STATES))
+@pytest.mark.parametrize(
+    ["operator_name", "state_name"],
+    list(
+        (operator_name, state_name)
+        for operator_name in OPERATOR_TYPE_CASES
+        for state_name in TEST_CASES_STATES
+    ),
+)
 def test_build_quadratic(operator_name, state_name):
     """
     Test the function build_quadratic_hermitician.
@@ -42,17 +46,25 @@ def test_build_quadratic(operator_name, state_name):
     if state is not None or not isinstance(state, ProductDensityOperator):
         return
 
-    print("\n *******\n\n convert : ", operator_name, "to quadratic form relative to", state_name)
+    print(
+        "\n *******\n\n convert : ",
+        operator_name,
+        "to quadratic form relative to",
+        state_name,
+    )
     print("quadratic form from", type(operator))
     qutip_operator = operator.to_qutip()
-    quadratic_form = build_quadratic_form_from_operator(operator, simplify=False, sigma_ref=state)
-    check_operator_equality(quadratic_form.to_qutip(), qutip_operator), "qutip form does not match."
+    quadratic_form = build_quadratic_form_from_operator(
+        operator, simplify=False, sigma_ref=state
+    )
+    check_operator_equality(
+        quadratic_form.to_qutip(), qutip_operator
+    ), "qutip form does not match."
     assert quadratic_form.isherm == qutip_operator.isherm, (
         "operator and its conversion to qutip "
         "should have the same hermitician character."
     )
 
-    
     linear_term = quadratic_form.linear_term
     offset = quadratic_form.offset
     if state is None:
@@ -63,20 +75,29 @@ def test_build_quadratic(operator_name, state_name):
     else:
         original_expectation_value = state.expect(operator)
         converted_expectation_value = state.expect(quadratic_form)
-        linear_term_exp_value = state.expect(linear_term) if linear_term is not None else 0
+        linear_term_exp_value = (
+            state.expect(linear_term) if linear_term is not None else 0
+        )
         offset_exp_value = state.expect(offset) if offset is not None else 0
 
-    assert check_equality(original_expectation_value, converted_expectation_value), "the expectation value should be preserved"
-    assert check_equality(original_expectation_value, linear_term_exp_value), "the expectation value of the original operator and the linear term must coincide"
-    assert check_equality(offset_exp_value, 0), "the expectation value of offset must be zero."
-    
+    assert check_equality(
+        original_expectation_value, converted_expectation_value
+    ), "the expectation value should be preserved"
+    assert check_equality(
+        original_expectation_value, linear_term_exp_value
+    ), "the expectation value of the original operator and the linear term must coincide"
+    assert check_equality(
+        offset_exp_value, 0
+    ), "the expectation value of offset must be zero."
+
     for basis_elem in quadratic_form.basis:
         if state is None:
-            assert check_equality(basis_elem.tr(),0.), "trace must be zero"
+            assert check_equality(basis_elem.tr(), 0.0), "trace must be zero"
         else:
-            assert check_equality(state.expect(basis_elem),0.), "expectation values must be zero"
+            assert check_equality(
+                state.expect(basis_elem), 0.0
+            ), "expectation values must be zero"
         assert basis_elem.isherm, "basis elements must be hermitician"
-
 
 
 @pytest.mark.parametrize(["name"], list((name,) for name in OPERATOR_TYPE_CASES))

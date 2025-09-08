@@ -2,19 +2,15 @@
 Basic unit test.
 """
 
-import pytest
-
-from alpsqutip.operators.basic import ProductOperator
-from alpsqutip.operators.quadratic.build import (
-    build_quadratic_form_from_operator,
-    classify_terms,
-)
-
 from test.helper import (
     OPERATOR_TYPE_CASES,
-    TEST_CASES_STATES,
-    check_equality,
     check_operator_equality,
+)
+
+import pytest
+
+from alpsqutip.operators.quadratic.build import (
+    build_quadratic_form_from_operator,
 )
 
 CHAIN_SIZE = 6
@@ -33,7 +29,9 @@ nonquadratic_test_cases = [
 ]
 
 QUADRATIC_OPERATORS = {
-    f"Quadratic form from name": build_quadratic_form_from_operator(operator, simplify=False)
+    "Quadratic form from name": build_quadratic_form_from_operator(
+        operator, simplify=False
+    )
     for name, operator in OPERATOR_TYPE_CASES.items()
 }
 
@@ -61,7 +59,6 @@ def test_simplify_quadratic_form(name):
     ), "qutip operator and the quadratic form have different hermitician character."
 
 
-
 @pytest.mark.parametrize(["name"], list((name,) for name in QUADRATIC_OPERATORS))
 def test_flat_quadratic(name):
     """Test flat"""
@@ -70,9 +67,11 @@ def test_flat_quadratic(name):
     print("\n *******\n\n name: ", name)
     qutip_operator = operator.to_qutip().tidyup()
     flat_operator = operator.flat()
-    # 
+    #
     if hasattr(flat_operator, "terms"):
-        assert not any(hasattr(term, "terms") for term in flat_operator.terms), f"For {name}, flat() return a nested sum operator."
+        assert not any(
+            hasattr(term, "terms") for term in flat_operator.terms
+        ), f"For {name}, flat() return a nested sum operator."
 
     check_operator_equality(qutip_operator, flat_operator.to_qutip())
     assert (
@@ -81,5 +80,3 @@ def test_flat_quadratic(name):
     assert (
         qutip_operator.isherm == operator.isherm
     ), "qutip operator and the quadratic form have different hermitician character."
-
-    
