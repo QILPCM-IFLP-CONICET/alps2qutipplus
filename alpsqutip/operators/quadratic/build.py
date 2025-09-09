@@ -109,7 +109,7 @@ def orthonormal_hs_local_basis(local_generators_dict: LocalBasisDict) -> LocalBa
 def zero_expectation_value_basis(basis: LocalBasisDict, sigma_ref: Optional):
     """
     add an offset of each element of the local basis
-    in a way that each operator have zero mean regaring
+    in a way that each operator have zero mean regarding
     sigma_ref
     """
     local_sigmas = sigma_ref.sites_op

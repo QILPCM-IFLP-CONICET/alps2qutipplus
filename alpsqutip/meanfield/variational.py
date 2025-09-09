@@ -310,7 +310,7 @@ def variational_quadratic_mfa(
         else sigma_ref
     )
 
-    current_rel_entropy = None
+    current_rel_entropy = None if sigma_0 is None else compute_rel_entropy(sigma_0, ham)
     if isinstance(ham, OneBodyOperator):
         return GibbsProductDensityOperator(ham)
 
@@ -320,7 +320,7 @@ def variational_quadratic_mfa(
 
         ham_proj = n_body_projection(ham, nmax=2, sigma=sigma_0)
         if isinstance(ham_proj, OneBodyOperator):
-            sigma_0 = GibbsProductDensityOperator(ham_proj).to_product_state()
+            sigma_candidate = GibbsProductDensityOperator(ham_proj).to_product_state()
         else:
             # Now, write the projected operator as a QuadraticFormOperator
             # ham_proj = k_0 + sum_a w_a Q_a^2
@@ -329,12 +329,18 @@ def variational_quadratic_mfa(
             qf_op: QuadraticFormOperator = build_quadratic_form_from_operator(
                 ham_proj, isherm=True, sigma_ref=sigma_0
             )
-            sigma_0 = mf_quadratic_form_exponential(
+            sigma_candidate = mf_quadratic_form_exponential(
                 qf_op, numfields, method, callback_optimizer, ham
             )
 
         if current_rel_entropy is None:
+            sigma_0 = sigma_candidate
             current_rel_entropy = compute_rel_entropy(sigma_0, ham)
+        else:
+            rel_s = compute_rel_entropy(sigma_candidate, ham)
+            if rel_s < current_rel_entropy:
+                sigma_0 = sigma_candidate
+                current_rel_entropy = rel_s
 
         # Improve the solution by a self-consistent round
         sigma_0, rel_s = self_consistent_mf(
