@@ -354,7 +354,7 @@ def test_extend_basis():
     assert check_operator_equality(
         test_elem, basis1.project_onto(test_elem), tolerance=1e-7
     )
-    print("adding basis 1 with a linar combination")
+    print("adding basis 1 with a linear combination")
     basis2 = basis1 + (test_elem,)
     print(" the result has", len(basis1.operator_basis), "elements")
     assert check_basis_equivalence(basis1, basis2)

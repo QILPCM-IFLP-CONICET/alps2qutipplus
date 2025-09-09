@@ -318,7 +318,7 @@ def data_is_scalar(data) -> bool:
 
 
 def hermitician_part(op: Qobj, tol=None) -> Qobj:
-    """Returns the hermitician part of te operator"""
+    """Returns the hermitician part of the operator `op`"""
     if op.isherm:
         return op
     return (op + op.dag()).tidyup(tol) * 0.5

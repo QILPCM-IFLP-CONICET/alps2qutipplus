@@ -40,6 +40,7 @@ class SumOperator(Operator):
         assert len(term_tuple) > 0
         assert self not in term_tuple, "cannot be a term of myself."
         self.terms = term_tuple
+
         if system is None and term_tuple:
             for term in term_tuple:
                 if system is None:

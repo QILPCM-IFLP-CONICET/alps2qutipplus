@@ -98,12 +98,12 @@ def mf_quadratic_form_exponential(
         test_state: GibbsProductDensityOperator = build_test_state(coeffs)
         return compute_rel_entropy(test_state, hamiltonian)
 
-    # Trim negative terms and keep at least num_fields of the remaining
-    # terms, in a way that exp(qf_op')~ exp(qf_op)
+    # Trim terms with positive weights and keep at most
+    # num_fields of the remaining
+    # terms, in a way that exp(-qf_op')~ exp(-qf_op)
 
-    qf_op = reduced_quadratic_form_operator(-qf_op, num_fields)
-
-    hamiltonian: Operator = ham or -qf_op.as_sum_of_products()
+    qf_op = -reduced_quadratic_form_operator(-qf_op, num_fields)
+    hamiltonian: Operator = ham or qf_op.as_sum_of_products()
 
     # Linear term
     k0 = qf_op.linear_term
@@ -161,6 +161,9 @@ def reduced_quadratic_form_operator(
     if len(weights) == 0:
         return qf_op
     num_terms = min(len(weights), num_terms)
+    # If there are enough positive terms, the minimal
+    # weight is the weight of the `num_terms`-th weight.
+    # If that term is not positive, the minimal weight is 0.
     min_weight = max(0, sorted(weights)[-num_terms])
     generators = tuple(
         (
@@ -300,8 +303,14 @@ def variational_quadratic_mfa(
     callback_self_consistent_step: Callable = kwargs.get(
         "callback_self_consistent_step", None
     )
-    sigma_0: GibbsProductDensityOperator = cast(GibbsProductDensityOperator, sigma_ref)
-    current_rel_entropy = None
+
+    sigma_0: ProductDensityOperator = (
+        sigma_ref.to_product_state()
+        if hasattr(sigma_ref, "to_product_state")
+        else sigma_ref
+    )
+
+    current_rel_entropy = None if sigma_0 is None else compute_rel_entropy(sigma_0, ham)
     if isinstance(ham, OneBodyOperator):
         return GibbsProductDensityOperator(ham)
 
@@ -311,7 +320,7 @@ def variational_quadratic_mfa(
 
         ham_proj = n_body_projection(ham, nmax=2, sigma=sigma_0)
         if isinstance(ham_proj, OneBodyOperator):
-            sigma_0 = GibbsProductDensityOperator(ham_proj)
+            sigma_candidate = GibbsProductDensityOperator(ham_proj).to_product_state()
         else:
             # Now, write the projected operator as a QuadraticFormOperator
             # ham_proj = k_0 + sum_a w_a Q_a^2
@@ -320,12 +329,18 @@ def variational_quadratic_mfa(
             qf_op: QuadraticFormOperator = build_quadratic_form_from_operator(
                 ham_proj, isherm=True, sigma_ref=sigma_0
             )
-            sigma_0 = mf_quadratic_form_exponential(
+            sigma_candidate = mf_quadratic_form_exponential(
                 qf_op, numfields, method, callback_optimizer, ham
             )
 
         if current_rel_entropy is None:
+            sigma_0 = sigma_candidate
             current_rel_entropy = compute_rel_entropy(sigma_0, ham)
+        else:
+            rel_s = compute_rel_entropy(sigma_candidate, ham)
+            if rel_s < current_rel_entropy:
+                sigma_0 = sigma_candidate
+                current_rel_entropy = rel_s
 
         # Improve the solution by a self-consistent round
         sigma_0, rel_s = self_consistent_mf(
