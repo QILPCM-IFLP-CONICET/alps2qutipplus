@@ -3,12 +3,14 @@ Utility functions for alpsqutip.operators.states
 
 """
 
+import logging
 from functools import reduce
 from typing import Any, Dict, Iterable, List, Optional, Union, cast
 
 import numpy as np
 from qutip import Qobj, tensor as qutip_tensor
 
+import alpsqutip.settings as alpsqutip_settings
 from alpsqutip.operators.arithmetic import SumOperator
 from alpsqutip.operators.basic import (
     LocalOperator,
@@ -26,6 +28,23 @@ from alpsqutip.operators.states.qutip import QutipDensityOperator
 from alpsqutip.qutip_tools.tools import (
     safe_exp_and_normalize as safe_exp_and_normalize_qobj,
 )
+
+USE_PARALLEL = alpsqutip_settings.USE_PARALLEL
+MAX_WORKERS = alpsqutip_settings.PARALLEL_MAX_WORKERS
+USE_THREADS = alpsqutip_settings.PARALLEL_USE_THREADS
+
+if USE_PARALLEL:
+    try:
+        from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+
+        logging.info("Using parallel routines to compute commutators.")
+    except ModuleNotFoundError:
+        USE_PARALLEL = alpsqutip_settings.USE_PARALLEL = False
+        logging.warning(
+            "ProcessPoolExecutor/ThreadPoolExecutor cannot be loaded. Using serial routines."
+        )
+else:
+    logging.info("Using serial routines to compute commutators.")
 
 
 def acts_over_order(elem):
@@ -152,6 +171,96 @@ def compute_operator_expectation_value__(
         lambda x, y: x * y, (1.0 / d for d in qutip_op.dims[0]), obs.prefactor
     )
     return qutip_op.tr() * prefactor
+
+
+def do_evaluate_expect_parallel(
+    obs, sigma, use_threads=USE_THREADS, num_workers=MAX_WORKERS
+):
+    """
+    Evaluate expectation values using parallel evaluation
+    """
+    executor_cls = ThreadPoolExecutor if use_threads else ProcessPoolExecutor
+    if isinstance(obs, SumOperator):
+        obs = obs.flat()
+        with executor_cls(max_workers=num_workers) as executor:
+            terms = obs.terms
+            chunksize = max(1, int(len(terms) / num_workers))
+            return sum(executor.map(sigma.expect, terms, chunksize=chunksize))
+
+    if isinstance(obs, (list, tuple)):
+        with executor_cls(max_workers=num_workers) as executor:
+            chunksize = max(1, int(len(obs) / num_workers))
+            return np.array(list(executor.map(sigma.expect, obs, chunksize=chunksize)))
+
+    if isinstance(obs, dict):
+        keys = obs.keys()
+        with executor_cls(max_workers=num_workers) as executor:
+            chunksize = max(1, int(len(obs) / num_workers))
+            exp_values = executor.map(sigma.expect, obs.values(), chunksize=chunksize)
+            return {key: val for key, val in zip(keys, exp_values)}
+
+    return do_evaluate_expect_serial(obs, {None: sigma})
+
+
+def do_evaluate_expect_serial(obs, local_states, inner=False):
+    """
+    Inner function to evaluate expectation values. This method keeps
+    track of the states of the subsystems required in the evaluation,
+    which in typical cases is the most expensive part of the evaluation.
+    """
+
+    if isinstance(obs, dict):
+        return {
+            name: do_evaluate_expect_serial(operator, local_states, True)
+            for name, operator in obs.items()
+        }
+
+    if isinstance(obs, (tuple, list)):
+        return np.array(
+            [
+                do_evaluate_expect_serial(operator, local_states, True)
+                for operator in obs
+            ]
+        )
+
+    if isinstance(obs, QuadraticFormOperator):
+        obs = obs.as_sum_of_products()
+
+    obs = obs.simplify()
+    if isinstance(obs, SumOperator):
+        return sum(
+            do_evaluate_expect_serial(term, local_states, True) for term in obs.terms
+        )
+
+    acts_over = obs.acts_over()
+    if acts_over is not None and len(acts_over) == 0:
+        if hasattr(obs, "prefactor"):
+            return obs.prefactor
+
+    # if the argument matches with the argument of expect, it means that
+    # we already try with the implementation of the subclasses. Then, let's rely
+    # in the generic implementation: convert everything to qutip and evaluate
+    # the trace:
+    local_state_acts_over = reduced_state_by_block(obs, local_states)
+
+    # If this function was called from the same function in a recursive way,
+    # try to use the `expect` method of the local state class.
+    # This method could try again to use the generic method, which calls this
+    # function. Or the method raises an exception, because does not know how to
+    # deal with this class of operator. In any case, `inner` is set to False,
+    # and the operator is converted to its QutipOperator form.
+    if inner:
+        try:
+            return local_state_acts_over.expect(obs)
+        except ValueError:
+            obs = obs.to_qutip_operator()
+
+    if not inner:
+        block = tuple(sorted(acts_over))
+        return (local_state_acts_over.to_qutip(block) * obs.to_qutip(block)).tr()
+
+    # If obs comes from an internal call, then try to use the specific method
+    # of the subclass.
 
 
 def k_by_site_from_operator(k: Operator) -> Dict[str, Operator]:
@@ -398,3 +507,6 @@ def safe_exp_and_normalize(operator):
 
     # assume Qobj or any other class with a compatible interface.
     return safe_exp_and_normalize_qobj(operator)
+
+
+do_evaluate_expect = do_evaluate_expect_serial

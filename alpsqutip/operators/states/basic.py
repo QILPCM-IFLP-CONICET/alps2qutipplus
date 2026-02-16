@@ -13,6 +13,7 @@ from qutip import (  # type: ignore[import-untyped]
     tensor as qutip_tensor,
 )
 
+import alpsqutip.settings as alpsqutip_settings
 from alpsqutip.model import SystemDescriptor
 from alpsqutip.operators.arithmetic import OneBodyOperator, SumOperator
 from alpsqutip.operators.basic import (
@@ -21,7 +22,8 @@ from alpsqutip.operators.basic import (
     ProductOperator,
     ScalarOperator,
 )
-from alpsqutip.operators.quadratic import QuadraticFormOperator
+
+USE_PARALLEL = alpsqutip_settings.USE_PARALLEL
 
 
 class DensityOperatorMixin:
@@ -146,58 +148,19 @@ class DensityOperatorMixin:
         """Compute the expectation value of an observable"""
         # TODO: expode that expectation values of operators just requires the
         # state where the operators acts.
+
+        if USE_PARALLEL:
+            from alpsqutip.operators.states.utils import do_evaluate_expect_parallel
+
+            return do_evaluate_expect_parallel(obs_objs, self)
+
         from alpsqutip.operators.states.utils import (
             collect_local_states,
-            reduced_state_by_block,
+            do_evaluate_expect,
         )
 
         local_states = collect_local_states(obs_objs, self)
-        # local_states = {None: self}
-
-        def do_evaluate_expect(obs):
-            """
-            Inner function to evaluate expectation values. This method keeps
-            track of the states of the subsystems required in the evaluation,
-            which in typical cases is the most expensive part of the evaluation.
-            """
-            nonlocal local_states
-
-            if isinstance(obs, dict):
-                return {
-                    name: do_evaluate_expect(operator) for name, operator in obs.items()
-                }
-
-            if isinstance(obs, (tuple, list)):
-                return np.array([do_evaluate_expect(operator) for operator in obs])
-
-            if isinstance(obs, QuadraticFormOperator):
-                obs = obs.as_sum_of_products()
-
-            obs = obs.simplify()
-            if isinstance(obs, SumOperator):
-                return sum(do_evaluate_expect(term) for term in obs.terms)
-
-            acts_over = obs.acts_over()
-            if acts_over is not None and len(acts_over) == 0:
-                if hasattr(obs, "prefactor"):
-                    return obs.prefactor
-
-            # if the argument matches with the argument of expect, it means that
-            # we already try with the implementation of the subclasses. Then, let's rely
-            # in the generic implementation: convert everything to qutip and evaluate
-            # the trace:
-            local_state_acts_over = reduced_state_by_block(obs, local_states)
-            if obs_objs is obs:
-                block = tuple(sorted(acts_over))
-                return (
-                    local_state_acts_over.to_qutip(block) * obs.to_qutip(block)
-                ).tr()
-
-            # If obs comes from an internal call, then try to use the specific method
-            # of the subclass.
-            return local_state_acts_over.expect(obs)
-
-        return do_evaluate_expect(obs_objs)
+        return do_evaluate_expect(obs_objs, local_states)
 
     @property
     def isherm(self):
